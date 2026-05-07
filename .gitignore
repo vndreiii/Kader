@@ -1,0 +1,20 @@
+# Build directories
+build/
+bin/
+
+# IDEs
+.vscode/
+.idea/
+
+# System/Cache
+.DS_Store
+Thumbs.db
+.cache/
+
+# Local dependencies
+lib/QmlMaterial/
+
+# Project Management & Scripts
+PROJECT_PLAN.md
+AUTOCOLOR_GUIDE.txt
+scripts/generate_icon.py

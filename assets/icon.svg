@@ -1,0 +1,17 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- Outer Frame -->
+    <rect x="64" y="64" width="384" height="384" rx="48" stroke="currentColor" stroke-width="32" fill="none"/>
+    
+    <!-- Eye Shape -->
+    <path d="M128 256C128 256 192 160 256 160C320 160 384 256 384 256C384 256 320 352 256 352C192 352 128 256 128 256Z" 
+          stroke="currentColor" stroke-width="24" fill="none"/>
+    
+    <!-- Pupil/Iris (Stylized Aperture) -->
+    <circle cx="256" cy="256" r="48" stroke="currentColor" stroke-width="16" fill="none"/>
+    
+    <!-- Inner detail -->
+    <path d="M256 208L256 224" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+    <path d="M256 288L256 304" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+    <path d="M208 256L224 256" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+    <path d="M288 256L304 256" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+</svg>
