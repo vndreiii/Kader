@@ -3,6 +3,7 @@
 #include <QQmlContext>
 #include <QIcon>
 #include "ThemeManager.h"
+#include "FileScanner.h"
 
 int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
@@ -13,6 +14,7 @@ int main(int argc, char *argv[]) {
     app.setWindowIcon(QIcon(":/assets/icon.svg"));
 
     ThemeManager themeManager;
+    FileScanner fileScanner;
 
     QQmlApplicationEngine engine;
 
@@ -23,6 +25,7 @@ int main(int argc, char *argv[]) {
     engine.addImportPath(QString(CMAKE_SOURCE_DIR) + "/lib/QmlMaterial");
 
     engine.rootContext()->setContextProperty("ThemeManager", &themeManager);
+    engine.rootContext()->setContextProperty("FileScanner", &fileScanner);
 
     const QUrl url(u"qrc:/qml/main.qml"_qs);
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,

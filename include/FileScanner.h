@@ -1,0 +1,33 @@
+#pragma once
+
+#include <QObject>
+#include <QStringList>
+#include <QFuture>
+#include <set>
+#include <string>
+#include <vector>
+#include <atomic>
+
+class FileScanner : public QObject {
+    Q_OBJECT
+public:
+    explicit FileScanner(QObject *parent = nullptr);
+
+    struct ScanResult {
+        QStringList mediaPaths;
+        size_t directoriesScanned;
+        double durationSeconds;
+    };
+
+    // Performs a high-performance parallel scan
+    Q_INVOKABLE void startScan(const QString &rootPath);
+
+signals:
+    void scanFinished(const QStringList &paths, size_t dirsScanned, double duration);
+    void scanProgress(int filesFound);
+
+private:
+    void runScan(const std::string &rootPath);
+    
+    std::set<std::string> m_mediaExtensions;
+};

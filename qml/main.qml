@@ -58,9 +58,24 @@ ApplicationWindow {
 
                 // Placeholder for Search
                 Button {
-                    text: "Search"
+                    text: "Start Scan"
                     flat: true
+                    onClicked: FileScanner.startScan("/home/meh/Builds")
                 }
+            }
+        }
+
+        // Status Bar
+        Rectangle {
+            Layout.fillWidth: true
+            height: 24
+            color: Theme.surfaceColor
+            Label {
+                id: statusLabel
+                anchors.centerIn: parent
+                text: "Ready"
+                font.pixelSize: 12
+                color: Theme.textColor
             }
         }
 
@@ -70,6 +85,14 @@ ApplicationWindow {
             Layout.fillWidth: true
             Layout.fillHeight: true
             initialItem: timelinePage
+        }
+    }
+
+    Connections {
+        target: FileScanner
+        function onScanFinished(paths, dirsScanned, duration) {
+            statusLabel.text = "Found " + paths.length + " media files in " + dirsScanned + " dirs (took " + duration.toFixed(3) + "s)"
+            console.log("Scan finished: " + paths.length + " files")
         }
     }
 

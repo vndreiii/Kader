@@ -18,3 +18,9 @@ lib/QmlMaterial/
 PROJECT_PLAN.md
 AUTOCOLOR_GUIDE.txt
 scripts/generate_icon.py
+
+# Tests and Benchmarks
+tests/
+track-reports.txt
+benchmarks/
+*.log

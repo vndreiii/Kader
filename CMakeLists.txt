@@ -9,7 +9,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Sql Positioning Location)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Sql Positioning Location Concurrent)
 
 # Define directories
 set(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -23,11 +23,13 @@ include_directories(${INCLUDE_DIR})
 set(SOURCES
     ${SOURCE_DIR}/main.cpp
     ${SOURCE_DIR}/ThemeManager.cpp
+    ${SOURCE_DIR}/FileScanner.cpp
 )
 
 # Headers
 set(HEADERS
     ${INCLUDE_DIR}/ThemeManager.h
+    ${INCLUDE_DIR}/FileScanner.h
 )
 
 # Add resources
@@ -53,6 +55,7 @@ target_link_libraries(Kader PRIVATE
     Qt6::Sql
     Qt6::Positioning
     Qt6::Location
+    Qt6::Concurrent
 )
 
 # QmlMaterial Library Integration
