@@ -24,6 +24,9 @@ public:
     // Get all media for the models
     QVariantList getAllMedia();
 
+    // Get automatically grouped albums (by folder)
+    QVariantList getAlbums();
+
     // Check if a file is already in the database and its modification time
     bool needsUpdate(const QString &filePath, qint64 size);
 

@@ -34,6 +34,7 @@ bool DatabaseManager::createTables() {
         "CREATE TABLE IF NOT EXISTS media ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
         "file_path TEXT UNIQUE,"
+        "folder_path TEXT,"
         "file_hash TEXT,"
         "file_size INTEGER,"
         "mime_type TEXT,"
@@ -44,6 +45,10 @@ bool DatabaseManager::createTables() {
         "is_trashed BOOLEAN DEFAULT 0"
         ")"
     );
+
+    if (success) {
+        query.exec("CREATE INDEX IF NOT EXISTS idx_folder ON media(folder_path)");
+    }
 
     if (!success) {
         qCritical() << "Error creating media table:" << query.lastError().text();
@@ -71,12 +76,16 @@ bool DatabaseManager::createTables() {
 bool DatabaseManager::addOrUpdateMedia(const QString &filePath, const QString &hash, 
                                      qint64 size, const QString &mimeType, 
                                      const QDateTime &creationDate, int width, int height) {
+    QFileInfo fileInfo(filePath);
+    QString folderPath = fileInfo.absolutePath();
+
     QSqlQuery query;
     query.prepare(
-        "INSERT OR REPLACE INTO media (file_path, file_hash, file_size, mime_type, creation_date, width, height) "
-        "VALUES (:path, :hash, :size, :mime, :date, :w, :h)"
+        "INSERT OR REPLACE INTO media (file_path, folder_path, file_hash, file_size, mime_type, creation_date, width, height) "
+        "VALUES (:path, :folder, :hash, :size, :mime, :date, :w, :h)"
     );
     query.bindValue(":path", filePath);
+    query.bindValue(":folder", folderPath);
     query.bindValue(":hash", hash);
     query.bindValue(":size", size);
     query.bindValue(":mime", mimeType);
@@ -101,6 +110,29 @@ bool DatabaseManager::needsUpdate(const QString &filePath, qint64 size) {
         return storedSize != size;
     }
     return true; // Not found, needs insert
+}
+
+QVariantList DatabaseManager::getAlbums() {
+    QVariantList list;
+    QSqlQuery query(
+        "SELECT folder_path, COUNT(*), SUM(file_size), MIN(file_path) "
+        "FROM media GROUP BY folder_path ORDER BY folder_path ASC"
+    );
+
+    while (query.next()) {
+        QVariantMap map;
+        map["folder_path"] = query.value(0);
+        map["count"] = query.value(1);
+        map["size"] = query.value(2);
+        map["cover"] = query.value(3);
+        
+        // Extract album name from path
+        QString path = query.value(0).toString();
+        map["name"] = QDir(path).dirName();
+        
+        list.append(map);
+    }
+    return list;
 }
 
 QVariantList DatabaseManager::getAllMedia() {

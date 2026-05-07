@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QmlMaterial
 import "components"
+import "views"
 
 ApplicationWindow {
     id: window
@@ -73,12 +74,18 @@ ApplicationWindow {
                 SidebarItem {
                     label: "Timeline"
                     active: window.currentView === "timeline"
-                    onClicked: window.currentView = "timeline"
+                    onClicked: {
+                        window.currentView = "timeline"
+                        mainStack.replace(timelineView)
+                    }
                 }
                 SidebarItem {
                     label: "Albums"
                     active: window.currentView === "albums"
-                    onClicked: window.currentView = "albums"
+                    onClicked: {
+                        window.currentView = "albums"
+                        mainStack.replace(albumsView)
+                    }
                 }
                 SidebarItem {
                     label: "Favorites"
@@ -197,6 +204,14 @@ ApplicationWindow {
         MediaGrid {
             anchors.fill: parent
             // Padding to account for floating bar
+            topPadding: 100
+        }
+    }
+
+    Component {
+        id: albumsView
+        AlbumListView {
+            anchors.fill: parent
             topPadding: 100
         }
     }

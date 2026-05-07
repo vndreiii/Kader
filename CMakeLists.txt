@@ -30,6 +30,7 @@ set(SOURCES
     ${SOURCE_DIR}/ThumbnailGenerator.cpp
     ${SOURCE_DIR}/MediaModel.cpp
     ${SOURCE_DIR}/TimelineModel.cpp
+    ${SOURCE_DIR}/AlbumModel.cpp
 )
 
 # Headers
@@ -40,6 +41,7 @@ set(HEADERS
     ${INCLUDE_DIR}/ThumbnailGenerator.h
     ${INCLUDE_DIR}/MediaModel.h
     ${INCLUDE_DIR}/TimelineModel.h
+    ${INCLUDE_DIR}/AlbumModel.h
 )
 
 # Add resources
