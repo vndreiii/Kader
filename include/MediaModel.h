@@ -17,7 +17,8 @@ public:
         DateRole,
         MimeRole,
         WidthRole,
-        HeightRole
+        HeightRole,
+        SectionRole
     };
 
     explicit MediaModel(DatabaseManager *db, ThumbnailGenerator *thumb, QObject *parent = nullptr);

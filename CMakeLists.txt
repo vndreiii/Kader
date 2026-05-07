@@ -29,6 +29,7 @@ set(SOURCES
     ${SOURCE_DIR}/DatabaseManager.cpp
     ${SOURCE_DIR}/ThumbnailGenerator.cpp
     ${SOURCE_DIR}/MediaModel.cpp
+    ${SOURCE_DIR}/TimelineModel.cpp
 )
 
 # Headers
@@ -38,6 +39,7 @@ set(HEADERS
     ${INCLUDE_DIR}/DatabaseManager.h
     ${INCLUDE_DIR}/ThumbnailGenerator.h
     ${INCLUDE_DIR}/MediaModel.h
+    ${INCLUDE_DIR}/TimelineModel.h
 )
 
 # Add resources

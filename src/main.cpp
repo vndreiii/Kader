@@ -7,6 +7,7 @@
 #include "DatabaseManager.h"
 #include "ThumbnailGenerator.h"
 #include "MediaModel.h"
+#include "TimelineModel.h"
 
 int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
@@ -21,8 +22,10 @@ int main(int argc, char *argv[]) {
     ThumbnailGenerator thumbGenerator;
     FileScanner fileScanner(&dbManager);
     MediaModel mediaModel(&dbManager, &thumbGenerator);
+    TimelineModel timelineModel(&dbManager);
 
     QObject::connect(&fileScanner, &FileScanner::scanFinished, &mediaModel, &MediaModel::refresh);
+    QObject::connect(&fileScanner, &FileScanner::scanFinished, &timelineModel, &TimelineModel::refresh);
 
     QQmlApplicationEngine engine;
 
@@ -36,6 +39,8 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("FileScanner", &fileScanner);
     engine.rootContext()->setContextProperty("DB", &dbManager);
     engine.rootContext()->setContextProperty("MediaModel", &mediaModel);
+    engine.rootContext()->setContextProperty("TimelineModel", &timelineModel);
+    engine.rootContext()->setContextProperty("ThumbGen", &thumbGenerator);
 
     const QUrl url(u"qrc:/qml/main.qml"_qs);
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,

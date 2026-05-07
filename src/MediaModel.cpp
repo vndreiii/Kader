@@ -30,6 +30,11 @@ QVariant MediaModel::data(const QModelIndex &index, int role) const {
         case MimeRole: return item.value("mime_type");
         case WidthRole: return item.value("width");
         case HeightRole: return item.value("height");
+        case SectionRole: {
+            qint64 timestamp = item.value("creation_date").toLongLong();
+            QDateTime dt = QDateTime::fromSecsSinceEpoch(timestamp);
+            return dt.toString("MMMM yyyy");
+        }
         default: return QVariant();
     }
 }
@@ -43,6 +48,7 @@ QHash<int, QByteArray> MediaModel::roleNames() const {
     roles[MimeRole] = "mimeType";
     roles[WidthRole] = "width";
     roles[HeightRole] = "height";
+    roles[SectionRole] = "section";
     return roles;
 }
 

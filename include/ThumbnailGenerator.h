@@ -11,7 +11,7 @@ public:
     explicit ThumbnailGenerator(QObject *parent = nullptr);
     
     // Generates a thumbnail for a given file and returns the cache path
-    QString getOrCreateThumbnail(const QString &filePath, int size = 256);
+    Q_INVOKABLE QString getOrCreateThumbnail(const QString &filePath, int size = 256);
 
 private:
     QString m_cacheDir;

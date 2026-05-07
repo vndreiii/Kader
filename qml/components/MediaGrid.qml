@@ -5,62 +5,83 @@ import QmlMaterial
 
 Item {
     id: root
+    property alias topPadding: listView.topMargin
 
-    GridView {
-        id: grid
+    ListView {
+        id: listView
         anchors.fill: parent
-        cellWidth: width / Math.floor(width / 180)
-        cellHeight: cellWidth
-        model: MediaModel
+        model: TimelineModel
         clip: true
+        spacing: 24
+        leftMargin: 24
+        rightMargin: 24
+        bottomMargin: 40
 
-        delegate: Item {
-            width: grid.cellWidth
-            height: grid.cellHeight
+        delegate: ColumnLayout {
+            width: listView.width - listView.leftMargin - listView.rightMargin
+            spacing: 12
 
-            Rectangle {
-                anchors.fill: parent
-                anchors.margins: 4
-                color: Theme.surfaceColor
-                radius: 8
-                clip: true
-
-                Image {
-                    anchors.fill: parent
-                    source: model.thumb
-                    fillMode: Image.PreserveAspectCrop
-                    asynchronous: true
-                    
-                    // Simple fade-in when loaded
-                    opacity: status === Image.Ready ? 1 : 0
-                    Behavior on opacity { NumberAnimation { duration: 250 } }
-                }
-
-                // Video indicator
-                Rectangle {
-                    visible: model.mimeType.startsWith("video/")
-                    anchors.bottom: parent.bottom
-                    anchors.right: parent.right
-                    anchors.margins: 8
-                    width: 24
-                    height: 24
-                    radius: 12
-                    color: "#80000000"
-                    
-                    Label {
-                        anchors.centerIn: parent
-                        text: "▶"
-                        color: "white"
-                        font.pixelSize: 10
-                    }
-                }
+            Label {
+                text: model.name
+                font.pixelSize: 20
+                font.bold: true
+                color: Theme.textColor
+                Layout.topMargin: 12
             }
 
-            MouseArea {
-                anchors.fill: parent
-                onClicked: {
-                    console.log("Clicked:", model.path)
-                    // TODO: Open fullscreen viewer
+            Flow {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Repeater {
+                    model: items // The QVariantList from TimelineModel
+
+                    delegate: Item {
+                        width: Math.floor((listView.width - listView.leftMargin - listView.rightMargin - (columns - 1) * 8) / columns)
+                        height: width
+                        property int columns: Math.max(3, Math.floor(listView.width / 180))
+
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: 12
+                            color: Theme.surfaceColor
+                            clip: true
+
+                            Image {
+                                anchors.fill: parent
+                                source: "file://" + ThumbGen.getOrCreateThumbnail(modelData.file_path)
+                                fillMode: Image.PreserveAspectCrop
+                                asynchronous: true
+                                
+                                opacity: status === Image.Ready ? 1 : 0
+                                Behavior on opacity { NumberAnimation { duration: 250 } }
+                            }
+
+                            // Video indicator
+                            Rectangle {
+                                visible: modelData.mime_type.startsWith("video/")
+                                anchors.bottom: parent.bottom
+                                anchors.right: parent.right
+                                anchors.margins: 8
+                                width: 24
+                                height: 24
+                                radius: 12
+                                color: "#80000000"
+                                
+                                Label {
+                                    anchors.centerIn: parent
+                                    text: "▶"
+                                    color: "white"
+                                    font.pixelSize: 10
+                                }
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: console.log("Clicked:", modelData.file_path)
+                            }
+                        }
+                    }
                 }
             }
         }
