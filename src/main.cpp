@@ -4,6 +4,9 @@
 #include <QIcon>
 #include "ThemeManager.h"
 #include "FileScanner.h"
+#include "DatabaseManager.h"
+#include "ThumbnailGenerator.h"
+#include "MediaModel.h"
 
 int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
@@ -13,8 +16,13 @@ int main(int argc, char *argv[]) {
     app.setApplicationName("Kader");
     app.setWindowIcon(QIcon(":/assets/icon.svg"));
 
+    DatabaseManager dbManager;
     ThemeManager themeManager;
-    FileScanner fileScanner;
+    ThumbnailGenerator thumbGenerator;
+    FileScanner fileScanner(&dbManager);
+    MediaModel mediaModel(&dbManager, &thumbGenerator);
+
+    QObject::connect(&fileScanner, &FileScanner::scanFinished, &mediaModel, &MediaModel::refresh);
 
     QQmlApplicationEngine engine;
 
@@ -26,6 +34,8 @@ int main(int argc, char *argv[]) {
 
     engine.rootContext()->setContextProperty("ThemeManager", &themeManager);
     engine.rootContext()->setContextProperty("FileScanner", &fileScanner);
+    engine.rootContext()->setContextProperty("DB", &dbManager);
+    engine.rootContext()->setContextProperty("MediaModel", &mediaModel);
 
     const QUrl url(u"qrc:/qml/main.qml"_qs);
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,

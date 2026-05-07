@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QmlMaterial
+import "components"
 
 ApplicationWindow {
     id: window
@@ -98,12 +99,8 @@ ApplicationWindow {
 
     Component {
         id: timelinePage
-        Item {
-            Label {
-                anchors.centerIn: parent
-                text: "Timeline View Placeholder"
-                color: Theme.textColor
-            }
+        MediaGrid {
+            anchors.fill: parent
         }
     }
 }

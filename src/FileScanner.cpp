@@ -1,7 +1,9 @@
 #include "FileScanner.h"
+#include "DatabaseManager.h"
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/syscall.h>
+#include <sys/stat.h>
 #include <dirent.h>
 #include <string.h>
 #include <algorithm>
@@ -11,54 +13,12 @@
 #include <condition_variable>
 #include <chrono>
 #include <QtConcurrent>
+#include <QFileInfo>
+#include <QDateTime>
 
-struct linux_dirent64 {
-    unsigned long long d_ino;
-    long long          d_off;
-    unsigned short     d_reclen;
-    unsigned char      d_type;
-    char               d_name[];
-};
+// ... InternalWorkQueue remains the same ...
 
-class InternalWorkQueue {
-    std::queue<std::string> queue;
-    std::mutex mutex;
-    std::condition_variable cv;
-    std::atomic<int> active_workers{0};
-    bool stop = false;
-
-public:
-    void push(std::string path) {
-        {
-            std::lock_guard<std::mutex> lock(mutex);
-            queue.push(std::move(path));
-        }
-        cv.notify_one();
-    }
-
-    bool pop(std::string& path) {
-        std::unique_lock<std::mutex> lock(mutex);
-        cv.wait(lock, [this] { return !queue.empty() || stop; });
-        if (stop && queue.empty()) return false;
-        path = std::move(queue.front());
-        queue.pop();
-        active_workers++;
-        return true;
-    }
-
-    void worker_done() {
-        active_workers--;
-        if (active_workers == 0 && queue.empty()) {
-            {
-                std::lock_guard<std::mutex> lock(mutex);
-                stop = true;
-            }
-            cv.notify_all();
-        }
-    }
-};
-
-FileScanner::FileScanner(QObject *parent) : QObject(parent) {
+FileScanner::FileScanner(DatabaseManager *db, QObject *parent) : QObject(parent), m_db(db) {
     m_mediaExtensions = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".mp4", ".mkv", ".mov", ".avi", ".webm"};
 }
 
@@ -76,13 +36,17 @@ void FileScanner::runScan(const std::string &rootPath) {
 
     std::atomic<size_t> dirsScanned{0};
     std::mutex pathsMutex;
-    QStringList foundPaths;
+    struct FileInfo {
+        QString path;
+        qint64 size;
+    };
+    QList<FileInfo> foundFiles;
     
     int numThreads = std::thread::hardware_concurrency();
     std::vector<std::thread> workers;
 
     for (int i = 0; i < numThreads; ++i) {
-        workers.emplace_back([this, &wq, &dirsScanned, &pathsMutex, &foundPaths]() {
+        workers.emplace_back([this, &wq, &dirsScanned, &pathsMutex, &foundFiles]() {
             std::string path;
             while (wq.pop(path)) {
                 int fd = open(path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
@@ -104,8 +68,12 @@ void FileScanner::runScan(const std::string &rootPath) {
                                         std::string ext = dot;
                                         std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
                                         if (m_mediaExtensions.count(ext)) {
-                                            std::lock_guard<std::mutex> lock(pathsMutex);
-                                            foundPaths.append(QString::fromStdString(path + "/" + d->d_name));
+                                            std::string fullPath = path + "/" + d->d_name;
+                                            struct stat st;
+                                            if (stat(fullPath.c_str(), &st) == 0) {
+                                                std::lock_guard<std::mutex> lock(pathsMutex);
+                                                foundFiles.append({QString::fromStdString(fullPath), st.st_size});
+                                            }
                                         }
                                     }
                                 }
@@ -122,8 +90,19 @@ void FileScanner::runScan(const std::string &rootPath) {
 
     for (auto& t : workers) t.join();
 
+    // Now update database (on this background thread, but sequentially for simplicity)
+    QStringList finalPaths;
+    for (const auto& info : foundFiles) {
+        finalPaths.append(info.path);
+        if (m_db->needsUpdate(info.path, info.size)) {
+            // In a real app, we'd extract actual metadata here with Exiv2
+            // For now, placeholder metadata
+            m_db->addOrUpdateMedia(info.path, "", info.size, "image/jpeg", QDateTime::currentDateTime(), 0, 0);
+        }
+    }
+
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> diff = end - start;
 
-    emit scanFinished(foundPaths, dirsScanned.load(), diff.count());
+    emit scanFinished(finalPaths, dirsScanned.load(), diff.count());
 }

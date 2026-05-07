@@ -8,10 +8,12 @@
 #include <vector>
 #include <atomic>
 
+class DatabaseManager;
+
 class FileScanner : public QObject {
     Q_OBJECT
 public:
-    explicit FileScanner(QObject *parent = nullptr);
+    explicit FileScanner(DatabaseManager *db, QObject *parent = nullptr);
 
     struct ScanResult {
         QStringList mediaPaths;
@@ -30,4 +32,5 @@ private:
     void runScan(const std::string &rootPath);
     
     std::set<std::string> m_mediaExtensions;
+    DatabaseManager *m_db;
 };

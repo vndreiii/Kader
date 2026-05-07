@@ -10,6 +10,8 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Sql Positioning Location Concurrent)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(VIPS REQUIRED vips-cpp)
 
 # Define directories
 set(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -17,19 +19,25 @@ set(INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(QML_DIR ${CMAKE_CURRENT_SOURCE_DIR}/qml)
 
 # Include directories
-include_directories(${INCLUDE_DIR})
+include_directories(${INCLUDE_DIR} ${VIPS_INCLUDE_DIRS})
 
 # Sources
 set(SOURCES
     ${SOURCE_DIR}/main.cpp
     ${SOURCE_DIR}/ThemeManager.cpp
     ${SOURCE_DIR}/FileScanner.cpp
+    ${SOURCE_DIR}/DatabaseManager.cpp
+    ${SOURCE_DIR}/ThumbnailGenerator.cpp
+    ${SOURCE_DIR}/MediaModel.cpp
 )
 
 # Headers
 set(HEADERS
     ${INCLUDE_DIR}/ThemeManager.h
     ${INCLUDE_DIR}/FileScanner.h
+    ${INCLUDE_DIR}/DatabaseManager.h
+    ${INCLUDE_DIR}/ThumbnailGenerator.h
+    ${INCLUDE_DIR}/MediaModel.h
 )
 
 # Add resources
@@ -56,6 +64,7 @@ target_link_libraries(Kader PRIVATE
     Qt6::Positioning
     Qt6::Location
     Qt6::Concurrent
+    ${VIPS_LIBRARIES}
 )
 
 # QmlMaterial Library Integration
