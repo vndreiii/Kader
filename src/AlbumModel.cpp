@@ -51,5 +51,6 @@ QHash<int, QByteArray> AlbumModel::roleNames() const {
 void AlbumModel::refresh(bool hideIgnored) {
     beginResetModel();
     m_data = m_db->getAlbums(hideIgnored);
+    qDebug() << "Album refresh: loaded" << m_data.size() << "albums";
     endResetModel();
 }

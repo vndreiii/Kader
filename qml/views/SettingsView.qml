@@ -10,6 +10,24 @@ Item {
     implicitWidth: 800
     implicitHeight: 600
 
+    property var indexedDirs: []
+
+    function refreshDirs() {
+        indexedDirs = DB.getIndexedDirectories()
+    }
+
+    Component.onCompleted: refreshDirs()
+
+    Connections {
+        target: FileScanner
+        function onScanFinished(paths, dirsScanned, duration, rootPath) {
+            refreshDirs()
+            // Also refresh other models
+            TimelineModel.refresh()
+            AlbumModel.refresh()
+        }
+    }
+
     Flickable {
         id: flick
         anchors.fill: parent
@@ -43,9 +61,7 @@ Item {
                     }
 
                     Repeater {
-                        model: [
-                            { path: Settings.homePath + "/Pictures", count: 0, lastScan: "never", active: true }
-                        ]
+                        model: root.indexedDirs
                         delegate: Item {
                             width: parent.width
                             height: 72
@@ -76,12 +92,28 @@ Item {
                                     Row {
                                         spacing: 6
                                         Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 6; height: 6; radius: 3; color: modelData.active ? ThemeManager.primary : ThemeManager.outline }
-                                        Label { text: modelData.count.toLocaleString() + " items · scanned " + modelData.lastScan; font.pixelSize: 12; color: ThemeManager.onSurfaceVariant }
+                                        Label { 
+                                            text: modelData.count.toLocaleString() + " items · scanned " + (modelData.lastScan > 0 ? Qt.formatDateTime(new Date(modelData.lastScan * 1000), "dd MMM HH:mm") : "never")
+                                            font.pixelSize: 12; color: ThemeManager.onSurfaceVariant 
+                                        }
+                                    }
+                                }
+                                
+                                Button {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: 36; height: 36
+                                    background: Rectangle { radius: 18; color: parent.hovered ? Qt.alpha(ThemeManager.error, 0.08) : "transparent" }
+                                    contentItem: M3Icon { name: "delete"; size: 18; color: ThemeManager.error; anchors.centerIn: parent }
+                                    onClicked: {
+                                        DB.removeIndexedDirectory(modelData.path)
+                                        root.refreshDirs()
                                     }
                                 }
                             }
                         }
                     }
+
+                    Item { width: 1; height: 8 }
 
                     Button {
                         width: parent.width
@@ -96,7 +128,10 @@ Item {
                             Label { anchors.verticalCenter: parent; text: "Add directory & Scan"; font.pixelSize: 14; font.weight: Font.Medium; color: ThemeManager.primary }
                         }
                         onClicked: {
-                            FileScanner.startScan(Settings.homePath + "/Pictures")
+                            var p = Settings.homePath + "/Pictures"
+                            DB.addIndexedDirectory(p)
+                            root.refreshDirs()
+                            FileScanner.startScan(p)
                         }
                     }
 
@@ -107,7 +142,12 @@ Item {
                     }
                     SettingsRow {
                         label: "Trash retention"
-                        sub: "30 days"
+                        sub: "Items are permanently deleted after this period"
+                        action: ComboBox {
+                            model: ["7 days", "30 days", "90 days", "Never"]
+                            currentIndex: 1
+                            width: 120
+                        }
                         last: true
                     }
                 }

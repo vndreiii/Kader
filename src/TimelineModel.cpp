@@ -45,6 +45,7 @@ void TimelineModel::refresh(bool hideIgnored) {
     m_groups.clear();
 
     QVariantList allMedia = m_db->getAllMedia(hideIgnored);
+    qDebug() << "Timeline refresh: loading" << allMedia.size() << "items (hideIgnored:" << hideIgnored << ")";
     
     QString currentMonth;
     MonthGroup *currentGroup = nullptr;
@@ -77,5 +78,6 @@ void TimelineModel::refresh(bool hideIgnored) {
         }
     }
 
+    qDebug() << "Timeline groups created:" << m_groups.size();
     endResetModel();
 }

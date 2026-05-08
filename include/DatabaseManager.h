@@ -30,6 +30,12 @@ public:
     // Ignore an album and its items
     Q_INVOKABLE bool ignoreAlbum(const QString &folderPath, bool ignore = true);
 
+    // Indexed Directories
+    Q_INVOKABLE QVariantList getIndexedDirectories();
+    Q_INVOKABLE bool addIndexedDirectory(const QString &path);
+    Q_INVOKABLE bool removeIndexedDirectory(const QString &path);
+    bool updateDirectoryStats(const QString &path, int count);
+
     // Check if a file is already in the database and its modification time
     bool needsUpdate(const QString &filePath, qint64 size);
 

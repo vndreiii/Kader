@@ -165,8 +165,10 @@ void FileScanner::runScan(const std::string &rootPath) {
         }
     }
 
+    m_db->updateDirectoryStats(QString::fromStdString(rootPath), finalPaths.size());
+
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> diff = end - start;
 
-    emit scanFinished(finalPaths, dirsScanned.load(), diff.count());
+    emit scanFinished(finalPaths, (int)dirsScanned.load(), diff.count(), QString::fromStdString(rootPath));
 }

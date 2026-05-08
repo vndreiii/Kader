@@ -48,11 +48,10 @@ Item {
             height: parent.height
             data: [ root.action ]
             
-            // Center the action item vertically if it's a Control/Button
             onChildrenChanged: {
                 if (children.length > 0) {
-                    children[0].anchors.verticalCenter = verticalCenter
-                    children[0].anchors.right = right
+                    children[0].anchors.verticalCenter = children[0].parent.verticalCenter
+                    children[0].anchors.right = children[0].parent.right
                 }
             }
         }

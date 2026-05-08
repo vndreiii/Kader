@@ -77,7 +77,58 @@ bool DatabaseManager::createTables() {
         ")"
     );
 
+    success = query.exec(
+        "CREATE TABLE IF NOT EXISTS indexed_directories ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "path TEXT UNIQUE,"
+        "item_count INTEGER DEFAULT 0,"
+        "last_scan INTEGER,"
+        "is_active BOOLEAN DEFAULT 1"
+        ")"
+    );
+
     return success;
+}
+
+QVariantList DatabaseManager::getIndexedDirectories() {
+    checkConnection();
+    QVariantList list;
+    QSqlQuery query("SELECT path, item_count, last_scan, is_active FROM indexed_directories", m_db);
+    while (query.next()) {
+        QVariantMap map;
+        map["path"] = query.value(0);
+        map["count"] = query.value(1);
+        map["lastScan"] = query.value(2);
+        map["active"] = query.value(3);
+        list.append(map);
+    }
+    return list;
+}
+
+bool DatabaseManager::addIndexedDirectory(const QString &path) {
+    checkConnection();
+    QSqlQuery query(m_db);
+    query.prepare("INSERT OR IGNORE INTO indexed_directories (path) VALUES (:path)");
+    query.bindValue(":path", path);
+    return query.exec();
+}
+
+bool DatabaseManager::removeIndexedDirectory(const QString &path) {
+    checkConnection();
+    QSqlQuery query(m_db);
+    query.prepare("DELETE FROM indexed_directories WHERE path = :path");
+    query.bindValue(":path", path);
+    return query.exec();
+}
+
+bool DatabaseManager::updateDirectoryStats(const QString &path, int count) {
+    checkConnection();
+    QSqlQuery query(m_db);
+    query.prepare("UPDATE indexed_directories SET item_count = :count, last_scan = :now WHERE path = :path");
+    query.bindValue(":count", count);
+    query.bindValue(":now", QDateTime::currentDateTime().toSecsSinceEpoch());
+    query.bindValue(":path", path);
+    return query.exec();
 }
 
 bool DatabaseManager::ignoreAlbum(const QString &folderPath, bool ignore) {
