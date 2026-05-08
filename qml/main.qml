@@ -7,208 +7,284 @@ import "views"
 
 ApplicationWindow {
     id: window
-    width: 1100
-    height: 800
+    width: 1480
+    height: 940
     visible: true
     title: qsTr("Kader")
 
     property string currentView: "timeline"
+    property bool sidebarCollapsed: false
 
     background: Rectangle {
-        color: ThemeManager.backgroundColor
+        color: ThemeManager.surface
     }
 
-    RowLayout {
+    ColumnLayout {
         anchors.fill: parent
         spacing: 0
 
-        // Sidebar
+        // Titlebar (mac-style)
         Rectangle {
-            Layout.fillHeight: true
-            width: 240
-            color: ThemeManager.backgroundColor
+            id: titlebar
+            Layout.fillWidth: true
+            height: 36
+            color: ThemeManager.surfaceContainer
             
-            ColumnLayout {
+            // Background gradient to match design "linear-gradient(to bottom, #efe9f3, #e6e0e9)"
+            // But we use ThemeManager colors
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: ThemeManager.surfaceContainerHigh }
+                GradientStop { position: 1.0; color: ThemeManager.surfaceContainer }
+            }
+
+            RowLayout {
                 anchors.fill: parent
-                anchors.margins: 12
-                spacing: 4
+                anchors.leftMargin: 14
+                anchors.rightMargin: 14
+                spacing: 8
 
-                // Logo/Title
-                Item {
-                    height: 64
-                    Layout.fillWidth: true
-                    RowLayout {
-                        anchors.centerIn: parent
-                        spacing: 12
-                        Image {
-                            source: "qrc:/Kader/assets/icon.svg"
-                            sourceSize: Qt.size(32, 32)
-                            Layout.alignment: Qt.AlignVCenter
-                        }
-                        Label {
-                            text: "Kader"
-                            font.pixelSize: 24
-                            font.bold: true
-                            color: ThemeManager.textColor
-                        }
-                    }
-                }
-
-                SidebarItem {
-                    objectName: "timelineSidebarItem"
-                    label: "Timeline"
-                    active: window.currentView === "timeline"
-                    onClicked: {
-                        window.currentView = "timeline"
-                        mainStack.replace(timelineView)
-                    }
-                }
-                SidebarItem {
-                    objectName: "albumsSidebarItem"
-                    label: "Albums"
-                    active: window.currentView === "albums"
-                    onClicked: {
-                        window.currentView = "albums"
-                        mainStack.replace(albumsView)
-                    }
-                }
-                SidebarItem {
-                    label: "Favorites"
-                    active: window.currentView === "favorites"
-                    onClicked: {
-                        window.currentView = "favorites"
-                        // mainStack.replace(favoritesView)
-                    }
-                }
-                SidebarItem {
-                    label: "Trash"
-                    active: window.currentView === "trash"
-                    onClicked: {
-                        window.currentView = "trash"
-                        // mainStack.replace(trashView)
-                    }
-                }
-
-                Item { Layout.fillHeight: true }
-
-                // Settings Button at bottom
-                SidebarItem {
-                    label: "Settings"
-                    active: window.currentView === "settings"
-                    onClicked: {
-                        window.currentView = "settings"
-                        mainStack.replace(settingsView)
-                    }
+                // Mac-style dots
+                Row {
+                    spacing: 8
+                    Rectangle { width: 12; height: 12; radius: 6; color: "#ff5f57"; border.color: Qt.darker(color, 1.2); border.width: 0.5 }
+                    Rectangle { width: 12; height: 12; radius: 6; color: "#febc2e"; border.color: Qt.darker(color, 1.2); border.width: 0.5 }
+                    Rectangle { width: 12; height: 12; radius: 6; color: "#28c840"; border.color: Qt.darker(color, 1.2); border.width: 0.5 }
                 }
 
                 Label {
-                    id: statusLabel
-                    text: "Kader Gallery v0.1"
-                    font.pixelSize: 11
-                    color: ThemeManager.textColor
-                    opacity: 0.4
-                    Layout.alignment: Qt.AlignHCenter
-                    Layout.bottomMargin: 8
+                    Layout.fillWidth: true
+                    text: "Kader — " + (viewTitles[window.currentView] || "")
+                    horizontalAlignment: Text.AlignHCenter
+                    font.pixelSize: 13
+                    font.weight: Font.Medium
+                    color: ThemeManager.onSurfaceVariant
                 }
-            }
 
-            // Divider
+                // Fold Button
+                Control {
+                    id: foldButton
+                    width: 28; height: 28
+                    Layout.alignment: Qt.AlignVCenter
+                    
+                    background: Rectangle {
+                        radius: 8
+                        color: foldButton.hovered ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
+                    }
+                    
+                    contentItem: M3Icon {
+                        name: window.sidebarCollapsed ? "menu_open" : "menu_close"
+                        size: 18
+                        color: ThemeManager.onSurfaceVariant
+                        anchors.centerIn: parent
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: window.sidebarCollapsed = !window.sidebarCollapsed
+                    }
+                }
+                
+                Item { width: 60 } // Spacer to balance dots
+            }
+            
             Rectangle {
-                anchors.right: parent.right
-                width: 1
-                height: parent.height
-                color: ThemeManager.textColor
-                opacity: 0.1
+                anchors.bottom: parent.bottom
+                width: parent.width
+                height: 1
+                color: Qt.alpha(ThemeManager.onSurface, 0.08)
             }
         }
 
-        // Main Content Area
-        Item {
+        RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
+            spacing: 0
 
-            // Content Stack
-            StackView {
-                id: mainStack
-                anchors.fill: parent
-                anchors.topMargin: 0
-                initialItem: timelineView
-                
-                pushEnter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 200 } }
-                pushExit: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 200 } }
-                replaceEnter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 200 } }
-                replaceExit: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 200 } }
+            Sidebar {
+                id: sidebar
+                collapsed: window.sidebarCollapsed
+                currentView: window.currentView
+                onViewChanged: (view) => {
+                    window.currentView = view
+                    if (view === "timeline") {
+                        TimelineModel.filterMode = TimelineModel.AllMode
+                        mainStack.replace(timelineView)
+                    } else if (view === "albums") {
+                        mainStack.replace(albumsView)
+                    } else if (view === "map") {
+                        mainStack.replace(mapView)
+                    } else if (view === "favorites") {
+                        TimelineModel.filterMode = TimelineModel.FavoritesMode
+                        mainStack.replace(timelineView)
+                    } else if (view === "trash") {
+                        TimelineModel.filterMode = TimelineModel.TrashMode
+                        mainStack.replace(timelineView)
+                    } else if (view === "settings") {
+                        mainStack.replace(settingsView)
+                    }
+                }
             }
 
-            // Floating Top Bar (Dock-like)
-            Rectangle {
-                id: topBar
-                width: Math.min(600, parent.width - 64)
-                height: 52
-                anchors.top: parent.top
-                anchors.topMargin: 24
-                anchors.horizontalCenter: parent.horizontalCenter
-                radius: 26
-                color: Qt.alpha(ThemeManager.surfaceColor, 0.9)
-                border.color: Qt.alpha(ThemeManager.textColor, 0.1)
-                border.width: 1
-                z: 100
-                visible: window.currentView !== "settings"
+            // Main Content Area
+            Item {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
 
-                RowLayout {
+                ColumnLayout {
                     anchors.fill: parent
-                    anchors.leftMargin: 20
-                    anchors.rightMargin: 12
-                    spacing: 12
+                    spacing: 0
 
-                    // Search Icon
+                    // Topbar
                     Rectangle {
-                        width: 20
-                        height: 20
-                        radius: 10
-                        color: "transparent"
-                        border.color: ThemeManager.textColor
-                        border.width: 2
-                        opacity: 0.5
-                    }
-
-                    TextField {
-                        id: searchField
-                        objectName: "searchField"
-                        placeholderText: "Search"
+                        id: topbar
                         Layout.fillWidth: true
-                        background: null
-                        color: ThemeManager.textColor
-                        font.pixelSize: 14
+                        height: 72
+                        color: ThemeManager.surface
                         
-                        onAccepted: console.log("Searching for:", text)
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 24
+                            anchors.rightMargin: 24
+                            spacing: 16
+
+                            Label {
+                                text: viewTitles[window.currentView] || ""
+                                font.family: "Roboto Flex"
+                                font.pixelSize: 28
+                                color: ThemeManager.onSurface
+                            }
+
+                            Item { Layout.fillWidth: true }
+
+                            // Tune icon
+                            Control {
+                                width: 40; height: 40
+                                background: Rectangle {
+                                    radius: 20
+                                    color: parent.hovered ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
+                                }
+                                contentItem: M3Icon {
+                                    name: "tune"
+                                    size: 20
+                                    color: ThemeManager.onSurfaceVariant
+                                    anchors.centerIn: parent
+                                }
+                            }
+
+                            // Search Pill
+                            Rectangle {
+                                id: searchPill
+                                width: 360
+                                height: 48
+                                radius: 24
+                                color: ThemeManager.surfaceContainer
+                                
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 16
+                                    anchors.rightMargin: 8
+                                    spacing: 12
+
+                                    M3Icon {
+                                        name: "search"
+                                        size: 20
+                                        color: ThemeManager.onSurfaceVariant
+                                    }
+
+                                    TextField {
+                                        id: searchField
+                                        Layout.fillWidth: true
+                                        placeholderText: "Search photos and albums"
+                                        background: null
+                                        color: ThemeManager.onSurface
+                                        font.pixelSize: 16
+                                        verticalAlignment: TextInput.AlignVCenter
+                                    }
+
+                                    Control {
+                                        visible: searchField.text !== ""
+                                        width: 28; height: 28
+                                        background: Rectangle {
+                                            radius: 14
+                                            color: parent.hovered ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
+                                        }
+                                        contentItem: M3Icon {
+                                            name: "close"
+                                            size: 18
+                                            color: ThemeManager.onSurfaceVariant
+                                            anchors.centerIn: parent
+                                        }
+                                        onClicked: searchField.text = ""
+                                    }
+                                }
+                            }
+                        }
                     }
 
-                    Button {
-                        objectName: "scanButton"
-                        text: "Scan"
-                        onClicked: FileScanner.startScan("/home/meh/Builds")
-                        background: Rectangle {
-                            radius: 20
-                            color: parent.pressed ? Qt.alpha(ThemeManager.primaryColor, 0.3) : Qt.alpha(ThemeManager.primaryColor, 0.1)
+                    // Content Stack
+                    StackView {
+                        id: mainStack
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        initialItem: timelineView
+                        
+                        // Transitions matching M3
+                        pushEnter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
+                        pushExit: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
+                        replaceEnter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
+                        replaceExit: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
+                    }
+                }
+                
+                // FAB
+                Button {
+                    id: fab
+                    visible: (window.currentView === "timeline" || window.currentView === "albums")
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    anchors.margins: 28
+                    height: 56
+                    padding: 16
+                    
+                    background: Rectangle {
+                        radius: 16
+                        color: ThemeManager.primaryContainer
+                        layer.enabled: true
+                        layer.effect: ElevationEffect { elevation: fab.pressed ? 2 : 3 }
+                    }
+                    
+                    contentItem: RowLayout {
+                        spacing: 8
+                        M3Icon {
+                            name: window.currentView === "timeline" ? "schedule" : "add" // Should be scan_folder but I'll use schedule for now
+                            size: 24
+                            color: ThemeManager.onPrimaryContainer
                         }
-                        contentItem: Label {
-                            text: parent.text
-                            color: ThemeManager.primaryColor
-                            font.bold: true
-                            padding: 8
+                        Label {
+                            text: window.currentView === "timeline" ? "Scan directory" : "New album"
+                            font.weight: Font.Medium
+                            font.pixelSize: 14
+                            color: ThemeManager.onPrimaryContainer
                         }
                     }
                 }
             }
         }
+    }
+
+    readonly property var viewTitles: {
+        "timeline": "Timeline",
+        "albums": "Albums",
+        "map": "Places",
+        "favorites": "Favorites",
+        "trash": "Trash",
+        "settings": "Settings"
     }
 
     Component {
         id: timelineView
         MediaGrid {
             anchors.fill: parent
-            topPadding: 100
             onOpenViewer: (data) => {
                 viewerOverlay.mediaData = data
                 viewerOverlay.active = true
@@ -220,7 +296,13 @@ ApplicationWindow {
         id: albumsView
         AlbumListView {
             anchors.fill: parent
-            topPadding: 100
+        }
+    }
+
+    Component {
+        id: mapView
+        MapView {
+            anchors.fill: parent
         }
     }
 
@@ -228,7 +310,6 @@ ApplicationWindow {
         id: settingsView
         SettingsView {
             anchors.fill: parent
-            topPadding: 40
         }
     }
 
@@ -236,10 +317,9 @@ ApplicationWindow {
         id: viewerOverlay
     }
 
-    Connections {
-        target: FileScanner
-        function onScanFinished(paths, dirsScanned, duration) {
-            statusLabel.text = "Found " + paths.length + " media files"
-        }
+    ExifModal {
+        id: exifModal
+        onConfirmed: console.log("EXIF stripped")
+        onClosed: active = false
     }
 }

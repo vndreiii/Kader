@@ -19,7 +19,9 @@ public:
         WidthRole,
         HeightRole,
         SectionRole,
-        SelectedRole
+        SelectedRole,
+        FavoriteRole,
+        TrashedRole
     };
 
     explicit MediaModel(DatabaseManager *db, ThumbnailGenerator *thumb, QObject *parent = nullptr);

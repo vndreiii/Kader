@@ -32,6 +32,14 @@ QHash<int, QByteArray> TimelineModel::roleNames() const {
     return roles;
 }
 
+void TimelineModel::setFilterMode(FilterMode mode) {
+    if (m_filterMode != mode) {
+        m_filterMode = mode;
+        emit filterModeChanged();
+        refresh();
+    }
+}
+
 void TimelineModel::refresh(bool hideIgnored) {
     beginResetModel();
     m_groups.clear();
@@ -43,6 +51,15 @@ void TimelineModel::refresh(bool hideIgnored) {
 
     for (const QVariant &v : allMedia) {
         QVariantMap item = v.toMap();
+        
+        // Apply FilterMode
+        bool favorite = item.value("is_favorite", 0).toBool();
+        bool trashed = item.value("is_trashed", 0).toBool();
+        
+        if (m_filterMode == FavoritesMode && (!favorite || trashed)) continue;
+        if (m_filterMode == TrashMode && !trashed) continue;
+        if (m_filterMode == AllMode && trashed) continue;
+
         qint64 timestamp = item.value("creation_date").toLongLong();
         QDateTime dt = QDateTime::fromSecsSinceEpoch(timestamp);
         QString month = dt.toString("MMMM yyyy");
@@ -54,8 +71,7 @@ void TimelineModel::refresh(bool hideIgnored) {
         }
 
         if (currentGroup) {
-            // Add useful fields for QML
-            item["thumb"] = item.value("file_path").toString(); // Generator handles hashing
+            item["thumb"] = item.value("file_path").toString();
             item["path"] = "file://" + item.value("file_path").toString();
             currentGroup->items.append(item);
         }

@@ -36,6 +36,8 @@ QVariant MediaModel::data(const QModelIndex &index, int role) const {
             return dt.toString("MMMM yyyy");
         }
         case SelectedRole: return item.value("selected", false);
+        case FavoriteRole: return item.value("is_favorite", 0).toBool();
+        case TrashedRole: return item.value("is_trashed", 0).toBool();
         default: return QVariant();
     }
 }
@@ -65,6 +67,8 @@ QHash<int, QByteArray> MediaModel::roleNames() const {
     roles[HeightRole] = "height";
     roles[SectionRole] = "section";
     roles[SelectedRole] = "isSelected";
+    roles[FavoriteRole] = "isFavorite";
+    roles[TrashedRole] = "isTrashed";
     return roles;
 }
 
