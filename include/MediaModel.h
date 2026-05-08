@@ -29,7 +29,7 @@ public:
     bool setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole) override;
     QHash<int, QByteArray> roleNames() const override;
 
-    Q_INVOKABLE void refresh();
+    Q_INVOKABLE void refresh(bool hideIgnored = true);
     Q_INVOKABLE void clearSelection();
     Q_INVOKABLE QStringList getSelectedPaths() const;
 

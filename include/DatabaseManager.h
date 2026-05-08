@@ -22,10 +22,10 @@ public:
                          const QDateTime &creationDate, int width, int height);
 
     // Get all media for the models
-    QVariantList getAllMedia();
+    QVariantList getAllMedia(bool hideIgnored = true);
 
     // Get automatically grouped albums (by folder)
-    QVariantList getAlbums();
+    QVariantList getAlbums(bool hideIgnored = true);
 
     // Ignore an album and its items
     Q_INVOKABLE bool ignoreAlbum(const QString &folderPath, bool ignore = true);

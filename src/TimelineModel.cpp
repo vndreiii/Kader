@@ -32,11 +32,11 @@ QHash<int, QByteArray> TimelineModel::roleNames() const {
     return roles;
 }
 
-void TimelineModel::refresh() {
+void TimelineModel::refresh(bool hideIgnored) {
     beginResetModel();
     m_groups.clear();
 
-    QVariantList allMedia = m_db->getAllMedia();
+    QVariantList allMedia = m_db->getAllMedia(hideIgnored);
     
     QString currentMonth;
     MonthGroup *currentGroup = nullptr;

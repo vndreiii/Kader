@@ -75,22 +75,38 @@ ApplicationWindow {
                 SidebarItem {
                     label: "Favorites"
                     active: window.currentView === "favorites"
-                    onClicked: window.currentView = "favorites"
+                    onClicked: {
+                        window.currentView = "favorites"
+                        // mainStack.replace(favoritesView)
+                    }
                 }
                 SidebarItem {
                     label: "Trash"
                     active: window.currentView === "trash"
-                    onClicked: window.currentView = "trash"
+                    onClicked: {
+                        window.currentView = "trash"
+                        // mainStack.replace(trashView)
+                    }
                 }
 
                 Item { Layout.fillHeight: true }
 
+                // Settings Button at bottom
+                SidebarItem {
+                    label: "Settings"
+                    active: window.currentView === "settings"
+                    onClicked: {
+                        window.currentView = "settings"
+                        mainStack.replace(settingsView)
+                    }
+                }
+
                 Label {
                     id: statusLabel
-                    text: "Ready"
+                    text: "Kader Gallery v0.1"
                     font.pixelSize: 11
                     color: ThemeManager.textColor
-                    opacity: 0.6
+                    opacity: 0.4
                     Layout.alignment: Qt.AlignHCenter
                     Layout.bottomMargin: 8
                 }
@@ -117,6 +133,11 @@ ApplicationWindow {
                 anchors.fill: parent
                 anchors.topMargin: 0
                 initialItem: timelineView
+                
+                pushEnter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 200 } }
+                pushExit: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 200 } }
+                replaceEnter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 200 } }
+                replaceExit: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 200 } }
             }
 
             // Floating Top Bar (Dock-like)
@@ -132,10 +153,8 @@ ApplicationWindow {
                 border.color: Qt.alpha(ThemeManager.textColor, 0.1)
                 border.width: 1
                 z: 100
+                visible: window.currentView !== "settings"
 
-                // Glass effect (simple)
-                layer.enabled: true
-                
                 RowLayout {
                     anchors.fill: parent
                     anchors.leftMargin: 20
@@ -169,7 +188,6 @@ ApplicationWindow {
                         objectName: "scanButton"
                         text: "Scan"
                         onClicked: FileScanner.startScan("/home/meh/Builds")
-                        // Style manually to fit the dock
                         background: Rectangle {
                             radius: 20
                             color: parent.pressed ? Qt.alpha(ThemeManager.primaryColor, 0.3) : Qt.alpha(ThemeManager.primaryColor, 0.1)
@@ -190,7 +208,6 @@ ApplicationWindow {
         id: timelineView
         MediaGrid {
             anchors.fill: parent
-            // Padding to account for floating bar
             topPadding: 100
             onOpenViewer: (data) => {
                 viewerOverlay.mediaData = data
@@ -204,6 +221,14 @@ ApplicationWindow {
         AlbumListView {
             anchors.fill: parent
             topPadding: 100
+        }
+    }
+
+    Component {
+        id: settingsView
+        SettingsView {
+            anchors.fill: parent
+            topPadding: 40
         }
     }
 

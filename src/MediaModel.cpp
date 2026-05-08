@@ -90,8 +90,8 @@ QStringList MediaModel::getSelectedPaths() const {
     return paths;
 }
 
-void MediaModel::refresh() {
+void MediaModel::refresh(bool hideIgnored) {
     beginResetModel();
-    m_data = m_db->getAllMedia();
+    m_data = m_db->getAllMedia(hideIgnored);
     endResetModel();
 }

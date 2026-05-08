@@ -48,8 +48,8 @@ QHash<int, QByteArray> AlbumModel::roleNames() const {
     return roles;
 }
 
-void AlbumModel::refresh() {
+void AlbumModel::refresh(bool hideIgnored) {
     beginResetModel();
-    m_data = m_db->getAlbums();
+    m_data = m_db->getAlbums(hideIgnored);
     endResetModel();
 }

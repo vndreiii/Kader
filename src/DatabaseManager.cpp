@@ -85,15 +85,11 @@ bool DatabaseManager::ignoreAlbum(const QString &folderPath, bool ignore) {
     QSqlQuery query(m_db);
     query.prepare("INSERT INTO albums (name, path_prefix, is_ignored) "
                   "VALUES (:name, :path, :ignored) "
-                  "ON CONFLICT(name) DO UPDATE SET is_ignored = :ignored");
+                  "ON CONFLICT(path_prefix) DO UPDATE SET is_ignored = :ignored");
     query.bindValue(":name", QDir(folderPath).dirName());
     query.bindValue(":path", folderPath);
-    query.bindValue(":ignored", ignore);
-    bool ok = query.exec();
-    if (ok) {
-        // Emit a signal later or just rely on manual refresh
-    }
-    return ok;
+    query.bindValue(":ignored", ignore ? 1 : 0);
+    return query.exec();
 }
 
 bool DatabaseManager::addOrUpdateMedia(const QString &filePath, const QString &hash, 
@@ -137,16 +133,16 @@ bool DatabaseManager::needsUpdate(const QString &filePath, qint64 size) {
     return true;
 }
 
-QVariantList DatabaseManager::getAlbums() {
+QVariantList DatabaseManager::getAlbums(bool hideIgnored) {
     checkConnection();
     QVariantList list;
-    QSqlQuery query(
-        "SELECT folder_path, COUNT(*), SUM(file_size), MIN(file_path) "
-        "FROM media "
-        "WHERE folder_path NOT IN (SELECT path_prefix FROM albums WHERE is_ignored = 1) "
-        "GROUP BY folder_path ORDER BY folder_path ASC", m_db
-    );
-
+    QString sql = "SELECT folder_path, COUNT(*), SUM(file_size), MIN(file_path) FROM media ";
+    if (hideIgnored) {
+        sql += "WHERE folder_path NOT IN (SELECT path_prefix FROM albums WHERE is_ignored = 1) ";
+    }
+    sql += "GROUP BY folder_path ORDER BY folder_path ASC";
+    
+    QSqlQuery query(sql, m_db);
     while (query.next()) {
         QVariantMap map;
         map["folder_path"] = query.value(0);
@@ -159,15 +155,16 @@ QVariantList DatabaseManager::getAlbums() {
     return list;
 }
 
-QVariantList DatabaseManager::getAllMedia() {
+QVariantList DatabaseManager::getAllMedia(bool hideIgnored) {
     checkConnection();
     QVariantList list;
-    QSqlQuery query(
-        "SELECT * FROM media "
-        "WHERE folder_path NOT IN (SELECT path_prefix FROM albums WHERE is_ignored = 1) "
-        "ORDER BY creation_date DESC", m_db
-    );
-
+    QString sql = "SELECT * FROM media ";
+    if (hideIgnored) {
+        sql += "WHERE folder_path NOT IN (SELECT path_prefix FROM albums WHERE is_ignored = 1) ";
+    }
+    sql += "ORDER BY creation_date DESC";
+    
+    QSqlQuery query(sql, m_db);
     while (query.next()) {
         QVariantMap map;
         QSqlRecord record = query.record();

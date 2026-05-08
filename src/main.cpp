@@ -9,6 +9,7 @@
 #include "MediaModel.h"
 #include "TimelineModel.h"
 #include "AlbumModel.h"
+#include "SettingsManager.h"
 
 int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
@@ -19,6 +20,7 @@ int main(int argc, char *argv[]) {
     app.setWindowIcon(QIcon(":/Kader/assets/icon.svg"));
 
     DatabaseManager dbManager;
+    SettingsManager settingsManager;
     ThemeManager themeManager;
     ThumbnailGenerator thumbGenerator;
     FileScanner fileScanner(&dbManager);
@@ -26,21 +28,33 @@ int main(int argc, char *argv[]) {
     TimelineModel timelineModel(&dbManager);
     AlbumModel albumModel(&dbManager, &thumbGenerator);
 
-    QObject::connect(&fileScanner, &FileScanner::scanFinished, &mediaModel, &MediaModel::refresh);
-    QObject::connect(&fileScanner, &FileScanner::scanFinished, &timelineModel, &TimelineModel::refresh);
-    QObject::connect(&fileScanner, &FileScanner::scanFinished, &albumModel, &AlbumModel::refresh);
+    // Initial refresh with settings
+    mediaModel.refresh(settingsManager.hideIgnoredInTimeline());
+    timelineModel.refresh(settingsManager.hideIgnoredInTimeline());
+    albumModel.refresh(true); // Albums usually always hide ignored unless in settings
+
+    QObject::connect(&fileScanner, &FileScanner::scanFinished, [&]() {
+        mediaModel.refresh(settingsManager.hideIgnoredInTimeline());
+        timelineModel.refresh(settingsManager.hideIgnoredInTimeline());
+        albumModel.refresh(true);
+    });
+
+    // Handle settings changes
+    QObject::connect(&settingsManager, &SettingsManager::hideIgnoredInTimelineChanged, [&]() {
+        mediaModel.refresh(settingsManager.hideIgnoredInTimeline());
+        timelineModel.refresh(settingsManager.hideIgnoredInTimeline());
+    });
 
     QQmlApplicationEngine engine;
 
-    // Add QmlMaterial to import paths
     engine.addImportPath("qrc:/");
     engine.addImportPath(app.applicationDirPath() + "/qml_modules");
-    // Also check current source dir for development
     engine.addImportPath(QString(CMAKE_SOURCE_DIR) + "/lib/QmlMaterial");
 
     engine.rootContext()->setContextProperty("ThemeManager", &themeManager);
     engine.rootContext()->setContextProperty("FileScanner", &fileScanner);
     engine.rootContext()->setContextProperty("DB", &dbManager);
+    engine.rootContext()->setContextProperty("Settings", &settingsManager);
     engine.rootContext()->setContextProperty("MediaModel", &mediaModel);
     engine.rootContext()->setContextProperty("TimelineModel", &timelineModel);
     engine.rootContext()->setContextProperty("AlbumModel", &albumModel);
@@ -48,7 +62,6 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("CMAKE_SOURCE_DIR", CMAKE_SOURCE_DIR);
 
     const QUrl url(u"qrc:/Kader/qml/main.qml"_qs);
-
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
                      &app, [url](QObject *obj, const QUrl &objUrl) {
         if (!obj && url == objUrl)

@@ -24,7 +24,7 @@ public:
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
     QHash<int, QByteArray> roleNames() const override;
 
-    Q_INVOKABLE void refresh();
+    Q_INVOKABLE void refresh(bool hideIgnored = true);
 
 private:
     DatabaseManager *m_db;
