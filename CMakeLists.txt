@@ -9,9 +9,11 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Sql Positioning Location Concurrent)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Sql Positioning Location Concurrent Test QuickTest)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(VIPS REQUIRED vips-cpp)
+
+enable_testing()
 
 # Define directories
 set(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -21,9 +23,11 @@ set(QML_DIR ${CMAKE_CURRENT_SOURCE_DIR}/qml)
 # Include directories
 include_directories(${INCLUDE_DIR} ${VIPS_INCLUDE_DIRS})
 
+# QmlMaterial Subdirectory
+add_subdirectory(lib/QmlMaterial)
+
 # Sources
 set(SOURCES
-    ${SOURCE_DIR}/main.cpp
     ${SOURCE_DIR}/ThemeManager.cpp
     ${SOURCE_DIR}/FileScanner.cpp
     ${SOURCE_DIR}/DatabaseManager.cpp
@@ -44,22 +48,12 @@ set(HEADERS
     ${INCLUDE_DIR}/AlbumModel.h
 )
 
-# Add resources
-qt_add_resources(Kader_RESOURCES
-    ${QML_DIR}/main.qml
-    ${QML_DIR}/components/MediaGrid.qml
-    ${QML_DIR}/views/TimelineView.qml
-)
-
-add_executable(Kader
+add_library(KaderLib STATIC
     ${SOURCES}
     ${HEADERS}
-    ${Kader_RESOURCES}
 )
 
-target_compile_definitions(Kader PRIVATE CMAKE_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
-
-target_link_libraries(Kader PRIVATE
+target_link_libraries(KaderLib PUBLIC
     Qt6::Core
     Qt6::Gui
     Qt6::Qml
@@ -69,9 +63,47 @@ target_link_libraries(Kader PRIVATE
     Qt6::Location
     Qt6::Concurrent
     ${VIPS_LIBRARIES}
+    qml_material
 )
 
-# QmlMaterial Library Integration
-# Note: We'll add this as an import path in main.cpp to keep things simple for now,
-# or we can add it as a subdirectory if it has its own CMakeLists.txt.
-# For now, let's assume it's just a QML module we point to.
+# QML Module setup
+qt_add_qml_module(KaderApp
+    URI Kader
+    VERSION 1.0
+    RESOURCE_PREFIX /
+    QML_FILES
+        qml/main.qml
+        qml/components/MediaGrid.qml
+        qml/components/SidebarItem.qml
+        qml/components/ImagePanner.qml
+        qml/views/AlbumListView.qml
+        qml/views/ViewerOverlay.qml
+    RESOURCES
+        assets/icon.svg
+)
+
+add_executable(kader
+    ${SOURCE_DIR}/main.cpp
+)
+
+target_compile_definitions(kader PRIVATE CMAKE_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(kader PRIVATE KaderLib KaderApp)
+
+# --- Testing ---
+if(BUILD_TESTING)
+    # Backend Tests
+    add_executable(backend_tests tests/backend_tests.cpp)
+    target_link_libraries(backend_tests PRIVATE KaderLib Qt6::Test)
+    add_test(NAME backend_tests COMMAND backend_tests)
+
+    # UI Tests (C++ Driver)
+    set(UI_TEST_SOURCES tests/ui_test_driver.cpp)
+    add_executable(ui_tests ${UI_TEST_SOURCES})
+    target_compile_definitions(ui_tests PRIVATE CMAKE_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}" IS_TEST_BUILD)
+    target_link_libraries(ui_tests PRIVATE
+        KaderLib
+        KaderApp
+        Qt6::QuickTest Qt6::Test
+    )
+    add_test(NAME ui_tests COMMAND ui_tests)
+endif()

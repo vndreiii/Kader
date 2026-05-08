@@ -35,8 +35,23 @@ QVariant MediaModel::data(const QModelIndex &index, int role) const {
             QDateTime dt = QDateTime::fromSecsSinceEpoch(timestamp);
             return dt.toString("MMMM yyyy");
         }
+        case SelectedRole: return item.value("selected", false);
         default: return QVariant();
     }
+}
+
+bool MediaModel::setData(const QModelIndex &index, const QVariant &value, int role) {
+    if (!index.isValid() || index.row() >= m_data.count())
+        return false;
+
+    if (role == SelectedRole) {
+        QVariantMap map = m_data.at(index.row()).toMap();
+        map["selected"] = value.toBool();
+        m_data[index.row()] = map;
+        emit dataChanged(index, index, {role});
+        return true;
+    }
+    return false;
 }
 
 QHash<int, QByteArray> MediaModel::roleNames() const {
@@ -49,7 +64,30 @@ QHash<int, QByteArray> MediaModel::roleNames() const {
     roles[WidthRole] = "width";
     roles[HeightRole] = "height";
     roles[SectionRole] = "section";
+    roles[SelectedRole] = "isSelected";
     return roles;
+}
+
+void MediaModel::clearSelection() {
+    for (int i = 0; i < m_data.count(); ++i) {
+        QVariantMap map = m_data.at(i).toMap();
+        if (map.value("selected", false).toBool()) {
+            map["selected"] = false;
+            m_data[i] = map;
+            emit dataChanged(index(i, 0), index(i, 0), {SelectedRole});
+        }
+    }
+}
+
+QStringList MediaModel::getSelectedPaths() const {
+    QStringList paths;
+    for (const auto& v : m_data) {
+        QVariantMap map = v.toMap();
+        if (map.value("selected", false).toBool()) {
+            paths.append(map.value("file_path").toString());
+        }
+    }
+    return paths;
 }
 
 void MediaModel::refresh() {

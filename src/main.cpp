@@ -16,7 +16,7 @@ int main(int argc, char *argv[]) {
     app.setOrganizationName("Kader");
     app.setOrganizationDomain("kader.app");
     app.setApplicationName("Kader");
-    app.setWindowIcon(QIcon(":/assets/icon.svg"));
+    app.setWindowIcon(QIcon(":/Kader/assets/icon.svg"));
 
     DatabaseManager dbManager;
     ThemeManager themeManager;
@@ -34,7 +34,7 @@ int main(int argc, char *argv[]) {
 
     // Add QmlMaterial to import paths
     engine.addImportPath("qrc:/");
-    engine.addImportPath(app.applicationDirPath() + "/lib/QmlMaterial");
+    engine.addImportPath(app.applicationDirPath() + "/qml_modules");
     // Also check current source dir for development
     engine.addImportPath(QString(CMAKE_SOURCE_DIR) + "/lib/QmlMaterial");
 
@@ -45,8 +45,10 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("TimelineModel", &timelineModel);
     engine.rootContext()->setContextProperty("AlbumModel", &albumModel);
     engine.rootContext()->setContextProperty("ThumbGen", &thumbGenerator);
+    engine.rootContext()->setContextProperty("CMAKE_SOURCE_DIR", CMAKE_SOURCE_DIR);
 
-    const QUrl url(u"qrc:/qml/main.qml"_qs);
+    const QUrl url(u"qrc:/Kader/qml/main.qml"_qs);
+
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
                      &app, [url](QObject *obj, const QUrl &objUrl) {
         if (!obj && url == objUrl)

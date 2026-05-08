@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QmlMaterial
+import Qcm.Material
 
 Item {
     id: root
@@ -17,7 +17,6 @@ Item {
         leftMargin: 24
         rightMargin: 24
         bottomMargin: 40
-        spacing: 12
 
         delegate: Item {
             width: gridView.cellWidth
@@ -33,7 +32,7 @@ Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     radius: 16
-                    color: Theme.surfaceColor
+                    color: ThemeManager.surfaceColor
                     clip: true
 
                     Image {
@@ -54,7 +53,7 @@ Item {
                         width: labelCount.width + 16
                         height: 24
                         radius: 12
-                        color: Qt.alpha(Theme.backgroundColor, 0.7)
+                        color: Qt.alpha(ThemeManager.backgroundColor, 0.7)
                         
                         Label {
                             id: labelCount
@@ -62,7 +61,7 @@ Item {
                             text: model.itemCount
                             font.pixelSize: 11
                             font.bold: true
-                            color: Theme.textColor
+                            color: ThemeManager.textColor
                         }
                     }
                 }
@@ -77,14 +76,14 @@ Item {
                         text: model.name
                         font.pixelSize: 16
                         font.bold: true
-                        color: Theme.textColor
+                        color: ThemeManager.textColor
                         elide: Text.ElideRight
                     }
 
                     Label {
                         text: model.totalSize
                         font.pixelSize: 12
-                        color: Theme.textColor
+                        color: ThemeManager.textColor
                         opacity: 0.6
                     }
                 }
@@ -92,11 +91,38 @@ Item {
 
             MouseArea {
                 anchors.fill: parent
-                onClicked: {
-                    console.log("Open Album:", model.path)
-                    // TODO: Navigate to Album Detail
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                onClicked: (mouse) => {
+                    if (mouse.button === Qt.RightButton) {
+                        albumMenu.popupTarget = model
+                        albumMenu.popup()
+                    } else {
+                        console.log("Open Album:", model.path)
+                    }
                 }
             }
+        }
+    }
+
+    Menu {
+        id: albumMenu
+        property var popupTarget: null
+        
+        MenuItem {
+            text: "Pin Album"
+            onTriggered: console.log("Pin:", albumMenu.popupTarget.path)
+        }
+        MenuItem {
+            text: "Ignore Album"
+            onTriggered: {
+                DB.ignoreAlbum(albumMenu.popupTarget.path, true)
+                AlbumModel.refresh()
+                TimelineModel.refresh()
+            }
+        }
+        MenuItem {
+            text: "Delete Folder"
+            onTriggered: console.log("Delete folder logic here")
         }
     }
 }

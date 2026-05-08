@@ -27,11 +27,15 @@ public:
     // Get automatically grouped albums (by folder)
     QVariantList getAlbums();
 
+    // Ignore an album and its items
+    Q_INVOKABLE bool ignoreAlbum(const QString &folderPath, bool ignore = true);
+
     // Check if a file is already in the database and its modification time
     bool needsUpdate(const QString &filePath, qint64 size);
 
 private:
     bool createTables();
+    void checkConnection();
     QSqlDatabase m_db;
     QString m_dbPath;
 };

@@ -3,9 +3,11 @@
 #include <QDir>
 #include <QCryptographicHash>
 #include <QDebug>
+#include <QFile>
 
 ThumbnailGenerator::ThumbnailGenerator(QObject *parent) : QObject(parent) {
-    if (VIPS_INIT("Kader")) {
+    // VIPS_INIT expects the program name
+    if (vips_init("Kader")) {
         qCritical() << "Unable to initialize libvips";
     }
     m_cacheDir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/thumbnails";
@@ -25,13 +27,8 @@ QString ThumbnailGenerator::getOrCreateThumbnail(const QString &filePath, int si
     }
 
     try {
-        vips::VImage in = vips::VImage::new_from_file(filePath.toLocal8Bit().constData(),
-                                                     vips::VImage::StealOptions().set("access", VIPS_ACCESS_SEQUENTIAL));
-        
-        // Use thumbnail_image for ultra-fast resizing if it's a supported format
-        vips::VImage thumb = vips::VImage::thumbnail(filePath.toLocal8Bit().constData(), size,
-                                                    vips::VImage::StealOptions().set("height", size));
-        
+        // Simple thumbnail generation
+        vips::VImage thumb = vips::VImage::thumbnail(filePath.toLocal8Bit().constData(), size);
         thumb.write_to_file(thumbPath.toLocal8Bit().constData());
         return thumbPath;
     } catch (vips::VError &e) {

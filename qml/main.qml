@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QmlMaterial
+import Qcm.Material
 import "components"
 import "views"
 
@@ -14,25 +14,8 @@ ApplicationWindow {
 
     property string currentView: "timeline"
 
-    Component.onCompleted: {
-        Theme.primaryColor = ThemeManager.primaryColor
-        Theme.backgroundColor = ThemeManager.backgroundColor
-        Theme.surfaceColor = ThemeManager.surfaceColor
-        Theme.textColor = ThemeManager.textColor
-    }
-
-    Connections {
-        target: ThemeManager
-        function onThemeChanged() {
-            Theme.primaryColor = ThemeManager.primaryColor
-            Theme.backgroundColor = ThemeManager.backgroundColor
-            Theme.surfaceColor = ThemeManager.surfaceColor
-            Theme.textColor = ThemeManager.textColor
-        }
-    }
-
     background: Rectangle {
-        color: Theme.backgroundColor
+        color: ThemeManager.backgroundColor
     }
 
     RowLayout {
@@ -43,7 +26,7 @@ ApplicationWindow {
         Rectangle {
             Layout.fillHeight: true
             width: 240
-            color: Theme.backgroundColor
+            color: ThemeManager.backgroundColor
             
             ColumnLayout {
                 anchors.fill: parent
@@ -58,7 +41,7 @@ ApplicationWindow {
                         anchors.centerIn: parent
                         spacing: 12
                         Image {
-                            source: "file://" + CMAKE_SOURCE_DIR + "/assets/icon.svg"
+                            source: "qrc:/Kader/assets/icon.svg"
                             sourceSize: Qt.size(32, 32)
                             Layout.alignment: Qt.AlignVCenter
                         }
@@ -66,12 +49,13 @@ ApplicationWindow {
                             text: "Kader"
                             font.pixelSize: 24
                             font.bold: true
-                            color: Theme.textColor
+                            color: ThemeManager.textColor
                         }
                     }
                 }
 
                 SidebarItem {
+                    objectName: "timelineSidebarItem"
                     label: "Timeline"
                     active: window.currentView === "timeline"
                     onClicked: {
@@ -80,6 +64,7 @@ ApplicationWindow {
                     }
                 }
                 SidebarItem {
+                    objectName: "albumsSidebarItem"
                     label: "Albums"
                     active: window.currentView === "albums"
                     onClicked: {
@@ -104,7 +89,7 @@ ApplicationWindow {
                     id: statusLabel
                     text: "Ready"
                     font.pixelSize: 11
-                    color: Theme.textColor
+                    color: ThemeManager.textColor
                     opacity: 0.6
                     Layout.alignment: Qt.AlignHCenter
                     Layout.bottomMargin: 8
@@ -116,7 +101,7 @@ ApplicationWindow {
                 anchors.right: parent.right
                 width: 1
                 height: parent.height
-                color: Theme.textColor
+                color: ThemeManager.textColor
                 opacity: 0.1
             }
         }
@@ -143,8 +128,8 @@ ApplicationWindow {
                 anchors.topMargin: 24
                 anchors.horizontalCenter: parent.horizontalCenter
                 radius: 26
-                color: Qt.alpha(Theme.surfaceColor, 0.9)
-                border.color: Qt.alpha(Theme.textColor, 0.1)
+                color: Qt.alpha(ThemeManager.surfaceColor, 0.9)
+                border.color: Qt.alpha(ThemeManager.textColor, 0.1)
                 border.width: 1
                 z: 100
 
@@ -163,33 +148,35 @@ ApplicationWindow {
                         height: 20
                         radius: 10
                         color: "transparent"
-                        border.color: Theme.textColor
+                        border.color: ThemeManager.textColor
                         border.width: 2
                         opacity: 0.5
                     }
 
                     TextField {
                         id: searchField
-                        placeholderText: "Search your memories..."
+                        objectName: "searchField"
+                        placeholderText: "Search"
                         Layout.fillWidth: true
                         background: null
-                        color: Theme.textColor
+                        color: ThemeManager.textColor
                         font.pixelSize: 14
                         
                         onAccepted: console.log("Searching for:", text)
                     }
 
                     Button {
+                        objectName: "scanButton"
                         text: "Scan"
                         onClicked: FileScanner.startScan("/home/meh/Builds")
                         // Style manually to fit the dock
                         background: Rectangle {
                             radius: 20
-                            color: parent.pressed ? Qt.alpha(Theme.primaryColor, 0.3) : Qt.alpha(Theme.primaryColor, 0.1)
+                            color: parent.pressed ? Qt.alpha(ThemeManager.primaryColor, 0.3) : Qt.alpha(ThemeManager.primaryColor, 0.1)
                         }
                         contentItem: Label {
                             text: parent.text
-                            color: Theme.primaryColor
+                            color: ThemeManager.primaryColor
                             font.bold: true
                             padding: 8
                         }
@@ -205,6 +192,10 @@ ApplicationWindow {
             anchors.fill: parent
             // Padding to account for floating bar
             topPadding: 100
+            onOpenViewer: (data) => {
+                viewerOverlay.mediaData = data
+                viewerOverlay.active = true
+            }
         }
     }
 
@@ -214,6 +205,10 @@ ApplicationWindow {
             anchors.fill: parent
             topPadding: 100
         }
+    }
+
+    ViewerOverlay {
+        id: viewerOverlay
     }
 
     Connections {

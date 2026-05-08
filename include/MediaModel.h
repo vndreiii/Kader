@@ -18,16 +18,20 @@ public:
         MimeRole,
         WidthRole,
         HeightRole,
-        SectionRole
+        SectionRole,
+        SelectedRole
     };
 
     explicit MediaModel(DatabaseManager *db, ThumbnailGenerator *thumb, QObject *parent = nullptr);
 
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
+    bool setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole) override;
     QHash<int, QByteArray> roleNames() const override;
 
     Q_INVOKABLE void refresh();
+    Q_INVOKABLE void clearSelection();
+    Q_INVOKABLE QStringList getSelectedPaths() const;
 
 private:
     DatabaseManager *m_db;

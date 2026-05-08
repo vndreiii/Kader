@@ -3,6 +3,9 @@
 #include <QDir>
 #include <QDebug>
 #include <QSqlRecord>
+#include <QFileInfo>
+#include <QThread>
+#include <QCoreApplication>
 
 DatabaseManager::DatabaseManager(QObject *parent) : QObject(parent) {
     m_dbPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/gallery.db";
@@ -11,25 +14,37 @@ DatabaseManager::DatabaseManager(QObject *parent) : QObject(parent) {
 }
 
 DatabaseManager::~DatabaseManager() {
-    if (m_db.isOpen()) {
-        m_db.close();
+}
+
+void DatabaseManager::checkConnection() {
+    QString connectionName = "qt_sql_default_connection";
+    if (QThread::currentThread() != qApp->thread()) {
+        connectionName = QString("connection_%1").arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
+    }
+
+    if (QSqlDatabase::contains(connectionName)) {
+        m_db = QSqlDatabase::database(connectionName);
+    } else {
+        m_db = QSqlDatabase::addDatabase("QSQLITE", connectionName);
+        m_db.setDatabaseName(m_dbPath);
+    }
+
+    if (!m_db.isOpen()) {
+        if (!m_db.open()) {
+            qCritical() << "Error opening database in thread" << connectionName << ":" << m_db.lastError().text();
+        } else {
+            createTables();
+        }
     }
 }
 
 bool DatabaseManager::openDatabase() {
-    m_db = QSqlDatabase::addDatabase("QSQLITE");
-    m_db.setDatabaseName(m_dbPath);
-
-    if (!m_db.open()) {
-        qCritical() << "Error opening database:" << m_db.lastError().text();
-        return false;
-    }
-
-    return createTables();
+    checkConnection();
+    return m_db.isOpen();
 }
 
 bool DatabaseManager::createTables() {
-    QSqlQuery query;
+    QSqlQuery query(m_db);
     bool success = query.exec(
         "CREATE TABLE IF NOT EXISTS media ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -50,11 +65,6 @@ bool DatabaseManager::createTables() {
         query.exec("CREATE INDEX IF NOT EXISTS idx_folder ON media(folder_path)");
     }
 
-    if (!success) {
-        qCritical() << "Error creating media table:" << query.lastError().text();
-        return false;
-    }
-
     success = query.exec(
         "CREATE TABLE IF NOT EXISTS albums ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -62,24 +72,38 @@ bool DatabaseManager::createTables() {
         "path_prefix TEXT,"
         "cover_media_id INTEGER,"
         "is_pinned BOOLEAN DEFAULT 0,"
+        "is_ignored BOOLEAN DEFAULT 0,"
         "FOREIGN KEY(cover_media_id) REFERENCES media(id)"
         ")"
     );
 
-    if (!success) {
-        qCritical() << "Error creating albums table:" << query.lastError().text();
-    }
-
     return success;
+}
+
+bool DatabaseManager::ignoreAlbum(const QString &folderPath, bool ignore) {
+    checkConnection();
+    QSqlQuery query(m_db);
+    query.prepare("INSERT INTO albums (name, path_prefix, is_ignored) "
+                  "VALUES (:name, :path, :ignored) "
+                  "ON CONFLICT(name) DO UPDATE SET is_ignored = :ignored");
+    query.bindValue(":name", QDir(folderPath).dirName());
+    query.bindValue(":path", folderPath);
+    query.bindValue(":ignored", ignore);
+    bool ok = query.exec();
+    if (ok) {
+        // Emit a signal later or just rely on manual refresh
+    }
+    return ok;
 }
 
 bool DatabaseManager::addOrUpdateMedia(const QString &filePath, const QString &hash, 
                                      qint64 size, const QString &mimeType, 
                                      const QDateTime &creationDate, int width, int height) {
+    checkConnection();
     QFileInfo fileInfo(filePath);
     QString folderPath = fileInfo.absolutePath();
 
-    QSqlQuery query;
+    QSqlQuery query(m_db);
     query.prepare(
         "INSERT OR REPLACE INTO media (file_path, folder_path, file_hash, file_size, mime_type, creation_date, width, height) "
         "VALUES (:path, :folder, :hash, :size, :mime, :date, :w, :h)"
@@ -101,7 +125,8 @@ bool DatabaseManager::addOrUpdateMedia(const QString &filePath, const QString &h
 }
 
 bool DatabaseManager::needsUpdate(const QString &filePath, qint64 size) {
-    QSqlQuery query;
+    checkConnection();
+    QSqlQuery query(m_db);
     query.prepare("SELECT file_size FROM media WHERE file_path = :path");
     query.bindValue(":path", filePath);
 
@@ -109,14 +134,17 @@ bool DatabaseManager::needsUpdate(const QString &filePath, qint64 size) {
         qint64 storedSize = query.value(0).toLongLong();
         return storedSize != size;
     }
-    return true; // Not found, needs insert
+    return true;
 }
 
 QVariantList DatabaseManager::getAlbums() {
+    checkConnection();
     QVariantList list;
     QSqlQuery query(
         "SELECT folder_path, COUNT(*), SUM(file_size), MIN(file_path) "
-        "FROM media GROUP BY folder_path ORDER BY folder_path ASC"
+        "FROM media "
+        "WHERE folder_path NOT IN (SELECT path_prefix FROM albums WHERE is_ignored = 1) "
+        "GROUP BY folder_path ORDER BY folder_path ASC", m_db
     );
 
     while (query.next()) {
@@ -125,19 +153,20 @@ QVariantList DatabaseManager::getAlbums() {
         map["count"] = query.value(1);
         map["size"] = query.value(2);
         map["cover"] = query.value(3);
-        
-        // Extract album name from path
-        QString path = query.value(0).toString();
-        map["name"] = QDir(path).dirName();
-        
+        map["name"] = QDir(query.value(0).toString()).dirName();
         list.append(map);
     }
     return list;
 }
 
 QVariantList DatabaseManager::getAllMedia() {
+    checkConnection();
     QVariantList list;
-    QSqlQuery query("SELECT * FROM media ORDER BY creation_date DESC");
+    QSqlQuery query(
+        "SELECT * FROM media "
+        "WHERE folder_path NOT IN (SELECT path_prefix FROM albums WHERE is_ignored = 1) "
+        "ORDER BY creation_date DESC", m_db
+    );
 
     while (query.next()) {
         QVariantMap map;
