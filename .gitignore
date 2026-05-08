@@ -24,3 +24,6 @@ tests/
 track-reports.txt
 benchmarks/
 *.log
+
+#LLM stupid shit
+What-I-Did_Im-Gemini.md
