@@ -44,8 +44,13 @@ class ThemeManager : public QObject {
     Q_PROPERTY(int durMed READ durMed CONSTANT)
     Q_PROPERTY(int durLong READ durLong CONSTANT)
 
+    Q_PROPERTY(bool isDark READ isDark NOTIFY themeChanged)
+
 public:
     explicit ThemeManager(QObject *parent = nullptr);
+
+    bool isDark() const;
+    Q_INVOKABLE bool isColorDark(const QColor &color) const;
 
     QColor primary() const;
     QColor onPrimary() const;

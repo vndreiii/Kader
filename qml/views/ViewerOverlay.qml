@@ -67,7 +67,7 @@ Rectangle {
     }
 
     // Close Button
-    Control {
+    Button {
         anchors.top: parent.top
         anchors.right: parent.right
         anchors.margins: 24
@@ -91,7 +91,7 @@ Rectangle {
             font.weight: Font.Medium
         }
         Label {
-            text: root.mediaData ? Qt.formatDateTime(new Date(root.modelData.date * 1000), "dd MMMM yyyy") : ""
+            text: root.mediaData ? Qt.formatDateTime(new Date(root.mediaData.date * 1000), "dd MMMM yyyy") : ""
             color: Qt.alpha("white", 0.7)
             font.pixelSize: 13
         }

@@ -20,14 +20,17 @@ Item {
         
         border.width: root.selected ? 3 : 0
         border.color: ThemeManager.primary
-        // border.position is not a property in standard QML Rectangle, 
-        // but we can use anchors.margins on content to simulate it.
 
         Image {
             id: img
             anchors.fill: parent
             anchors.margins: root.selected ? 4 : 0
-            source: root.modelData.thumb || root.modelData.path
+            // Ensure path has file:// prefix if it is absolute
+            source: {
+                var p = root.modelData.thumb || root.modelData.file_path || ""
+                if (p.indexOf("://") === -1 && p !== "") return "file://" + p
+                return p
+            }
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
             
@@ -39,7 +42,7 @@ Item {
 
         // Video Badge
         Rectangle {
-            visible: root.modelData.mimeType && root.modelData.mimeType.startsWith("video/")
+            visible: root.modelData.mime_type && root.modelData.mime_type.startsWith("video/")
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.margins: 8
@@ -76,13 +79,13 @@ Item {
             anchors.margins: 8
             width: 28; height: 28; radius: 14
             color: Qt.alpha("black", 0.45)
-            opacity: (mouseArea.containsMouse || root.modelData.isFavorite) ? 1 : 0
+            opacity: (mouseArea.containsMouse || root.modelData.is_favorite) ? 1 : 0
             Behavior on opacity { NumberAnimation { duration: ThemeManager.durShort } }
             
             M3Icon {
                 anchors.centerIn: parent
-                name: root.modelData.isFavorite ? "favorite_fill" : "favorite"
-                size: 16; color: root.modelData.isFavorite ? "#ffd8e4" : "white"
+                name: root.modelData.is_favorite ? "favorite_fill" : "favorite"
+                size: 16; color: root.modelData.is_favorite ? "#ffd8e4" : "white"
             }
 
             MouseArea {
@@ -106,7 +109,11 @@ Item {
                 anchors.centerIn: parent
                 leftPadding: 8; rightPadding: 8
                 Label {
-                    text: Qt.formatDateTime(new Date(root.modelData.date * 1000), "dd MMM")
+                    text: {
+                        var d = root.modelData.creation_date
+                        if (!d) return ""
+                        return Qt.formatDateTime(new Date(d * 1000), "dd MMM")
+                    }
                     color: "white"
                     font.pixelSize: 11
                     font.weight: Font.Medium

@@ -104,3 +104,12 @@ GET_COLOR(outlineVariant, "#CAC4D0")
 GET_COLOR(inverseSurface, "#322F35")
 GET_COLOR(inverseOnSurface, "#F5EFF7")
 GET_COLOR(inversePrimary, "#D0BCFF")
+
+bool ThemeManager::isDark() const {
+    return isColorDark(surface());
+}
+
+bool ThemeManager::isColorDark(const QColor &color) const {
+    double yiq = ((color.red() * 299) + (color.green() * 587) + (color.blue() * 114)) / 1000.0;
+    return yiq < 128.0;
+}

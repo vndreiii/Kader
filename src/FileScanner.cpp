@@ -15,6 +15,8 @@
 #include <QtConcurrent>
 #include <QFileInfo>
 #include <QDateTime>
+#include <QMimeDatabase>
+#include <QDebug>
 
 struct linux_dirent64 {
     unsigned long long d_ino;
@@ -67,6 +69,7 @@ FileScanner::FileScanner(DatabaseManager *db, QObject *parent) : QObject(parent)
 }
 
 void FileScanner::startScan(const QString &rootPath) {
+    qDebug() << "Start scan requested for:" << rootPath;
     QtConcurrent::run([this, rootPath]() {
         runScan(rootPath.toStdString());
     });
@@ -104,15 +107,29 @@ void FileScanner::runScan(const std::string &rootPath) {
                         for (long bpos = 0; bpos < nread; ) {
                             struct linux_dirent64 *d = (struct linux_dirent64 *) (buf + bpos);
                             if (strcmp(d->d_name, ".") != 0 && strcmp(d->d_name, "..") != 0) {
-                                if (d->d_type == DT_DIR) {
-                                    wq.push(path + "/" + d->d_name);
-                                } else if (d->d_type == DT_REG) {
+                                std::string fullPath = path;
+                                if (fullPath.back() != '/') fullPath += "/";
+                                fullPath += d->d_name;
+
+                                bool isDir = (d->d_type == DT_DIR);
+                                bool isReg = (d->d_type == DT_REG);
+
+                                if (d->d_type == DT_UNKNOWN) {
+                                    struct stat st;
+                                    if (stat(fullPath.c_str(), &st) == 0) {
+                                        isDir = S_ISDIR(st.st_mode);
+                                        isReg = S_ISREG(st.st_mode);
+                                    }
+                                }
+
+                                if (isDir) {
+                                    wq.push(fullPath);
+                                } else if (isReg) {
                                     const char* dot = strrchr(d->d_name, '.');
                                     if (dot) {
                                         std::string ext = dot;
                                         std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
                                         if (m_mediaExtensions.count(ext)) {
-                                            std::string fullPath = path + "/" + d->d_name;
                                             struct stat st;
                                             if (stat(fullPath.c_str(), &st) == 0) {
                                                 std::lock_guard<std::mutex> lock(pathsMutex);
@@ -134,12 +151,17 @@ void FileScanner::runScan(const std::string &rootPath) {
 
     for (auto& t : workers) t.join();
 
-    // Now update database (on this background thread, but sequentially for simplicity)
+    qDebug() << "Scan found" << foundFiles.size() << "candidate files in" << dirsScanned.load() << "directories";
+
+    // Now update database
     QStringList finalPaths;
+    QMimeDatabase mimeDb;
     for (const auto& info : foundFiles) {
         finalPaths.append(info.path);
         if (m_db->needsUpdate(info.path, info.size)) {
-            m_db->addOrUpdateMedia(info.path, "", info.size, "image/jpeg", QDateTime::currentDateTime(), 0, 0);
+            QFileInfo fi(info.path);
+            QString mime = mimeDb.mimeTypeForFile(fi).name();
+            m_db->addOrUpdateMedia(info.path, "", info.size, mime, fi.birthTime().isValid() ? fi.birthTime() : fi.lastModified(), 0, 0);
         }
     }
 

@@ -10,6 +10,7 @@
 #include "TimelineModel.h"
 #include "AlbumModel.h"
 #include "SettingsManager.h"
+#include "StorageManager.h"
 
 int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
@@ -22,6 +23,7 @@ int main(int argc, char *argv[]) {
     DatabaseManager dbManager;
     SettingsManager settingsManager;
     ThemeManager themeManager;
+    StorageManager storageManager;
     ThumbnailGenerator thumbGenerator;
     FileScanner fileScanner(&dbManager);
     MediaModel mediaModel(&dbManager, &thumbGenerator);
@@ -52,6 +54,7 @@ int main(int argc, char *argv[]) {
     engine.addImportPath(QString(CMAKE_SOURCE_DIR) + "/lib/QmlMaterial");
 
     engine.rootContext()->setContextProperty("ThemeManager", &themeManager);
+    engine.rootContext()->setContextProperty("StorageManager", &storageManager);
     engine.rootContext()->setContextProperty("FileScanner", &fileScanner);
     engine.rootContext()->setContextProperty("DB", &dbManager);
     engine.rootContext()->setContextProperty("Settings", &settingsManager);

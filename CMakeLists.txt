@@ -36,6 +36,7 @@ set(SOURCES
     ${SOURCE_DIR}/TimelineModel.cpp
     ${SOURCE_DIR}/AlbumModel.cpp
     ${SOURCE_DIR}/SettingsManager.cpp
+    ${SOURCE_DIR}/StorageManager.cpp
 )
 
 # Headers
@@ -48,6 +49,7 @@ set(HEADERS
     ${INCLUDE_DIR}/TimelineModel.h
     ${INCLUDE_DIR}/AlbumModel.h
     ${INCLUDE_DIR}/SettingsManager.h
+    ${INCLUDE_DIR}/StorageManager.h
 )
 
 add_library(KaderLib STATIC
@@ -78,9 +80,17 @@ qt_add_qml_module(KaderApp
         qml/components/MediaGrid.qml
         qml/components/SidebarItem.qml
         qml/components/ImagePanner.qml
+        qml/components/ExifModal.qml
+        qml/components/M3Icon.qml
+        qml/components/M3Switch.qml
+        qml/components/SettingsRow.qml
+        qml/components/SettingsSection.qml
+        qml/components/Sidebar.qml
+        qml/components/Tile.qml
         qml/views/AlbumListView.qml
         qml/views/ViewerOverlay.qml
         qml/views/SettingsView.qml
+        qml/views/MapView.qml
     RESOURCES
         assets/icon.svg
 )

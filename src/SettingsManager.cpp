@@ -14,3 +14,8 @@ void SettingsManager::setHideIgnoredInTimeline(bool hide) {
         emit hideIgnoredInTimelineChanged();
     }
 }
+#include <QDir>
+
+QString SettingsManager::homePath() const {
+    return QDir::homePath();
+}

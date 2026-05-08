@@ -8,6 +8,9 @@ Item {
     property alias topPadding: listView.topMargin
     signal openViewer(var mediaData)
 
+    implicitWidth: 800
+    implicitHeight: 600
+
     ListView {
         id: listView
         anchors.fill: parent
@@ -19,7 +22,8 @@ Item {
         topMargin: 0
         bottomMargin: 40
         
-        // Month Header
+        visible: model.rowCount() > 0
+
         section.property: "name"
         section.criteria: ViewSection.FullString
         section.delegate: Item {
@@ -34,7 +38,6 @@ Item {
                 font.weight: Font.Medium
                 color: ThemeManager.onSurface
             }
-            // Sticky behavior can be simulated or we use the section delegate
         }
 
         delegate: Item {
@@ -51,14 +54,13 @@ Item {
                     delegate: Tile {
                         modelData: modelData
                         
-                        // Mosaic sizing logic
                         readonly property var sizes: ["size-1x1", "size-1x1", "size-2x1", "size-1x1", "size-2x2", "size-1x2", "size-1x1", "size-1x1"]
                         property string mSize: sizes[index % sizes.length]
                         
                         width: {
                             var cols = 6
                             var gap = 8
-                            var unit = (parent.width - (cols - 1) * gap) / cols
+                            var unit = (flowGrid.width - (cols - 1) * gap) / cols
                             if (mSize === "size-2x1" || mSize === "size-2x2") return unit * 2 + gap
                             if (mSize === "size-3x2") return unit * 3 + gap * 2
                             return unit
@@ -77,5 +79,26 @@ Item {
         }
     }
 
-    // Floating scrollbar logic from before can be adapted but the design is minimalist
+    // Empty State
+    ColumnLayout {
+        anchors.centerIn: parent
+        visible: !listView.visible
+        spacing: 16
+        M3Icon {
+            Layout.alignment: Qt.AlignHCenter
+            name: "schedule"
+            size: 96; color: ThemeManager.onSurfaceVariant
+            opacity: 0.5
+        }
+        Label {
+            Layout.alignment: Qt.AlignHCenter
+            text: "No media found"
+            font.pixelSize: 24; font.weight: Font.Light; color: ThemeManager.onSurface
+        }
+        Label {
+            Layout.alignment: Qt.AlignHCenter
+            text: "Mark photos with the heart to find them in favorites."
+            font.pixelSize: 14; color: ThemeManager.onSurfaceVariant
+        }
+    }
 }

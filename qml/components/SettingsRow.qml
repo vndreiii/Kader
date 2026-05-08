@@ -3,51 +3,58 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import ".."
 
-Rectangle {
+Item {
     id: root
     property string label: ""
     property string sub: ""
     property Item action: null
     property bool last: false
 
-    Layout.fillWidth: true
-    height: Math.max(64, rowLayout.implicitHeight + 32)
-    color: "transparent"
+    width: parent ? parent.width : 0
+    height: Math.max(64, infoColumn.height + 32)
 
-    RowLayout {
-        id: rowLayout
+    Row {
         anchors.fill: parent
         anchors.leftMargin: 20
         anchors.rightMargin: 20
         spacing: 16
 
-        ColumnLayout {
-            Layout.fillWidth: true
+        Column {
+            id: infoColumn
+            width: parent.width - (root.action ? root.action.width + 16 : 0)
+            anchors.verticalCenter: parent.verticalCenter
             spacing: 2
+            
             Label {
+                width: parent.width
                 text: root.label
                 font.pixelSize: 14
                 font.weight: Font.Medium
                 color: ThemeManager.onSurface
                 wrapMode: Text.Wrap
-                Layout.fillWidth: true
             }
             Label {
+                width: parent.width
                 visible: root.sub !== ""
                 text: root.sub
                 font.pixelSize: 12
                 color: ThemeManager.onSurfaceVariant
                 wrapMode: Text.Wrap
-                Layout.fillWidth: true
             }
         }
 
         Item {
-            id: actionContainer
-            Layout.alignment: Qt.AlignVCenter
-            implicitWidth: root.action ? root.action.implicitWidth : 0
-            implicitHeight: root.action ? root.action.implicitHeight : 0
+            width: root.action ? root.action.width : 0
+            height: parent.height
             data: [ root.action ]
+            
+            // Center the action item vertically if it's a Control/Button
+            onChildrenChanged: {
+                if (children.length > 0) {
+                    children[0].anchors.verticalCenter = verticalCenter
+                    children[0].anchors.right = right
+                }
+            }
         }
     }
 
