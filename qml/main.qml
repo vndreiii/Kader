@@ -11,148 +11,99 @@ ApplicationWindow {
     height: 940
     visible: true
     title: qsTr("Kader")
+    flags: Qt.Window | Qt.FramelessWindowHint
 
     property string currentView: "timeline"
     property bool sidebarCollapsed: false
 
     background: Rectangle {
         color: ThemeManager.surface
+        radius: 14
+        border.color: Qt.alpha("black", 0.1)
+        border.width: 1
     }
 
-    ColumnLayout {
+    RowLayout {
         anchors.fill: parent
         spacing: 0
 
-        // Titlebar (mac-style)
-        Rectangle {
-            id: titlebar
-            Layout.fillWidth: true
-            height: 36
-            color: ThemeManager.surfaceContainer
-            
-            // Background gradient to match design "linear-gradient(to bottom, #efe9f3, #e6e0e9)"
-            // But we use ThemeManager colors
-            gradient: Gradient {
-                GradientStop { position: 0.0; color: ThemeManager.surfaceContainerHigh }
-                GradientStop { position: 1.0; color: ThemeManager.surfaceContainer }
-            }
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 14
-                anchors.rightMargin: 14
-                spacing: 8
-
-                // Mac-style dots
-                Row {
-                    spacing: 8
-                    Rectangle { width: 12; height: 12; radius: 6; color: "#ff5f57"; border.color: Qt.darker(color, 1.2); border.width: 0.5 }
-                    Rectangle { width: 12; height: 12; radius: 6; color: "#febc2e"; border.color: Qt.darker(color, 1.2); border.width: 0.5 }
-                    Rectangle { width: 12; height: 12; radius: 6; color: "#28c840"; border.color: Qt.darker(color, 1.2); border.width: 0.5 }
+        Sidebar {
+            id: sidebar
+            collapsed: window.sidebarCollapsed
+            currentView: window.currentView
+            onViewChanged: (view) => {
+                window.currentView = view
+                if (view === "timeline") {
+                    TimelineModel.filterMode = TimelineModel.AllMode
+                    mainStack.replace(timelineView)
+                } else if (view === "albums") {
+                    mainStack.replace(albumsView)
+                } else if (view === "map") {
+                    mainStack.replace(mapView)
+                } else if (view === "favorites") {
+                    TimelineModel.filterMode = TimelineModel.FavoritesMode
+                    mainStack.replace(timelineView)
+                } else if (view === "trash") {
+                    TimelineModel.filterMode = TimelineModel.TrashMode
+                    mainStack.replace(timelineView)
+                } else if (view === "settings") {
+                    mainStack.replace(settingsView)
                 }
-
-                Label {
-                    Layout.fillWidth: true
-                    text: "Kader — " + (viewTitles[window.currentView] || "")
-                    horizontalAlignment: Text.AlignHCenter
-                    font.pixelSize: 13
-                    font.weight: Font.Medium
-                    color: ThemeManager.onSurfaceVariant
-                }
-
-                // Fold Button
-                Control {
-                    id: foldButton
-                    width: 28; height: 28
-                    Layout.alignment: Qt.AlignVCenter
-                    
-                    background: Rectangle {
-                        radius: 8
-                        color: foldButton.hovered ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
-                    }
-                    
-                    contentItem: M3Icon {
-                        name: window.sidebarCollapsed ? "menu_open" : "menu_close"
-                        size: 18
-                        color: ThemeManager.onSurfaceVariant
-                        anchors.centerIn: parent
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: window.sidebarCollapsed = !window.sidebarCollapsed
-                    }
-                }
-                
-                Item { width: 60 } // Spacer to balance dots
-            }
-            
-            Rectangle {
-                anchors.bottom: parent.bottom
-                width: parent.width
-                height: 1
-                color: Qt.alpha(ThemeManager.onSurface, 0.08)
             }
         }
 
-        RowLayout {
+        // Main Content Area
+        Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            spacing: 0
 
-            Sidebar {
-                id: sidebar
-                collapsed: window.sidebarCollapsed
-                currentView: window.currentView
-                onViewChanged: (view) => {
-                    window.currentView = view
-                    if (view === "timeline") {
-                        TimelineModel.filterMode = TimelineModel.AllMode
-                        mainStack.replace(timelineView)
-                    } else if (view === "albums") {
-                        mainStack.replace(albumsView)
-                    } else if (view === "map") {
-                        mainStack.replace(mapView)
-                    } else if (view === "favorites") {
-                        TimelineModel.filterMode = TimelineModel.FavoritesMode
-                        mainStack.replace(timelineView)
-                    } else if (view === "trash") {
-                        TimelineModel.filterMode = TimelineModel.TrashMode
-                        mainStack.replace(timelineView)
-                    } else if (view === "settings") {
-                        mainStack.replace(settingsView)
-                    }
-                }
-            }
+            ColumnLayout {
+                anchors.fill: parent
+                spacing: 0
 
-            // Main Content Area
-            Item {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
+                // Topbar
+                Rectangle {
+                    id: topbar
+                    Layout.fillWidth: true
+                    height: 72
+                    color: ThemeManager.surface
+                    
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 24
+                        anchors.rightMargin: 24
+                        spacing: 16
 
-                ColumnLayout {
-                    anchors.fill: parent
-                    spacing: 0
-
-                    // Topbar
-                    Rectangle {
-                        id: topbar
-                        Layout.fillWidth: true
-                        height: 72
-                        color: ThemeManager.surface
-                        
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: 24
-                            anchors.rightMargin: 24
-                            spacing: 16
-
-                            Label {
-                                text: viewTitles[window.currentView] || ""
-                                font.family: "Roboto Flex"
-                                font.pixelSize: 28
-                                color: ThemeManager.onSurface
+                        // Relocated Fold Button
+                        Control {
+                            id: foldButton
+                            width: 40; height: 40
+                            Layout.alignment: Qt.AlignVCenter
+                            
+                            background: Rectangle {
+                                radius: 20
+                                color: foldButton.hovered ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
                             }
+                            
+                            contentItem: M3Icon {
+                                name: window.sidebarCollapsed ? "menu_open" : "menu_close"
+                                size: 24
+                                color: ThemeManager.onSurfaceVariant
+                                anchors.centerIn: parent
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: window.sidebarCollapsed = !window.sidebarCollapsed
+                            }
+                        }
+
+                        Label {
+                            text: viewTitles[window.currentView] || ""
+                            font.family: "Roboto Flex"
+                            font.pixelSize: 28
+                            color: ThemeManager.onSurface
+                        }
 
                             Item { Layout.fillWidth: true }
 
