@@ -35,10 +35,10 @@ public:
     void setNumColumns(int n);
 
     QString folderFilter() const { return m_folderFilter; }
-    void setFolderFilter(const QString &folder);
+    Q_INVOKABLE void setFolderFilter(const QString &folder);
 
     QString searchFilter() const { return m_searchFilter; }
-    void setSearchFilter(const QString &query);
+    Q_INVOKABLE void setSearchFilter(const QString &query);
 
     Q_INVOKABLE void refresh(bool hideIgnored = true);
     Q_INVOKABLE QVariantList getFlatMediaList() const;

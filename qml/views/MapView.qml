@@ -31,9 +31,10 @@ Item {
             id: mapCanvas
             Layout.fillWidth: true
             Layout.fillHeight: true
-            radius: 24
+            radius: 16
             color: ThemeManager.surfaceContainerLow
             clip: true
+            layer.enabled: true  // forces Map's OpenGL rendering through QML layer so clip+radius work
 
             // Attribution (CARTO/OSM requirement)
             Label {
@@ -65,8 +66,6 @@ Item {
                 plugin: mapPlugin
                 center: QtPositioning.coordinate(20, 0)
                 zoomLevel: 2
-                gesture.enabled: true
-                gesture.acceptedGestures: MapGestureArea.PanGesture | MapGestureArea.PinchGesture | MapGestureArea.FlickGesture
 
                 Component.onCompleted: {
                     for (var i = 0; i < supportedMapTypes.length; i++) {

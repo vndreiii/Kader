@@ -16,7 +16,6 @@ Item {
         id: gridView
         anchors.fill: parent
 
-        // Use effective content width (minus margins) so tiles fill exactly
         readonly property real contentW: width - leftMargin - rightMargin
         readonly property int  numCols:  Math.max(1, Math.floor(contentW / 220))
         cellWidth:  contentW / numCols
@@ -35,6 +34,41 @@ Item {
             width: gridView.cellWidth
             height: gridView.cellHeight
 
+            // Context menu at item level — triggered by ··· button OR right-click
+            MD.Menu {
+                id: albumMenu
+                MD.MenuItem {
+                    text: model.pinned ? "Unpin album" : "Pin album"
+                    onTriggered: { DB.pinAlbum(model.folder_path, !model.pinned); AlbumModel.refresh() }
+                }
+                MD.MenuItem {
+                    text: "Add to Ignored"
+                    onTriggered: { DB.ignoreAlbum(model.folder_path, true); AlbumModel.refresh(); TimelineModel.refresh() }
+                }
+                MD.MenuItem {
+                    text: "Change album cover"
+                    enabled: false
+                }
+                MD.MenuItem {
+                    text: "Move to Trash"
+                    onTriggered: { DB.trashAlbum(model.folder_path); AlbumModel.refresh(); TimelineModel.refresh() }
+                }
+            }
+
+            // MouseArea FIRST = lower z-order, so buttons on top capture clicks first
+            MouseArea {
+                id: mouseArea
+                anchors.fill: parent
+                hoverEnabled: true
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                onClicked: (mouse) => {
+                    if (mouse.button === Qt.RightButton)
+                        albumMenu.popup()
+                    else
+                        root.openAlbum(model.folder_path, model.name)
+                }
+            }
+
             ColumnLayout {
                 anchors.fill: parent
                 anchors.margins: 8
@@ -47,7 +81,7 @@ Item {
                     radius: mouseArea.containsMouse ? 28 : 24
                     color: ThemeManager.surfaceContainerHigh
                     clip: true
-                    
+
                     Behavior on radius { NumberAnimation { duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
 
                     Image {
@@ -71,6 +105,7 @@ Item {
                         M3Icon { anchors.centerIn: parent; name: "pin"; size: 16; color: ThemeManager.primary }
                     }
 
+                    // ··· button — declared after MouseArea in parent, higher z, catches clicks first
                     Button {
                         id: moreBtn
                         anchors.top: parent.top
@@ -80,30 +115,7 @@ Item {
                         visible: mouseArea.containsMouse
                         background: Rectangle { radius: 16; color: Qt.alpha("black", 0.4) }
                         contentItem: M3Icon { name: "more_vert"; size: 18; color: "white"; anchors.centerIn: parent }
-                        onClicked: (mouse) => {
-                            mouse.accepted = true
-                            albumMenu.popup()
-                        }
-
-                        MD.Menu {
-                            id: albumMenu
-                            MD.MenuItem {
-                                text: model.pinned ? "Unpin album" : "Pin album"
-                                onTriggered: { DB.pinAlbum(model.folder_path, !model.pinned); AlbumModel.refresh() }
-                            }
-                            MD.MenuItem {
-                                text: "Add to Ignored"
-                                onTriggered: { DB.ignoreAlbum(model.folder_path, true); AlbumModel.refresh(); TimelineModel.refresh() }
-                            }
-                            MD.MenuItem {
-                                text: "Change album cover"
-                                enabled: false
-                            }
-                            MD.MenuItem {
-                                text: "Move to Trash"
-                                onTriggered: { DB.trashAlbum(model.folder_path); AlbumModel.refresh(); TimelineModel.refresh() }
-                            }
-                        }
+                        onClicked: albumMenu.popup()
                     }
 
                     Rectangle {
@@ -127,13 +139,6 @@ Item {
                         Label { visible: model.customCover || false; text: "Custom cover"; font.pixelSize: 12; color: ThemeManager.onSurfaceVariant }
                     }
                 }
-            }
-
-            MouseArea {
-                id: mouseArea
-                anchors.fill: parent
-                hoverEnabled: true
-                onClicked: root.openAlbum(model.folder_path, model.name)
             }
         }
     }

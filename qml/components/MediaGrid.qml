@@ -60,15 +60,20 @@ Item {
                     model: rowItem._items
 
                     Tile {
-                        required property var modelData
-                        readonly property int span: modelData.col_span || 1
-                        width:  root.tileSize * span + root.gap * (span - 1)
+                        width: {
+                            var span = (modelData && modelData.col_span) ? modelData.col_span : 1
+                            return root.tileSize * span + root.gap * (span - 1)
+                        }
                         height: root.tileSize
                         modelData: modelData
-                        onOpen: root.openViewer(modelData, modelData._flat_index || 0)
+                        onOpen: {
+                            if (modelData) root.openViewer(modelData, modelData._flat_index || 0)
+                        }
                         onToggleFav: {
-                            DB.toggleFavorite(modelData.id)
-                            TimelineModel.refresh()
+                            if (modelData) {
+                                DB.toggleFavorite(modelData.id)
+                                TimelineModel.refresh()
+                            }
                         }
                     }
                 }

@@ -27,6 +27,7 @@ public:
 
     QString searchFilter() const { return m_searchFilter; }
     Q_INVOKABLE void setSearchFilter(const QString &query);
+    Q_PROPERTY(QString searchFilter READ searchFilter WRITE setSearchFilter NOTIFY searchFilterChanged)
 
 signals:
     void searchFilterChanged();
