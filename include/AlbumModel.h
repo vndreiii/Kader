@@ -25,8 +25,15 @@ public:
 
     Q_INVOKABLE void refresh(bool hideIgnored = true);
 
+    QString searchFilter() const { return m_searchFilter; }
+    Q_INVOKABLE void setSearchFilter(const QString &query);
+
+signals:
+    void searchFilterChanged();
+
 private:
     DatabaseManager *m_db;
     ThumbnailGenerator *m_thumb;
     QVariantList m_data;
+    QString m_searchFilter;
 };

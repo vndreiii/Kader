@@ -42,15 +42,31 @@ QHash<int, QByteArray> AlbumModel::roleNames() const {
     QHash<int, QByteArray> roles;
     roles[NameRole] = "name";
     roles[PathRole] = "path";
-    roles[CountRole] = "itemCount";
-    roles[SizeRole] = "totalSize";
-    roles[CoverRole] = "coverThumb";
+    roles[CountRole] = "count";
+    roles[SizeRole] = "size";
+    roles[CoverRole] = "cover";
     return roles;
 }
 
 void AlbumModel::refresh(bool hideIgnored) {
     beginResetModel();
     m_data = m_db->getAlbums(hideIgnored);
+    if (!m_searchFilter.isEmpty()) {
+        const QString q = m_searchFilter.toLower();
+        QVariantList filtered;
+        for (const QVariant &v : m_data)
+            if (v.toMap().value("name").toString().toLower().contains(q))
+                filtered.append(v);
+        m_data = filtered;
+    }
     qDebug() << "Album refresh: loaded" << m_data.size() << "albums";
     endResetModel();
+}
+
+void AlbumModel::setSearchFilter(const QString &query) {
+    if (m_searchFilter != query) {
+        m_searchFilter = query;
+        emit searchFilterChanged();
+        refresh();
+    }
 }

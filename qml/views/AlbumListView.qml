@@ -1,10 +1,12 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import Qcm.Material as MD
 import "../components"
 
 Item {
     id: root
+    signal openAlbum(string folderPath, string albumName)
     property alias topPadding: gridView.topMargin
 
     implicitWidth: 800
@@ -13,10 +15,16 @@ Item {
     GridView {
         id: gridView
         anchors.fill: parent
-        cellWidth: width / Math.max(1, Math.floor(width / 240))
-        cellHeight: cellWidth + 60
+
+        // Use effective content width (minus margins) so tiles fill exactly
+        readonly property real contentW: width - leftMargin - rightMargin
+        readonly property int  numCols:  Math.max(1, Math.floor(contentW / 220))
+        cellWidth:  contentW / numCols
+        cellHeight: cellWidth + 64
+
         model: AlbumModel
         clip: true
+        cacheBuffer: height * 2
         leftMargin: 24
         rightMargin: 24
         topMargin: 0
@@ -44,7 +52,11 @@ Item {
 
                     Image {
                         anchors.fill: parent
-                        source: model.cover || ""
+                        source: {
+                            var p = model.cover || ""
+                            if (p && p.indexOf("://") === -1) return "file://" + p
+                            return p
+                        }
                         fillMode: Image.PreserveAspectCrop
                         asynchronous: true
                     }
@@ -60,6 +72,7 @@ Item {
                     }
 
                     Button {
+                        id: moreBtn
                         anchors.top: parent.top
                         anchors.right: parent.right
                         anchors.margins: 12
@@ -67,6 +80,30 @@ Item {
                         visible: mouseArea.containsMouse
                         background: Rectangle { radius: 16; color: Qt.alpha("black", 0.4) }
                         contentItem: M3Icon { name: "more_vert"; size: 18; color: "white"; anchors.centerIn: parent }
+                        onClicked: (mouse) => {
+                            mouse.accepted = true
+                            albumMenu.popup()
+                        }
+
+                        MD.Menu {
+                            id: albumMenu
+                            MD.MenuItem {
+                                text: model.pinned ? "Unpin album" : "Pin album"
+                                onTriggered: { DB.pinAlbum(model.folder_path, !model.pinned); AlbumModel.refresh() }
+                            }
+                            MD.MenuItem {
+                                text: "Add to Ignored"
+                                onTriggered: { DB.ignoreAlbum(model.folder_path, true); AlbumModel.refresh(); TimelineModel.refresh() }
+                            }
+                            MD.MenuItem {
+                                text: "Change album cover"
+                                enabled: false
+                            }
+                            MD.MenuItem {
+                                text: "Move to Trash"
+                                onTriggered: { DB.trashAlbum(model.folder_path); AlbumModel.refresh(); TimelineModel.refresh() }
+                            }
+                        }
                     }
 
                     Rectangle {
@@ -76,23 +113,28 @@ Item {
                         width: weightLabel.width + 20
                         height: 24; radius: 12
                         color: Qt.alpha("black", 0.55)
-                        Label { id: weightLabel; anchors.centerIn: parent; text: model.size || "0 MB"; color: "white"; font.pixelSize: 11; font.weight: Font.Medium }
+                        Label { id: weightLabel; anchors.centerIn: parent; text: model.size || "–"; color: "white"; font.pixelSize: 11; font.weight: Font.Medium }
                     }
                 }
 
                 ColumnLayout {
                     Layout.fillWidth: true; spacing: 2
-                    Label { Layout.fillWidth: true; text: model.name; font.pixelSize: 16; font.weight: Font.Medium; color: ThemeManager.onSurface; elide: Text.ElideRight }
+                    Label { Layout.fillWidth: true; text: model.name || ""; font.pixelSize: 16; font.weight: Font.Medium; color: ThemeManager.onSurface; elide: Text.ElideRight }
                     RowLayout {
                         spacing: 6
-                        Label { text: model.count + " items"; font.pixelSize: 12; color: ThemeManager.onSurfaceVariant }
+                        Label { text: (model.count || 0) + " items"; font.pixelSize: 12; color: ThemeManager.onSurfaceVariant }
                         Rectangle { width: 3; height: 3; radius: 1.5; color: ThemeManager.onSurfaceVariant; opacity: 0.6 }
                         Label { visible: model.customCover || false; text: "Custom cover"; font.pixelSize: 12; color: ThemeManager.onSurfaceVariant }
                     }
                 }
             }
 
-            MouseArea { id: mouseArea; anchors.fill: parent; hoverEnabled: true }
+            MouseArea {
+                id: mouseArea
+                anchors.fill: parent
+                hoverEnabled: true
+                onClicked: root.openAlbum(model.folder_path, model.name)
+            }
         }
     }
 

@@ -3,6 +3,7 @@
 #include <QTextStream>
 #include <QDir>
 #include <QStandardPaths>
+#include <QSettings>
 #include <QDebug>
 
 ThemeManager::ThemeManager(QObject *parent) : QObject(parent) {
@@ -12,6 +13,17 @@ ThemeManager::ThemeManager(QObject *parent) : QObject(parent) {
         m_watcher->addPath(path);
         connect(m_watcher, &QFileSystemWatcher::fileChanged, this, &ThemeManager::refreshTheme);
     }
+    QSettings s;
+    m_themeMode = s.value("themeMode", 0).toInt();
+    refreshTheme();
+}
+
+void ThemeManager::setThemeMode(int mode) {
+    if (m_themeMode == mode) return;
+    m_themeMode = mode;
+    QSettings s;
+    s.setValue("themeMode", mode);
+    emit themeModeChanged();
     refreshTheme();
 }
 
@@ -29,6 +41,69 @@ void ThemeManager::refreshTheme() {
 }
 
 void ThemeManager::parseScss() {
+    if (m_themeMode == 1) { // Light
+        m_colors.clear();
+        m_colors["primary"]                 = "#6750A4";
+        m_colors["onPrimary"]               = "#FFFFFF";
+        m_colors["primaryContainer"]        = "#EADDFF";
+        m_colors["onPrimaryContainer"]      = "#21005D";
+        m_colors["secondary"]               = "#625B71";
+        m_colors["onSecondary"]             = "#FFFFFF";
+        m_colors["secondaryContainer"]      = "#E8DEF8";
+        m_colors["onSecondaryContainer"]    = "#1D192B";
+        m_colors["error"]                   = "#B3261E";
+        m_colors["onError"]                 = "#FFFFFF";
+        m_colors["errorContainer"]          = "#F9DEDC";
+        m_colors["onErrorContainer"]        = "#410E0B";
+        m_colors["surface"]                 = "#FEF7FF";
+        m_colors["surfaceDim"]              = "#DED8E1";
+        m_colors["surfaceBright"]           = "#FEF7FF";
+        m_colors["surfaceContainerLowest"]  = "#FFFFFF";
+        m_colors["surfaceContainerLow"]     = "#F7F2FA";
+        m_colors["surfaceContainer"]        = "#F3EDF7";
+        m_colors["surfaceContainerHigh"]    = "#ECE6F0";
+        m_colors["surfaceContainerHighest"] = "#E6E0E9";
+        m_colors["onSurface"]               = "#1D1B20";
+        m_colors["onSurfaceVariant"]        = "#49454F";
+        m_colors["outline"]                 = "#79747E";
+        m_colors["outlineVariant"]          = "#CAC4D0";
+        m_colors["inverseSurface"]          = "#322F35";
+        m_colors["inverseOnSurface"]        = "#F5EFF7";
+        m_colors["inversePrimary"]          = "#D0BCFF";
+        return;
+    }
+    if (m_themeMode == 2) { // Dark
+        m_colors.clear();
+        m_colors["primary"]                 = "#D0BCFF";
+        m_colors["onPrimary"]               = "#381E72";
+        m_colors["primaryContainer"]        = "#4F378B";
+        m_colors["onPrimaryContainer"]      = "#EADDFF";
+        m_colors["secondary"]               = "#CCC2DC";
+        m_colors["onSecondary"]             = "#332D41";
+        m_colors["secondaryContainer"]      = "#4A4458";
+        m_colors["onSecondaryContainer"]    = "#E8DEF8";
+        m_colors["error"]                   = "#F2B8B5";
+        m_colors["onError"]                 = "#601410";
+        m_colors["errorContainer"]          = "#8C1D18";
+        m_colors["onErrorContainer"]        = "#F9DEDC";
+        m_colors["surface"]                 = "#141218";
+        m_colors["surfaceDim"]              = "#141218";
+        m_colors["surfaceBright"]           = "#3B383E";
+        m_colors["surfaceContainerLowest"]  = "#0F0D13";
+        m_colors["surfaceContainerLow"]     = "#1D1B20";
+        m_colors["surfaceContainer"]        = "#211F26";
+        m_colors["surfaceContainerHigh"]    = "#2B2930";
+        m_colors["surfaceContainerHighest"] = "#36343B";
+        m_colors["onSurface"]               = "#E6E1E5";
+        m_colors["onSurfaceVariant"]        = "#CAC4D0";
+        m_colors["outline"]                 = "#938F99";
+        m_colors["outlineVariant"]          = "#49454F";
+        m_colors["inverseSurface"]          = "#E6E1E5";
+        m_colors["inverseOnSurface"]        = "#322F35";
+        m_colors["inversePrimary"]          = "#6750A4";
+        return;
+    }
+    // System (mode 0): parse SCSS file
     QString path = getScssPath();
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {

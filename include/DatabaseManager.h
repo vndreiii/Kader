@@ -17,9 +17,13 @@ public:
     bool openDatabase();
     
     // CRUD operations for media
-    bool addOrUpdateMedia(const QString &filePath, const QString &hash, 
-                         qint64 size, const QString &mimeType, 
-                         const QDateTime &creationDate, int width, int height);
+    bool addOrUpdateMedia(const QString &filePath, const QString &hash,
+                         qint64 size, const QString &mimeType,
+                         const QDateTime &creationDate, int width, int height,
+                         double latitude = 0.0, double longitude = 0.0);
+
+    // Returns [{file_path, latitude, longitude, photo_count, thumb_path}] grouped ~1km.
+    Q_INVOKABLE QVariantList getGeotaggedLocations();
 
     // Get all media for the models
     QVariantList getAllMedia(bool hideIgnored = true);
@@ -36,8 +40,25 @@ public:
     Q_INVOKABLE bool removeIndexedDirectory(const QString &path);
     bool updateDirectoryStats(const QString &path, int count);
 
-    // Check if a file is already in the database and its modification time
+    // Returns true if the file needs (re-)indexing: new, size changed, or missing EXIF.
     bool needsUpdate(const QString &filePath, qint64 size);
+
+    // Encrypted thumbnail blob storage
+    QByteArray getThumbnailBlob(const QString &filePath, int size); // non-const: calls checkConnection()
+    bool storeThumbnailBlob(const QString &filePath, int size, const QByteArray &encryptedBlob);
+
+    // Media actions
+    Q_INVOKABLE bool toggleFavorite(int mediaId);
+    Q_INVOKABLE bool setTrashed(int mediaId, bool trashed);
+    Q_INVOKABLE bool deleteMediaPermanently(int mediaId);
+    Q_INVOKABLE QVariantMap getMediaById(int mediaId);
+
+    // Album actions
+    Q_INVOKABLE bool pinAlbum(const QString &folderPath, bool pinned);
+    Q_INVOKABLE bool trashAlbum(const QString &folderPath);
+
+    // Storage stats
+    Q_INVOKABLE qint64 getTotalMediaSizeBytes();
 
 private:
     bool createTables();

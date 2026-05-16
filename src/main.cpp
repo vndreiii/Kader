@@ -6,6 +6,7 @@
 #include "FileScanner.h"
 #include "DatabaseManager.h"
 #include "ThumbnailGenerator.h"
+#include "ThumbnailProvider.h"
 #include "MediaModel.h"
 #include "TimelineModel.h"
 #include "AlbumModel.h"
@@ -23,7 +24,7 @@ int main(int argc, char *argv[]) {
     DatabaseManager dbManager;
     SettingsManager settingsManager;
     ThemeManager themeManager;
-    StorageManager storageManager;
+    StorageManager storageManager(&dbManager);
     ThumbnailGenerator thumbGenerator;
     FileScanner fileScanner(&dbManager);
     MediaModel mediaModel(&dbManager, &thumbGenerator);
@@ -35,10 +36,12 @@ int main(int argc, char *argv[]) {
     timelineModel.refresh(settingsManager.hideIgnoredInTimeline());
     albumModel.refresh(true); // Albums usually always hide ignored unless in settings
 
-    QObject::connect(&fileScanner, &FileScanner::scanFinished, [&]() {
+    // Context object (&app) ensures the lambda runs on the main thread via a queued connection.
+    QObject::connect(&fileScanner, &FileScanner::scanFinished, &app, [&](const QStringList &, int, double, const QString &) {
         mediaModel.refresh(settingsManager.hideIgnoredInTimeline());
         timelineModel.refresh(settingsManager.hideIgnoredInTimeline());
         albumModel.refresh(true);
+        storageManager.refresh();
     });
 
     // Handle settings changes
@@ -48,6 +51,9 @@ int main(int argc, char *argv[]) {
     });
 
     QQmlApplicationEngine engine;
+
+    // Register the encrypted thumbnail image provider.
+    engine.addImageProvider("thumbnails", new ThumbnailProvider(&dbManager, &thumbGenerator));
 
     engine.addImportPath("qrc:/");
     engine.addImportPath(app.applicationDirPath() + "/qml_modules");

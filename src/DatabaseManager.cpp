@@ -1,4 +1,5 @@
 #include "DatabaseManager.h"
+#include "ThumbnailGenerator.h"
 #include <QStandardPaths>
 #include <QDir>
 #include <QDebug>
@@ -87,6 +88,28 @@ bool DatabaseManager::createTables() {
         ")"
     );
 
+    query.exec(
+        "CREATE TABLE IF NOT EXISTS thumbnails ("
+        "file_path TEXT NOT NULL,"
+        "size INTEGER NOT NULL,"
+        "blob BLOB NOT NULL,"
+        "PRIMARY KEY (file_path, size)"
+        ")"
+    );
+
+    // Migration: add columns that may be missing when an older DB exists on disk.
+    // ALTER TABLE returns an error if the column already exists — that is harmless and expected.
+    auto migrate = [&](const QString &tbl, const QString &col, const QString &def) {
+        QSqlQuery mq(m_db);
+        mq.exec(QString("ALTER TABLE %1 ADD COLUMN %2 %3").arg(tbl, col, def));
+    };
+    migrate("albums", "is_pinned",   "BOOLEAN DEFAULT 0");
+    migrate("albums", "is_ignored",  "BOOLEAN DEFAULT 0");
+    migrate("media",  "is_favorite", "BOOLEAN DEFAULT 0");
+    migrate("media",  "is_trashed",  "BOOLEAN DEFAULT 0");
+    migrate("media",  "latitude",    "REAL");
+    migrate("media",  "longitude",   "REAL");
+
     return success;
 }
 
@@ -143,26 +166,30 @@ bool DatabaseManager::ignoreAlbum(const QString &folderPath, bool ignore) {
     return query.exec();
 }
 
-bool DatabaseManager::addOrUpdateMedia(const QString &filePath, const QString &hash, 
-                                     qint64 size, const QString &mimeType, 
-                                     const QDateTime &creationDate, int width, int height) {
+bool DatabaseManager::addOrUpdateMedia(const QString &filePath, const QString &hash,
+                                     qint64 size, const QString &mimeType,
+                                     const QDateTime &creationDate, int width, int height,
+                                     double latitude, double longitude) {
     checkConnection();
     QFileInfo fileInfo(filePath);
     QString folderPath = fileInfo.absolutePath();
 
     QSqlQuery query(m_db);
     query.prepare(
-        "INSERT OR REPLACE INTO media (file_path, folder_path, file_hash, file_size, mime_type, creation_date, width, height) "
-        "VALUES (:path, :folder, :hash, :size, :mime, :date, :w, :h)"
+        "INSERT OR REPLACE INTO media "
+        "(file_path, folder_path, file_hash, file_size, mime_type, creation_date, width, height, latitude, longitude) "
+        "VALUES (:path, :folder, :hash, :size, :mime, :date, :w, :h, :lat, :lon)"
     );
     query.bindValue(":path", filePath);
     query.bindValue(":folder", folderPath);
     query.bindValue(":hash", hash);
     query.bindValue(":size", size);
     query.bindValue(":mime", mimeType);
-    query.bindValue(":date", creationDate.toSecsSinceEpoch());
+    query.bindValue(":date", creationDate.isValid() ? creationDate.toSecsSinceEpoch() : 0);
     query.bindValue(":w", width);
     query.bindValue(":h", height);
+    query.bindValue(":lat", latitude != 0.0 ? QVariant(latitude) : QVariant(QMetaType::fromType<double>()));
+    query.bindValue(":lon", longitude != 0.0 ? QVariant(longitude) : QVariant(QMetaType::fromType<double>()));
 
     if (!query.exec()) {
         qWarning() << "Error adding/updating media:" << query.lastError().text();
@@ -174,26 +201,39 @@ bool DatabaseManager::addOrUpdateMedia(const QString &filePath, const QString &h
 bool DatabaseManager::needsUpdate(const QString &filePath, qint64 size) {
     checkConnection();
     QSqlQuery query(m_db);
-    query.prepare("SELECT file_size FROM media WHERE file_path = :path");
+    query.prepare("SELECT file_size, creation_date FROM media WHERE file_path = :path");
     query.bindValue(":path", filePath);
 
     if (query.exec() && query.next()) {
         qint64 storedSize = query.value(0).toLongLong();
-        return storedSize != size;
+        qint64 storedDate = query.value(1).toLongLong();
+        // Re-index if size changed or if EXIF was never extracted (date is 0).
+        return storedSize != size || storedDate == 0;
     }
-    return true;
+    return true; // Not in DB yet — insert it.
 }
 
 QVariantList DatabaseManager::getAlbums(bool hideIgnored) {
     checkConnection();
+
+    QString connName = (QThread::currentThread() == qApp->thread())
+                       ? QLatin1String("qt_sql_default_connection")
+                       : QString("connection_%1").arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
+    QSqlDatabase db = QSqlDatabase::database(connName);
+
     QVariantList list;
     QString sql = "SELECT folder_path, COUNT(*), SUM(file_size), MIN(file_path) FROM media ";
     if (hideIgnored) {
-        sql += "WHERE folder_path NOT IN (SELECT path_prefix FROM albums WHERE is_ignored = 1) ";
+        sql += "WHERE COALESCE(folder_path,'') NOT IN "
+               "(SELECT COALESCE(path_prefix,'') FROM albums WHERE is_ignored = 1) ";
     }
     sql += "GROUP BY folder_path ORDER BY folder_path ASC";
-    
-    QSqlQuery query(sql, m_db);
+
+    QSqlQuery query(db);
+    if (!query.exec(sql)) {
+        qWarning() << "[DB] getAlbums query failed:" << query.lastError().text();
+        return list;
+    }
     while (query.next()) {
         QVariantMap map;
         map["folder_path"] = query.value(0);
@@ -206,16 +246,170 @@ QVariantList DatabaseManager::getAlbums(bool hideIgnored) {
     return list;
 }
 
+QVariantList DatabaseManager::getGeotaggedLocations() {
+    checkConnection();
+    QSqlDatabase db = QSqlDatabase::database(
+        QThread::currentThread() == qApp->thread()
+            ? QLatin1String("qt_sql_default_connection")
+            : QString("connection_%1").arg(reinterpret_cast<quintptr>(QThread::currentThreadId()))
+    );
+
+    QVariantList list;
+    // Group photos within ~1km radius (2 decimal places ≈ 1.1 km).
+    QSqlQuery query(db);
+    if (!query.exec(
+            "SELECT ROUND(latitude,2) AS lat, ROUND(longitude,2) AS lon, "
+            "COUNT(*) AS cnt, MIN(file_path) AS sample "
+            "FROM media "
+            "WHERE latitude IS NOT NULL AND longitude IS NOT NULL "
+            "  AND latitude != 0 AND longitude != 0 "
+            "GROUP BY lat, lon "
+            "ORDER BY cnt DESC "
+            "LIMIT 500")) {
+        qWarning() << "getGeotaggedLocations failed:" << query.lastError().text();
+        return list;
+    }
+    while (query.next()) {
+        QVariantMap m;
+        m["lat"]   = query.value(0).toDouble();
+        m["lon"]   = query.value(1).toDouble();
+        m["count"] = query.value(2).toInt();
+        m["thumb"] = ThumbnailGenerator::thumbnailUrl(query.value(3).toString());
+        list.append(m);
+    }
+    return list;
+}
+
+QByteArray DatabaseManager::getThumbnailBlob(const QString &filePath, int size) {
+    checkConnection(); // opens thread-local connection if called from image loading thread
+    const QString connName = (QThread::currentThread() == qApp->thread())
+        ? QLatin1String("qt_sql_default_connection")
+        : QString("connection_%1").arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
+    QSqlDatabase db = QSqlDatabase::database(connName);
+    if (!db.isOpen()) return {};
+
+    QSqlQuery query(db);
+    query.prepare("SELECT blob FROM thumbnails WHERE file_path = :path AND size = :size");
+    query.bindValue(":path", filePath);
+    query.bindValue(":size", size);
+    if (query.exec() && query.next())
+        return query.value(0).toByteArray();
+    return {};
+}
+
+bool DatabaseManager::storeThumbnailBlob(const QString &filePath, int size, const QByteArray &encryptedBlob) {
+    checkConnection();
+    const QString connName = (QThread::currentThread() == qApp->thread())
+        ? QLatin1String("qt_sql_default_connection")
+        : QString("connection_%1").arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
+    QSqlDatabase db = QSqlDatabase::database(connName);
+    QSqlQuery query(db);
+    query.prepare("INSERT OR REPLACE INTO thumbnails (file_path, size, blob) VALUES (:path, :size, :blob)");
+    query.bindValue(":path", filePath);
+    query.bindValue(":size", size);
+    query.bindValue(":blob", encryptedBlob);
+    return query.exec();
+}
+
+bool DatabaseManager::toggleFavorite(int mediaId) {
+    checkConnection();
+    QSqlQuery q(m_db);
+    q.prepare("UPDATE media SET is_favorite = NOT is_favorite WHERE id = :id");
+    q.bindValue(":id", mediaId);
+    return q.exec();
+}
+
+bool DatabaseManager::setTrashed(int mediaId, bool trashed) {
+    checkConnection();
+    QSqlQuery q(m_db);
+    q.prepare("UPDATE media SET is_trashed = :v WHERE id = :id");
+    q.bindValue(":v", trashed ? 1 : 0);
+    q.bindValue(":id", mediaId);
+    return q.exec();
+}
+
+bool DatabaseManager::deleteMediaPermanently(int mediaId) {
+    checkConnection();
+    QSqlQuery pathQ(m_db);
+    pathQ.prepare("SELECT file_path FROM media WHERE id = :id");
+    pathQ.bindValue(":id", mediaId);
+    if (pathQ.exec() && pathQ.next()) {
+        QSqlQuery thumbQ(m_db);
+        thumbQ.prepare("DELETE FROM thumbnails WHERE file_path = :path");
+        thumbQ.bindValue(":path", pathQ.value(0).toString());
+        thumbQ.exec();
+    }
+    QSqlQuery q(m_db);
+    q.prepare("DELETE FROM media WHERE id = :id");
+    q.bindValue(":id", mediaId);
+    return q.exec();
+}
+
+QVariantMap DatabaseManager::getMediaById(int mediaId) {
+    checkConnection();
+    QSqlQuery q(m_db);
+    q.prepare("SELECT * FROM media WHERE id = :id");
+    q.bindValue(":id", mediaId);
+    if (q.exec() && q.next()) {
+        QVariantMap map;
+        QSqlRecord rec = q.record();
+        for (int i = 0; i < rec.count(); ++i)
+            map[rec.fieldName(i)] = q.value(i);
+        map["thumb"] = ThumbnailGenerator::thumbnailUrl(map["file_path"].toString());
+        map["path"]  = "file://" + map["file_path"].toString();
+        return map;
+    }
+    return {};
+}
+
+bool DatabaseManager::pinAlbum(const QString &folderPath, bool pinned) {
+    checkConnection();
+    QSqlQuery q(m_db);
+    q.prepare("INSERT INTO albums (name, path_prefix, is_pinned) VALUES (:name, :path, :pin) "
+              "ON CONFLICT(path_prefix) DO UPDATE SET is_pinned = :pin");
+    q.bindValue(":name", QDir(folderPath).dirName());
+    q.bindValue(":path", folderPath);
+    q.bindValue(":pin",  pinned ? 1 : 0);
+    return q.exec();
+}
+
+bool DatabaseManager::trashAlbum(const QString &folderPath) {
+    checkConnection();
+    QSqlQuery q(m_db);
+    q.prepare("UPDATE media SET is_trashed = 1 WHERE folder_path = :path");
+    q.bindValue(":path", folderPath);
+    return q.exec();
+}
+
+qint64 DatabaseManager::getTotalMediaSizeBytes() {
+    checkConnection();
+    QSqlQuery q(m_db);
+    q.exec("SELECT COALESCE(SUM(file_size), 0) FROM media WHERE is_trashed = 0");
+    return q.next() ? q.value(0).toLongLong() : 0;
+}
+
 QVariantList DatabaseManager::getAllMedia(bool hideIgnored) {
     checkConnection();
+
+    // Resolve the thread-local connection by name to avoid sharing m_db across threads.
+    QString connName = (QThread::currentThread() == qApp->thread())
+                       ? QLatin1String("qt_sql_default_connection")
+                       : QString("connection_%1").arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
+    QSqlDatabase db = QSqlDatabase::database(connName);
+
     QVariantList list;
     QString sql = "SELECT * FROM media ";
     if (hideIgnored) {
-        sql += "WHERE folder_path NOT IN (SELECT path_prefix FROM albums WHERE is_ignored = 1) ";
+        sql += "WHERE COALESCE(folder_path,'') NOT IN "
+               "(SELECT COALESCE(path_prefix,'') FROM albums WHERE is_ignored = 1) ";
     }
     sql += "ORDER BY creation_date DESC";
-    
-    QSqlQuery query(sql, m_db);
+
+    QSqlQuery query(db);
+    if (!query.exec(sql)) {
+        qWarning() << "getAllMedia query failed:" << query.lastError().text();
+        return list;
+    }
     while (query.next()) {
         QVariantMap map;
         QSqlRecord record = query.record();

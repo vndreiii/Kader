@@ -25,6 +25,9 @@ track-reports.txt
 benchmarks/
 *.log
 
+# Specs & planning docs
+docs/
+
 #LLM stupid shit
 What-I-Did_Im-Gemini.md
 @What-I-Did_Im-Gemini.md

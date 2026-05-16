@@ -7,11 +7,25 @@ import "../components"
 
 Item {
     id: root
-    
+
+    property var locations: []
+
+    Component.onCompleted: {
+        locations = DB.getGeotaggedLocations()
+    }
+
+    Connections {
+        target: FileScanner
+        function onScanFinished() {
+            root.locations = DB.getGeotaggedLocations()
+        }
+    }
+
     RowLayout {
         anchors.fill: parent
-        spacing: 0
-        
+        anchors.margins: 12
+        spacing: 12
+
         // Map Canvas
         Rectangle {
             id: mapCanvas
@@ -20,80 +34,148 @@ Item {
             radius: 24
             color: ThemeManager.surfaceContainerLow
             clip: true
-            
-            // Flatten right and bottom
-            Rectangle { anchors.right: parent.right; anchors.top: parent.top; anchors.bottom: parent.bottom; width: 24; color: parent.color }
-            Rectangle { anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.right: parent.right; height: 24; color: parent.color }
+
+            // Attribution (CARTO/OSM requirement)
+            Label {
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                anchors.margins: 6
+                z: 10
+                text: "© OpenStreetMap contributors, © CARTO"
+                font.pixelSize: 9
+                color: Qt.alpha("white", 0.55)
+            }
 
             Plugin {
                 id: mapPlugin
-                name: "esri" // Prettier and FOSS-friendly alternative
+                name: "osm"
+                PluginParameter {
+                    name: "osm.mapping.custom.host"
+                    value: "https://a.basemaps.cartocdn.com/dark_all/"
+                }
+                PluginParameter {
+                    name: "osm.mapping.copyright"
+                    value: "© OpenStreetMap contributors, © CARTO"
+                }
             }
 
             Map {
                 id: map
                 anchors.fill: parent
                 plugin: mapPlugin
-                center: QtPositioning.coordinate(48.8566, 2.3522) // Paris
-                zoomLevel: 4
-                
+                center: QtPositioning.coordinate(20, 0)
+                zoomLevel: 2
+                gesture.enabled: true
+                gesture.acceptedGestures: MapGestureArea.PanGesture | MapGestureArea.PinchGesture | MapGestureArea.FlickGesture
+
+                Component.onCompleted: {
+                    for (var i = 0; i < supportedMapTypes.length; i++) {
+                        if (supportedMapTypes[i].style === MapType.CustomMap) {
+                            activeMapType = supportedMapTypes[i]
+                            break
+                        }
+                    }
+                }
+
+                // Fit map to actual photo locations once data loads
+                onMapReadyChanged: {
+                    if (mapReady && root.locations.length > 0) fitToLocations()
+                }
+
+                function fitToLocations() {
+                    if (root.locations.length === 0) return
+                    var minLat = 90, maxLat = -90, minLon = 180, maxLon = -180
+                    for (var i = 0; i < root.locations.length; i++) {
+                        var l = root.locations[i]
+                        if (l.lat < minLat) minLat = l.lat
+                        if (l.lat > maxLat) maxLat = l.lat
+                        if (l.lon < minLon) minLon = l.lon
+                        if (l.lon > maxLon) maxLon = l.lon
+                    }
+                    if (root.locations.length === 1) {
+                        center = QtPositioning.coordinate(root.locations[0].lat, root.locations[0].lon)
+                        zoomLevel = 10
+                    } else {
+                        fitViewportToMapItems()
+                    }
+                }
+
                 MapItemView {
-                    model: [
-                        { name: "Tokyo", lat: 35.6762, lon: 139.6503, count: 12 },
-                        { name: "Paris", lat: 48.8566, lon: 2.3522, count: 8 },
-                        { name: "Lisbon", lat: 38.7223, lon: -9.1393, count: 15 }
-                    ]
+                    model: root.locations
                     delegate: MapQuickItem {
                         coordinate: QtPositioning.coordinate(modelData.lat, modelData.lon)
                         anchorPoint.x: bubble.width / 2
-                        anchorPoint.y: bubble.height + 12
-                        
+                        anchorPoint.y: bubble.height + 10
+
                         sourceItem: Rectangle {
                             id: bubble
-                            width: label.width + 64; height: 40; radius: 20
+                            height: 36
+                            width: countBadge.width + thumbRect.width + 12
+                            radius: 18
                             color: ThemeManager.primary
-                            
+
                             RowLayout {
-                                anchors.fill: parent; anchors.margins: 4; anchors.leftMargin: 6; anchors.rightMargin: 12; spacing: 8
-                                Rectangle { 
-                                    width: 32; height: 32; radius: 16; color: "white"; clip: true 
-                                    Image { anchors.fill: parent; source: "https://picsum.photos/seed/" + modelData.name + "/80/80"; fillMode: Image.PreserveAspectCrop }
+                                anchors.fill: parent
+                                anchors.margins: 4
+                                spacing: 6
+
+                                Rectangle {
+                                    id: thumbRect
+                                    width: 28; height: 28; radius: 14; clip: true
+                                    color: ThemeManager.primaryContainer
+                                    Image {
+                                        anchors.fill: parent
+                                        source: modelData.thumb || ""
+                                        fillMode: Image.PreserveAspectCrop
+                                        asynchronous: true
+                                    }
                                 }
-                                Label { id: label; text: modelData.name; color: "white"; font.weight: Font.Medium; font.pixelSize: 13 }
-                                Rectangle { 
-                                    width: 24; height: 20; radius: 10; color: Qt.alpha("white", 0.25)
-                                    Label { text: modelData.count; anchors.centerIn: parent; color: "white"; font.pixelSize: 11; font.weight: Font.Bold }
+
+                                Rectangle {
+                                    id: countBadge
+                                    width: countLabel.implicitWidth + 10
+                                    height: 20; radius: 10
+                                    color: Qt.alpha("white", 0.22)
+                                    Label {
+                                        id: countLabel
+                                        anchors.centerIn: parent
+                                        text: modelData.count
+                                        color: "white"
+                                        font.pixelSize: 11
+                                        font.weight: Font.Bold
+                                    }
                                 }
                             }
-                            
+
+                            // Drop-shadow tail
                             Rectangle {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 anchors.top: parent.bottom
                                 anchors.topMargin: -6
-                                width: 12; height: 12; color: parent.color; rotation: 45
+                                width: 12; height: 12
+                                color: parent.color
+                                rotation: 45
                             }
                         }
                     }
                 }
             }
+
         }
-        
-        // Map List (Right Column)
+
+        // Right panel: places list or empty state
         Rectangle {
             Layout.fillHeight: true
-            width: 320
+            width: 300
             color: ThemeManager.surfaceContainer
-            radius: 28
-            
-            // Flatten right
-            Rectangle { anchors.right: parent.right; anchors.top: parent.top; anchors.bottom: parent.bottom; width: 28; color: parent.color }
-            
+            radius: 16
+
             ColumnLayout {
                 anchors.fill: parent
                 anchors.margins: 16
                 anchors.topMargin: 24
                 spacing: 12
-                
+
                 Label {
                     text: "Places"
                     font.family: "Roboto Flex"
@@ -102,49 +184,103 @@ Item {
                     color: ThemeManager.onSurface
                     Layout.leftMargin: 8
                 }
-                
-                ListView {
-                    id: listView
+
+                // Empty state — shown here in the panel, map stays visible
+                ColumnLayout {
+                    visible: root.locations.length === 0
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    model: ["Tokyo, Japan", "Paris, France", "Lisbon, Portugal", "Lyon, France", "Berlin, Germany"]
+                    spacing: 12
+
+                    Item { Layout.fillHeight: true }
+
+                    M3Icon {
+                        Layout.alignment: Qt.AlignHCenter
+                        name: "map"
+                        size: 56
+                        color: ThemeManager.onSurfaceVariant
+                        opacity: 0.4
+                    }
+                    Label {
+                        Layout.alignment: Qt.AlignHCenter
+                        text: "No location data yet"
+                        font.pixelSize: 15
+                        font.weight: Font.Medium
+                        color: ThemeManager.onSurface
+                    }
+                    Label {
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.fillWidth: true
+                        text: "Scan your library to extract GPS coordinates from photo EXIF data."
+                        font.pixelSize: 12
+                        color: ThemeManager.onSurfaceVariant
+                        wrapMode: Text.Wrap
+                        horizontalAlignment: Text.AlignHCenter
+                    }
+
+                    Item { Layout.fillHeight: true }
+                }
+
+                ListView {
+                    id: placeList
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    model: root.locations
                     clip: true
                     spacing: 4
-                    
+                    visible: root.locations.length > 0
+
                     delegate: Rectangle {
-                        width: listView.width
+                        width: placeList.width
                         height: 72
                         radius: 12
-                        color: mouseAreaList.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.04) : "transparent"
-                        
+                        color: hoverArea.containsMouse
+                               ? Qt.alpha(ThemeManager.onSurface, 0.05)
+                               : "transparent"
+
                         RowLayout {
-                            anchors.fill: parent; anchors.margins: 8; spacing: 12
-                            Rectangle { 
-                                width: 56; height: 56; radius: 12; color: ThemeManager.surfaceContainerHigh; clip: true 
-                                Image { anchors.fill: parent; source: "https://picsum.photos/seed/" + index + "/120/120"; fillMode: Image.PreserveAspectCrop }
+                            anchors.fill: parent
+                            anchors.margins: 8
+                            spacing: 12
+
+                            Rectangle {
+                                width: 56; height: 56; radius: 12
+                                color: ThemeManager.surfaceContainerHigh
+                                clip: true
+                                Image {
+                                    anchors.fill: parent
+                                    source: modelData.thumb || ""
+                                    fillMode: Image.PreserveAspectCrop
+                                    asynchronous: true
+                                }
                             }
+
                             ColumnLayout {
-                                Layout.fillWidth: true; spacing: 2
-                                Label { text: modelData; font.weight: Font.Medium; color: ThemeManager.onSurface; font.pixelSize: 14 }
-                                Label { text: (10 + index * 5) + " photos"; font.pixelSize: 12; color: ThemeManager.onSurfaceVariant }
+                                Layout.fillWidth: true
+                                spacing: 2
+                                Label {
+                                    text: modelData.lat.toFixed(4) + "°, " + modelData.lon.toFixed(4) + "°"
+                                    font.weight: Font.Medium
+                                    font.pixelSize: 12
+                                    color: ThemeManager.onSurface
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
+                                }
+                                Label {
+                                    text: modelData.count + (modelData.count === 1 ? " photo" : " photos")
+                                    font.pixelSize: 12
+                                    color: ThemeManager.onSurfaceVariant
+                                }
                             }
-                            M3Icon { name: "schedule"; size: 20; color: ThemeManager.onSurfaceVariant; opacity: 0.5 }
                         }
-                        
+
                         MouseArea {
-                            id: mouseAreaList
+                            id: hoverArea
                             anchors.fill: parent
                             hoverEnabled: true
                             onClicked: {
-                                var coords = [
-                                    QtPositioning.coordinate(35.6762, 139.6503),
-                                    QtPositioning.coordinate(48.8566, 2.3522),
-                                    QtPositioning.coordinate(38.7223, -9.1393),
-                                    QtPositioning.coordinate(45.7640, 4.8357),
-                                    QtPositioning.coordinate(52.5200, 13.4050)
-                                ]
-                                map.center = coords[index]
-                                map.zoomLevel = 12
+                                map.center = QtPositioning.coordinate(modelData.lat, modelData.lon)
+                                map.zoomLevel = 13
                             }
                         }
                     }

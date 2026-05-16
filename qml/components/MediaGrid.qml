@@ -5,11 +5,19 @@ import ".."
 
 Item {
     id: root
-    property alias topPadding: listView.topMargin
-    signal openViewer(var mediaData)
+    signal openViewer(var mediaData, int index)
 
     implicitWidth: 800
     implicitHeight: 600
+
+    readonly property int  numCols:   4
+    readonly property real gap:       6
+    readonly property real hMargin:   24
+    readonly property real contentW:  width - hMargin * 2
+    readonly property real tileSize:  (contentW - (numCols - 1) * gap) / numCols
+    readonly property real rowHeight: tileSize + gap
+
+    Component.onCompleted: TimelineModel.numColumns = numCols
 
     ListView {
         id: listView
@@ -17,88 +25,87 @@ Item {
         model: TimelineModel
         clip: true
         spacing: 0
-        leftMargin: 24
-        rightMargin: 24
+        leftMargin: hMargin
+        rightMargin: hMargin
         topMargin: 0
         bottomMargin: 40
-        
-        visible: model.rowCount() > 0
+        cacheBuffer: Math.round(height * 3)
+        visible: count > 0
 
-        section.property: "name"
-        section.criteria: ViewSection.FullString
-        section.delegate: Item {
-            width: listView.width - 48
-            height: 72
+        delegate: Item {
+            id: rowItem
+            readonly property bool   _isHeader: model.isHeader  || false
+            readonly property string _month:    model.monthName || ""
+            readonly property var    _items:    model.items     || []
+
+            width:  listView.width - hMargin * 2
+            height: _isHeader ? 72 : root.rowHeight
+
             Label {
+                visible: rowItem._isHeader
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: 12
-                text: section
+                text: rowItem._month
                 font.family: "Roboto Flex"
                 font.pixelSize: 22
                 font.weight: Font.Medium
                 color: ThemeManager.onSurface
             }
-        }
 
-        delegate: Item {
-            width: listView.width - 48
-            height: flowGrid.implicitHeight + 20
-            
-            Flow {
-                id: flowGrid
-                width: parent.width
-                spacing: 8
-                
+            Row {
+                visible: !rowItem._isHeader
+                spacing: root.gap
+
                 Repeater {
-                    model: items
-                    delegate: Tile {
+                    model: rowItem._items
+
+                    Tile {
+                        required property var modelData
+                        readonly property int span: modelData.col_span || 1
+                        width:  root.tileSize * span + root.gap * (span - 1)
+                        height: root.tileSize
                         modelData: modelData
-                        
-                        readonly property var sizes: ["size-1x1", "size-1x1", "size-2x1", "size-1x1", "size-2x2", "size-1x2", "size-1x1", "size-1x1"]
-                        property string mSize: sizes[index % sizes.length]
-                        
-                        width: {
-                            var cols = 6
-                            var gap = 8
-                            var unit = (flowGrid.width - (cols - 1) * gap) / cols
-                            if (mSize === "size-2x1" || mSize === "size-2x2") return unit * 2 + gap
-                            if (mSize === "size-3x2") return unit * 3 + gap * 2
-                            return unit
+                        onOpen: root.openViewer(modelData, modelData._flat_index || 0)
+                        onToggleFav: {
+                            DB.toggleFavorite(modelData.id)
+                            TimelineModel.refresh()
                         }
-                        height: {
-                            var rowHeight = 124
-                            var gap = 8
-                            if (mSize === "size-1x2" || mSize === "size-2x2" || mSize === "size-3x2") return rowHeight * 2 + gap
-                            return rowHeight
-                        }
-                        
-                        onOpen: root.openViewer(modelData)
                     }
                 }
             }
         }
     }
 
-    // Empty State
     ColumnLayout {
         anchors.centerIn: parent
-        visible: !listView.visible
+        visible: listView.count === 0
         spacing: 16
+
+        readonly property int mode: TimelineModel.filterMode
+
         M3Icon {
             Layout.alignment: Qt.AlignHCenter
-            name: "schedule"
-            size: 96; color: ThemeManager.onSurfaceVariant
-            opacity: 0.5
+            name:    parent.mode === 2 ? "delete" : parent.mode === 1 ? "favorite" : "schedule"
+            size:    96
+            color:   ThemeManager.onSurfaceVariant
+            opacity: 0.4
         }
         Label {
             Layout.alignment: Qt.AlignHCenter
-            text: "No media found"
-            font.pixelSize: 24; font.weight: Font.Light; color: ThemeManager.onSurface
+            text:  parent.mode === 2 ? "Trash is empty"
+                 : parent.mode === 1 ? "No favorites yet"
+                 :                     "No photos found"
+            font.pixelSize: 24
+            font.weight: Font.Light
+            color: ThemeManager.onSurface
         }
         Label {
             Layout.alignment: Qt.AlignHCenter
-            text: "Mark photos with the heart to find them in favorites."
-            font.pixelSize: 14; color: ThemeManager.onSurfaceVariant
+            text:  parent.mode === 2 ? "Deleted photos will appear here."
+                 : parent.mode === 1 ? "Tap the heart on any photo to add it to Favorites."
+                 :                     "Press \"Scan directory\" to discover your photo library."
+            font.pixelSize: 14
+            color: ThemeManager.onSurfaceVariant
         }
     }
 }

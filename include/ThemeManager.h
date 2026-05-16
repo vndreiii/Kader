@@ -45,6 +45,7 @@ class ThemeManager : public QObject {
     Q_PROPERTY(int durLong READ durLong CONSTANT)
 
     Q_PROPERTY(bool isDark READ isDark NOTIFY themeChanged)
+    Q_PROPERTY(int themeMode READ themeMode WRITE setThemeMode NOTIFY themeModeChanged)
 
 public:
     explicit ThemeManager(QObject *parent = nullptr);
@@ -88,10 +89,13 @@ public:
     int durMed() const { return 300; }
     int durLong() const { return 500; }
 
+    int themeMode() const { return m_themeMode; }
+    Q_INVOKABLE void setThemeMode(int mode);
     Q_INVOKABLE void refreshTheme();
 
 signals:
     void themeChanged();
+    void themeModeChanged();
 
 private:
     void parseScss();
@@ -99,4 +103,5 @@ private:
 
     QVariantMap m_colors;
     QFileSystemWatcher *m_watcher;
+    int m_themeMode = 0; // 0=system, 1=light, 2=dark
 };
