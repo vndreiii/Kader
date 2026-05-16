@@ -10,8 +10,10 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Sql Positioning Location Concurrent Test QuickTest)
+find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(VIPS REQUIRED vips-cpp)
+pkg_check_modules(EXIV2 REQUIRED exiv2)
 
 enable_testing()
 
@@ -21,7 +23,7 @@ set(INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(QML_DIR ${CMAKE_CURRENT_SOURCE_DIR}/qml)
 
 # Include directories
-include_directories(${INCLUDE_DIR} ${VIPS_INCLUDE_DIRS})
+include_directories(${INCLUDE_DIR} ${VIPS_INCLUDE_DIRS} ${EXIV2_INCLUDE_DIRS})
 
 # QmlMaterial Subdirectory
 add_subdirectory(lib/QmlMaterial)
@@ -32,6 +34,7 @@ set(SOURCES
     ${SOURCE_DIR}/FileScanner.cpp
     ${SOURCE_DIR}/DatabaseManager.cpp
     ${SOURCE_DIR}/ThumbnailGenerator.cpp
+    ${SOURCE_DIR}/ThumbnailProvider.cpp
     ${SOURCE_DIR}/MediaModel.cpp
     ${SOURCE_DIR}/TimelineModel.cpp
     ${SOURCE_DIR}/AlbumModel.cpp
@@ -45,6 +48,7 @@ set(HEADERS
     ${INCLUDE_DIR}/FileScanner.h
     ${INCLUDE_DIR}/DatabaseManager.h
     ${INCLUDE_DIR}/ThumbnailGenerator.h
+    ${INCLUDE_DIR}/ThumbnailProvider.h
     ${INCLUDE_DIR}/MediaModel.h
     ${INCLUDE_DIR}/TimelineModel.h
     ${INCLUDE_DIR}/AlbumModel.h
@@ -66,7 +70,9 @@ target_link_libraries(KaderLib PUBLIC
     Qt6::Positioning
     Qt6::Location
     Qt6::Concurrent
+    OpenSSL::Crypto
     ${VIPS_LIBRARIES}
+    ${EXIV2_LIBRARIES}
     qml_material
 )
 
@@ -78,6 +84,7 @@ qt_add_qml_module(KaderApp
     QML_FILES
         qml/main.qml
         qml/components/MediaGrid.qml
+        qml/components/MediaInfoPanel.qml
         qml/components/SidebarItem.qml
         qml/components/ImagePanner.qml
         qml/components/ExifModal.qml
@@ -88,6 +95,7 @@ qt_add_qml_module(KaderApp
         qml/components/Sidebar.qml
         qml/components/Tile.qml
         qml/views/AlbumListView.qml
+        qml/views/AlbumDetailView.qml
         qml/views/ViewerOverlay.qml
         qml/views/SettingsView.qml
         qml/views/MapView.qml
