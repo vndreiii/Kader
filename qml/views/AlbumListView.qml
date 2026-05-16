@@ -69,6 +69,22 @@ Item {
                 }
             }
 
+            // ··· button: direct child of albumItem at z:10 — guaranteed above mouseArea (z:0)
+            Button {
+                id: moreBtn
+                z: 10
+                // Position at top-right of the cover image area (cover = cellWidth - 2*8 margin = content area)
+                anchors.top: parent.top
+                anchors.right: parent.right
+                anchors.topMargin: 20   // 8px layout margin + 12px cover margin
+                anchors.rightMargin: 20
+                width: 32; height: 32
+                visible: mouseArea.containsMouse
+                background: Rectangle { radius: 16; color: Qt.alpha("black", 0.4) }
+                contentItem: M3Icon { name: "more_vert"; size: 18; color: "white"; anchors.centerIn: parent }
+                onClicked: albumMenu.popup()
+            }
+
             ColumnLayout {
                 anchors.fill: parent
                 anchors.margins: 8
@@ -105,18 +121,6 @@ Item {
                         M3Icon { anchors.centerIn: parent; name: "pin"; size: 16; color: ThemeManager.primary }
                     }
 
-                    // ··· button — declared after MouseArea in parent, higher z, catches clicks first
-                    Button {
-                        id: moreBtn
-                        anchors.top: parent.top
-                        anchors.right: parent.right
-                        anchors.margins: 12
-                        width: 32; height: 32
-                        visible: mouseArea.containsMouse
-                        background: Rectangle { radius: 16; color: Qt.alpha("black", 0.4) }
-                        contentItem: M3Icon { name: "more_vert"; size: 18; color: "white"; anchors.centerIn: parent }
-                        onClicked: albumMenu.popup()
-                    }
 
                     Rectangle {
                         anchors.bottom: parent.bottom

@@ -15,6 +15,7 @@ ApplicationWindow {
 
     property string currentView: "timeline"
     property bool sidebarCollapsed: false
+    property string detailTitle: ""
 
     // Scan state
     property bool isScanning: false
@@ -132,11 +133,23 @@ ApplicationWindow {
                         onClicked: window.sidebarCollapsed = !window.sidebarCollapsed
                     }
 
-                    Label {
-                        text: viewTitles[window.currentView] || ""
-                        font.family: "Roboto Flex"
-                        font.pixelSize: 28
-                        color: ThemeManager.onSurface
+                    Column {
+                        spacing: 0
+                        Label {
+                            text: mainStack.depth > 1 && window.detailTitle !== ""
+                                  ? window.detailTitle
+                                  : (viewTitles[window.currentView] || "")
+                            font.family: "Roboto Flex"
+                            font.pixelSize: mainStack.depth > 1 && window.detailTitle !== "" ? 22 : 28
+                            font.weight: Font.Medium
+                            color: ThemeManager.onSurface
+                        }
+                        Label {
+                            visible: mainStack.depth > 1 && window.detailTitle !== ""
+                            text: viewTitles[window.currentView] || ""
+                            font.pixelSize: 12
+                            color: ThemeManager.onSurfaceVariant
+                        }
                     }
 
                     Item { Layout.fillWidth: true }
@@ -306,6 +319,7 @@ ApplicationWindow {
         id: albumsView
         AlbumListView {
             onOpenAlbum: (folderPath, albumName) => {
+                window.detailTitle = albumName
                 var detail = mainStack.push(Qt.resolvedUrl("views/AlbumDetailView.qml"), {
                     folderPath: folderPath,
                     albumName: albumName

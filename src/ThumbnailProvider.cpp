@@ -2,7 +2,6 @@
 #include "DatabaseManager.h"
 #include "ThumbnailGenerator.h"
 #include <QImage>
-#include <QBuffer>
 #include <QDebug>
 
 ThumbnailProvider::ThumbnailProvider(DatabaseManager *db, ThumbnailGenerator *gen)
@@ -12,60 +11,29 @@ ThumbnailProvider::ThumbnailProvider(DatabaseManager *db, ThumbnailGenerator *ge
 {}
 
 QImage ThumbnailProvider::requestImage(const QString &id, QSize *size, const QSize &requestedSize) {
-    // id is the file path (everything after "image://thumbnails/")
+    Q_UNUSED(requestedSize)
     const QString filePath = id;
-    const int thumbSize = (requestedSize.width() > 0 && requestedSize.width() <= 512)
-                              ? requestedSize.width()
-                              : kThumbSize;
 
-    // Try to load encrypted blob from DB.
-    QByteArray encBlob = m_db->getThumbnailBlob(filePath, thumbSize);
-
-    QByteArray jpegBytes;
-    if (!encBlob.isEmpty()) {
-        jpegBytes = ThumbnailGenerator::decrypt(encBlob);
-    }
-
-    if (jpegBytes.isEmpty()) {
-        // Generate, encrypt, and store.
-        jpegBytes = m_gen->generateThumbnailBytes(filePath, thumbSize);
-        if (!jpegBytes.isEmpty()) {
-            QByteArray encrypted = ThumbnailGenerator::encrypt(jpegBytes);
-            if (!encrypted.isEmpty()) {
-                m_db->storeThumbnailBlob(filePath, thumbSize, encrypted);
-            }
+    // Use the disk-based thumbnail cache — same path as AlbumModel covers, proven to work.
+    // getOrCreateThumbnail is thread-safe via libvips and writes to ~/.cache/Kader/thumbnails/.
+    QString thumbPath = m_gen->getOrCreateThumbnail(filePath, kThumbSize);
+    if (!thumbPath.isEmpty()) {
+        QImage img(thumbPath);
+        if (!img.isNull()) {
+            if (size) *size = img.size();
+            return img;
         }
     }
 
-    if (jpegBytes.isEmpty()) {
-        // libvips failed — fall back to Qt's own loader
-        QImage fallback(filePath);
-        if (!fallback.isNull()) {
-            fallback = fallback.scaled(thumbSize, thumbSize,
-                                       Qt::KeepAspectRatioByExpanding,
-                                       Qt::SmoothTransformation);
-            QBuffer buf;
-            buf.open(QIODevice::WriteOnly);
-            fallback.save(&buf, "JPEG", 80);
-            jpegBytes = buf.data();
-            if (!jpegBytes.isEmpty()) {
-                QByteArray enc = ThumbnailGenerator::encrypt(jpegBytes);
-                if (!enc.isEmpty())
-                    m_db->storeThumbnailBlob(filePath, thumbSize, enc);
-            }
-        }
+    // Fallback: Qt's own image loader (handles formats libvips doesn't)
+    QImage fallback(filePath);
+    if (!fallback.isNull()) {
+        fallback = fallback.scaled(kThumbSize, kThumbSize,
+                                   Qt::KeepAspectRatioByExpanding,
+                                   Qt::SmoothTransformation);
+        if (size) *size = fallback.size();
+        return fallback;
     }
 
-    if (jpegBytes.isEmpty()) {
-        qWarning() << "ThumbnailProvider: no thumbnail for" << filePath;
-        return {};
-    }
-
-    QImage img;
-    img.loadFromData(jpegBytes, "JPEG");
-
-    if (size) {
-        *size = img.size();
-    }
-    return img;
+    return {};
 }
