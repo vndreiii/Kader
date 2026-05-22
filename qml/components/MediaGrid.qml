@@ -15,7 +15,7 @@ Item {
     readonly property real contentW: width - hMargin * 2
 
     // Push content width to TimelineModel for aspect-ratio row packing.
-    // Debounced via a timer so window-resize doesn't hammer the model.
+    // Debounced so window-resize doesn't hammer the model.
     Timer {
         id: widthDebounce
         interval: 120
@@ -23,6 +23,27 @@ Item {
     }
     onContentWChanged: widthDebounce.restart()
     Component.onCompleted: TimelineModel.setContentWidth(Math.round(contentW))
+
+    // ── Preserve scroll position across model rebuilds ───────────────────
+    // Store the first visible item index before the model resets, restore after.
+    property int _savedIndex: 0
+    property real _savedOffset: 0
+
+    Connections {
+        target: TimelineModel
+        function onModelAboutToBeReset() {
+            root._savedIndex  = listView.indexAt(0, listView.contentY + 1)
+            root._savedOffset = listView.contentY - (root._savedIndex >= 0
+                ? listView.contentItem.children[root._savedIndex].y
+                : 0)
+        }
+        function onModelReset() {
+            if (root._savedIndex > 0 && root._savedIndex < listView.count) {
+                listView.positionViewAtIndex(root._savedIndex, ListView.Beginning)
+                listView.contentY += root._savedOffset
+            }
+        }
+    }
 
     ListView {
         id: listView
@@ -39,11 +60,11 @@ Item {
 
         delegate: Item {
             id: rowItem
-            readonly property bool   _isHeader:    model.isHeader   || false
-            readonly property string _month:       model.monthName  || ""
-            readonly property var    _items:       model.items      || []
-            // heightMult now carries the actual row pixel height from the packing algorithm
-            readonly property real   _rowH:        model.heightMult || 200
+            readonly property bool   _isHeader: model.isHeader   || false
+            readonly property string _month:    model.monthName  || ""
+            readonly property var    _items:    model.items      || []
+            // heightMult carries the actual row pixel height from aspect-ratio packing
+            readonly property real   _rowH:     model.heightMult || 200
 
             width:  listView.width - root.hMargin * 2
             height: _isHeader ? 56 : Math.round(_rowH)
@@ -58,7 +79,6 @@ Item {
                 color: ThemeManager.onSurface
             }
 
-            // Photo row: tiles have individually computed widths from aspect ratios
             Row {
                 visible: !rowItem._isHeader
                 spacing: root.gap
@@ -67,9 +87,7 @@ Item {
                     model: rowItem._items
 
                     Tile {
-                        // item_width and item_height are pre-computed by TimelineModel
-                        // using the photo's real aspect ratio + row-packing algorithm.
-                        width:  modelData ? (modelData.item_width  || rowItem._rowH * 1.33) : rowItem._rowH * 1.33
+                        width:  modelData ? (modelData.item_width  || Math.round(rowItem._rowH * 1.33)) : Math.round(rowItem._rowH * 1.33)
                         height: rowItem._rowH
                         tileData: modelData
                         onOpen: {
@@ -81,6 +99,78 @@ Item {
                                 TimelineModel.refresh()
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    // ── Fast-scroll date scrubber ────────────────────────────────────────
+    // A draggable handle on the right edge that shows the current month/year
+    // and lets the user scrub through date ranges by dragging.
+    Rectangle {
+        id: scrubber
+        visible: listView.count > 0 && listView.contentHeight > listView.height * 1.5
+        anchors.right: parent.right
+        anchors.rightMargin: 4
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        width: 6
+        color: "transparent"
+
+        // The draggable handle
+        Rectangle {
+            id: scrubHandle
+            width: 32; height: 56
+            radius: 16
+            anchors.right: parent.right
+            color: scrubDrag.pressed ? ThemeManager.primary : Qt.alpha(ThemeManager.onSurface, 0.2)
+            Behavior on color { ColorAnimation { duration: 100 } }
+
+            // Position based on scroll ratio
+            y: Math.max(0, Math.min(scrubber.height - height,
+                listView.visibleArea.yPosition * scrubber.height))
+
+            // Month label (shown while dragging)
+            Rectangle {
+                visible: scrubDrag.pressed
+                anchors.right: parent.left
+                anchors.rightMargin: 8
+                anchors.verticalCenter: parent.verticalCenter
+                color: ThemeManager.inverseSurface
+                radius: 10
+                width: monthLabel.implicitWidth + 20; height: 36
+
+                Label {
+                    id: monthLabel
+                    anchors.centerIn: parent
+                    text: {
+                        if (!scrubDrag.pressed) return ""
+                        var idx = Math.floor(listView.count * (scrubHandle.y / scrubber.height))
+                        idx = Math.max(0, Math.min(listView.count - 1, idx))
+                        var item = TimelineModel.data(TimelineModel.index(idx, 0), 258) // MonthNameRole
+                        return item || ""
+                    }
+                    color: ThemeManager.inverseOnSurface
+                    font.pixelSize: 13; font.weight: Font.Medium
+                }
+            }
+
+            MouseArea {
+                id: scrubDrag
+                anchors.fill: parent
+                drag.target: scrubHandle
+                drag.axis: Drag.YAxis
+                drag.minimumY: 0
+                drag.maximumY: scrubber.height - scrubHandle.height
+
+                onPositionChanged: {
+                    if (pressed) {
+                        var ratio = scrubHandle.y / Math.max(1, scrubber.height - scrubHandle.height)
+                        var targetIdx = Math.floor(ratio * listView.count)
+                        listView.positionViewAtIndex(
+                            Math.max(0, Math.min(listView.count - 1, targetIdx)),
+                            ListView.Beginning)
                     }
                 }
             }

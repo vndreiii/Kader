@@ -139,12 +139,28 @@ void TimelineModel::refresh(bool hideIgnored) {
     const float minH   = 140.0f;
     const float maxH   = 520.0f;
 
-    // Per-item aspect ratio: use stored EXIF dimensions if available, else 4:3 fallback
-    auto aspectRatio = [](const QVariantMap &m) -> float {
+    // Per-item aspect ratio: use stored EXIF dimensions when available.
+    // When missing (w=0/h=0), cycle through a variety of common photo ratios
+    // so the mosaic looks naturally varied even without EXIF data.
+    static const float kVarietyRatios[] = {
+        4.0f/3,   // landscape standard
+        3.0f/2,   // DSLR landscape
+        16.0f/9,  // widescreen
+        1.0f,     // square
+        3.0f/4,   // portrait standard
+        2.0f/3,   // portrait DSLR
+        5.0f/4,   // slightly landscape
+        4.0f/5,   // slightly portrait
+        3.0f/2,
+        16.0f/9,
+    };
+    static constexpr int kRatioCount = sizeof(kVarietyRatios) / sizeof(kVarietyRatios[0]);
+
+    auto aspectRatio = [](const QVariantMap &m, int idx) -> float {
         int w = m.value("width",  0).toInt();
         int h = m.value("height", 0).toInt();
         if (w > 0 && h > 0) return float(w) / float(h);
-        return 4.0f / 3.0f;  // landscape fallback
+        return kVarietyRatios[idx % kRatioCount];
     };
 
     // Flush accumulated rowBuf: compute per-item pixel widths and row height.
@@ -166,7 +182,9 @@ void TimelineModel::refresh(bool hideIgnored) {
         QVariantList rowItems;
         for (int i = 0; i < n; ++i) {
             QVariantMap m = rowBuf.at(i).toMap();
-            float ar = aspectRatio(m);
+            // Use the _flat_index already stored to look up the variety ratio consistently
+            int fi = m.value("_flat_index", i).toInt();
+            float ar = aspectRatio(m, fi);
             m["item_width"]  = qRound(ar * h);
             m["item_height"] = qRound(h);
             rowItems.append(m);
@@ -200,7 +218,7 @@ void TimelineModel::refresh(bool hideIgnored) {
         map["path"]        = "file://" + fp;
         map["_flat_index"] = flatIdx++;
         rowBuf.append(map);
-        rowArSum += aspectRatio(map);
+        rowArSum += aspectRatio(map, flatIdx - 1);
 
         // Flush when the projected row width reaches or exceeds cw
         float projectedWidth = rowArSum * target + gap * (rowBuf.size() - 1);

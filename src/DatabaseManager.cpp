@@ -201,14 +201,16 @@ bool DatabaseManager::addOrUpdateMedia(const QString &filePath, const QString &h
 bool DatabaseManager::needsUpdate(const QString &filePath, qint64 size) {
     checkConnection();
     QSqlQuery query(m_db);
-    query.prepare("SELECT file_size, creation_date FROM media WHERE file_path = :path");
+    query.prepare("SELECT file_size, creation_date, width, height FROM media WHERE file_path = :path");
     query.bindValue(":path", filePath);
 
     if (query.exec() && query.next()) {
         qint64 storedSize = query.value(0).toLongLong();
         qint64 storedDate = query.value(1).toLongLong();
-        // Re-index if size changed or if EXIF was never extracted (date is 0).
-        return storedSize != size || storedDate == 0;
+        int    storedW    = query.value(2).toInt();
+        int    storedH    = query.value(3).toInt();
+        // Re-index if: size changed, EXIF date missing, or dimensions never extracted.
+        return storedSize != size || storedDate == 0 || storedW == 0 || storedH == 0;
     }
     return true; // Not in DB yet — insert it.
 }
