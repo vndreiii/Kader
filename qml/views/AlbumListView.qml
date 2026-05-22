@@ -55,7 +55,7 @@ Item {
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 onClicked: (mouse) => {
                     if (mouse.button === Qt.RightButton) albumMenu.popup()
-                    else root.openAlbum(model.folder_path, model.name)
+                    else root.openAlbum(model.path, model.name)
                 }
             }
 

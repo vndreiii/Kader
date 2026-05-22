@@ -17,6 +17,9 @@ ApplicationWindow {
     property bool sidebarCollapsed: false
     property string detailTitle: ""
 
+    // Persists the timeline scroll position across view switches
+    property real timelineScrollY: 0
+
     // Scan state
     property bool isScanning: false
     property string scanFolder: ""
@@ -314,6 +317,14 @@ ApplicationWindow {
     Component {
         id: timelineView
         MediaGrid {
+            // Restore saved scroll when the grid is created (view switch back)
+            Component.onCompleted: {
+                if (window.timelineScrollY > 0)
+                    Qt.callLater(() => { _savedY = window.timelineScrollY; _pendingRestore = true; restoreTimer.restart() })
+            }
+            // Save scroll position when this instance is about to be destroyed
+            Component.onDestruction: window.timelineScrollY = _savedY
+
             onOpenViewer: (data, idx) => {
                 viewerOverlay.mediaData = data
                 viewerOverlay.currentIndex = idx

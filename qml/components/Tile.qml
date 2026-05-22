@@ -92,7 +92,8 @@ Item {
         Rectangle {
             anchors.left: parent.left
             anchors.bottom: parent.bottom
-            anchors.margins: 8
+            anchors.leftMargin: 18   // > tile radius (16) to avoid clip
+            anchors.bottomMargin: 12
             height: 24
             radius: 12
             color: Qt.alpha("black", 0.4)

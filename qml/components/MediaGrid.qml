@@ -25,22 +25,32 @@ Item {
     Component.onCompleted: TimelineModel.setContentWidth(Math.round(contentW))
 
     // ── Preserve scroll position across model rebuilds ───────────────────
-    // Store the first visible item index before the model resets, restore after.
-    property int _savedIndex: 0
-    property real _savedOffset: 0
+    // Save contentY before reset; restore after via a Timer (one frame later
+    // lets the new delegates finish layout before we set contentY).
+    property real _savedY: 0
+    property bool _pendingRestore: false
 
     Connections {
         target: TimelineModel
         function onModelAboutToBeReset() {
-            root._savedIndex  = listView.indexAt(0, listView.contentY + 1)
-            root._savedOffset = listView.contentY - (root._savedIndex >= 0
-                ? listView.contentItem.children[root._savedIndex].y
-                : 0)
+            root._savedY = listView.contentY
         }
         function onModelReset() {
-            if (root._savedIndex > 0 && root._savedIndex < listView.count) {
-                listView.positionViewAtIndex(root._savedIndex, ListView.Beginning)
-                listView.contentY += root._savedOffset
+            if (root._savedY > 0) {
+                root._pendingRestore = true
+                restoreTimer.restart()
+            }
+        }
+    }
+
+    Timer {
+        id: restoreTimer
+        interval: 16   // one frame
+        onTriggered: {
+            if (root._pendingRestore) {
+                listView.contentY = Math.min(root._savedY,
+                    listView.contentHeight - listView.height)
+                root._pendingRestore = false
             }
         }
     }

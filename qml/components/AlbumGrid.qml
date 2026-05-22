@@ -41,15 +41,15 @@ Item {
                 id: albumMenu
                 MD.MenuItem {
                     text: model.pinned ? "Unpin album" : "Pin album"
-                    onTriggered: { DB.pinAlbum(model.folder_path, !model.pinned); AlbumModel.refresh() }
+                    onTriggered: { DB.pinAlbum(model.path, !model.pinned); AlbumModel.refresh() }
                 }
                 MD.MenuItem {
                     text: "Add to Ignored"
-                    onTriggered: { DB.ignoreAlbum(model.folder_path, true); AlbumModel.refresh(); TimelineModel.refresh() }
+                    onTriggered: { DB.ignoreAlbum(model.path, true); AlbumModel.refresh(); TimelineModel.refresh() }
                 }
                 MD.MenuItem {
                     text: "Move to Trash"
-                    onTriggered: { DB.trashAlbum(model.folder_path); AlbumModel.refresh(); TimelineModel.refresh() }
+                    onTriggered: { DB.trashAlbum(model.path); AlbumModel.refresh(); TimelineModel.refresh() }
                 }
             }
 
@@ -60,7 +60,7 @@ Item {
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 onClicked: (mouse) => {
                     if (mouse.button === Qt.RightButton) albumMenu.popup()
-                    else root.openAlbum(model.folder_path, model.name)
+                    else root.openAlbum(model.path, model.name)
                 }
             }
 

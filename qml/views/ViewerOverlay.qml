@@ -6,7 +6,7 @@ import "../components"
 Rectangle {
     id: root
     anchors.fill: parent
-    color: Qt.alpha("black", 0.94)
+    color: "#F5000000"  // 96% opaque black — enough to hide sidebar/topbar
     z: 1000
     visible: active
 
@@ -74,6 +74,7 @@ Rectangle {
             width:  Math.min(imgArea.width,  implicitWidth  > 0 ? implicitWidth  : imgArea.width)
             height: Math.min(imgArea.height, implicitHeight > 0 ? implicitHeight : imgArea.height)
             fillMode: Image.PreserveAspectFit
+            autoTransform: true
             opacity: 0
             x: 0
 
@@ -96,6 +97,7 @@ Rectangle {
             height: Math.min(imgArea.height, implicitHeight > 0 ? implicitHeight : imgArea.height)
             source: root.mediaData ? "file://" + root.mediaData.file_path : ""
             fillMode: Image.PreserveAspectFit
+            autoTransform: true   // apply EXIF orientation (portrait photos, etc.)
             asynchronous: true
 
             NumberAnimation {
