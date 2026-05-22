@@ -116,66 +116,53 @@ ApplicationWindow {
                     anchors.rightMargin: 24
                     spacing: 16
 
-                    Button {
+                    // Back button — Rectangle+MouseArea avoids Material style interference
+                    Rectangle {
+                        width: 40; height: 40; radius: 20
                         visible: mainStack.depth > 1
-                        width: 40; height: 40
-                        background: Rectangle {
-                            radius: 20
-                            color: parent.hovered ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
-                        }
-                        contentItem: M3Icon { name: "arrow_back"; size: 24; color: ThemeManager.onSurfaceVariant; anchors.centerIn: parent }
-                        onClicked: mainStack.pop()
+                        color: backHover.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
+                        Behavior on color { ColorAnimation { duration: 80 } }
+                        M3Icon { anchors.centerIn: parent; name: "arrow_back"; size: 24; color: ThemeManager.onSurfaceVariant }
+                        MouseArea { id: backHover; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: mainStack.pop() }
                     }
 
-                    Button {
-                        id: foldButton
-                        width: 40; height: 40
-                        background: Rectangle {
-                            radius: 20
-                            color: foldButton.hovered ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
-                        }
-                        contentItem: M3Icon {
-                            name: window.sidebarCollapsed ? "menu_open" : "menu_close"
-                            size: 24
-                            color: ThemeManager.onSurfaceVariant
-                            anchors.centerIn: parent
-                        }
-                        onClicked: window.sidebarCollapsed = !window.sidebarCollapsed
+                    // Sidebar toggle
+                    Rectangle {
+                        width: 40; height: 40; radius: 20
+                        color: foldHover.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
+                        Behavior on color { ColorAnimation { duration: 80 } }
+                        M3Icon { anchors.centerIn: parent; name: window.sidebarCollapsed ? "menu_open" : "menu_close"; size: 24; color: ThemeManager.onSurfaceVariant }
+                        MouseArea { id: foldHover; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: window.sidebarCollapsed = !window.sidebarCollapsed }
                     }
 
                     Column {
-                        spacing: 0
+                        spacing: 2
                         Label {
                             text: mainStack.depth > 1 && window.detailTitle !== ""
                                   ? window.detailTitle
                                   : (viewTitles[window.currentView] || "")
                             font.family: "Roboto Flex"
-                            font.pixelSize: mainStack.depth > 1 && window.detailTitle !== "" ? 22 : 28
+                            font.pixelSize: 28
                             font.weight: Font.Medium
                             color: ThemeManager.onSurface
                         }
                         Label {
                             visible: mainStack.depth > 1 && window.detailTitle !== ""
                             text: viewTitles[window.currentView] || ""
-                            font.pixelSize: 12
+                            font.pixelSize: 14
                             color: ThemeManager.onSurfaceVariant
                         }
                     }
 
                     Item { Layout.fillWidth: true }
 
-                    Button {
-                        width: 40; height: 40
-                        background: Rectangle {
-                            radius: 20
-                            color: parent.hovered ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
-                        }
-                        contentItem: M3Icon {
-                            name: "tune"
-                            size: 20
-                            color: ThemeManager.onSurfaceVariant
-                            anchors.centerIn: parent
-                        }
+                    // Filter/tune button
+                    Rectangle {
+                        width: 40; height: 40; radius: 20
+                        color: tuneHover.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
+                        Behavior on color { ColorAnimation { duration: 80 } }
+                        M3Icon { anchors.centerIn: parent; name: "tune"; size: 20; color: ThemeManager.onSurfaceVariant }
+                        MouseArea { id: tuneHover; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor }
                     }
 
                     Rectangle {

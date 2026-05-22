@@ -37,20 +37,11 @@ Item {
         }
         function onModelReset() {
             if (root._savedY > 0) {
-                root._pendingRestore = true
-                restoreTimer.restart()
-            }
-        }
-    }
-
-    Timer {
-        id: restoreTimer
-        interval: 16   // one frame
-        onTriggered: {
-            if (root._pendingRestore) {
-                listView.contentY = Math.min(root._savedY,
-                    listView.contentHeight - listView.height)
-                root._pendingRestore = false
+                // Qt.callLater defers until after layout is done — no visible jump
+                Qt.callLater(function() {
+                    var maxY = Math.max(0, listView.contentHeight - listView.height)
+                    listView.contentY = Math.min(root._savedY, maxY)
+                })
             }
         }
     }
@@ -193,17 +184,22 @@ Item {
         visible: listView.count === 0
         spacing: 16
 
-        readonly property int mode: TimelineModel.filterMode
+        readonly property int    mode:   TimelineModel.filterMode
+        readonly property bool   isVid:  TimelineModel.mimeFilter === "video/"
 
         M3Icon {
             Layout.alignment: Qt.AlignHCenter
-            name:    parent.mode === 2 ? "delete" : parent.mode === 1 ? "favorite" : "schedule"
+            name:    parent.mode === 2 ? "delete"
+                   : parent.mode === 1 ? "favorite"
+                   : parent.isVid ? "video_library"
+                   : "schedule"
             size: 96; color: ThemeManager.onSurfaceVariant; opacity: 0.4
         }
         Label {
             Layout.alignment: Qt.AlignHCenter
             text:  parent.mode === 2 ? "Trash is empty"
                  : parent.mode === 1 ? "No favorites yet"
+                 : parent.isVid      ? "No videos found"
                  :                     "No photos found"
             font.pixelSize: 24; font.weight: Font.Light; color: ThemeManager.onSurface
         }
@@ -211,6 +207,7 @@ Item {
             Layout.alignment: Qt.AlignHCenter
             text:  parent.mode === 2 ? "Deleted photos will appear here."
                  : parent.mode === 1 ? "Tap the heart on any photo to add it to Favorites."
+                 : parent.isVid      ? "Scan a directory containing video files."
                  :                     "Press \"Scan directory\" to discover your photo library."
             font.pixelSize: 14; color: ThemeManager.onSurfaceVariant
         }

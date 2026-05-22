@@ -113,43 +113,46 @@ Rectangle {
     }
 
     // ── Prev ──────────────────────────────────────────────────────────────
-    Button {
+    Rectangle {
         anchors.left: parent.left; anchors.leftMargin: 16
         anchors.verticalCenter: parent.verticalCenter
-        width: 52; height: 52
-        enabled: root.currentIndex > 0
-        opacity: enabled ? 1.0 : 0.25
-        scale: pressed ? 0.92 : 1.0
+        width: 52; height: 52; radius: 26
+        color: Qt.alpha("white", prevMa.pressed ? 0.28 : prevMa.containsMouse ? 0.20 : 0.14)
+        border.color: Qt.alpha("white", 0.08); border.width: 1
+        opacity: root.currentIndex > 0 ? 1.0 : 0.25
+        Behavior on color { ColorAnimation { duration: 80 } }
+        scale: prevMa.pressed ? 0.92 : 1.0
         Behavior on scale { NumberAnimation { duration: 80 } }
-        onClicked: root.navigatePrev()
-        background: Rectangle { radius: 26; color: Qt.alpha("white", 0.14); border.color: Qt.alpha("white", 0.08); border.width: 1 }
-        contentItem: M3Icon { name: "chevron_left"; size: 26; color: "white"; anchors.centerIn: parent }
+        M3Icon { anchors.centerIn: parent; name: "chevron_left"; size: 26; color: "white" }
+        MouseArea { id: prevMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; enabled: root.currentIndex > 0; onClicked: root.navigatePrev() }
     }
 
     // ── Next ──────────────────────────────────────────────────────────────
-    Button {
+    Rectangle {
         anchors.right: root.infoPanelOpen ? infoPanel.left : parent.right
         anchors.rightMargin: 16
         anchors.verticalCenter: parent.verticalCenter
-        width: 52; height: 52
-        enabled: root.currentIndex < root.allItems.length - 1
-        opacity: enabled ? 1.0 : 0.25
-        scale: pressed ? 0.92 : 1.0
+        width: 52; height: 52; radius: 26
+        color: Qt.alpha("white", nextMa.pressed ? 0.28 : nextMa.containsMouse ? 0.20 : 0.14)
+        border.color: Qt.alpha("white", 0.08); border.width: 1
+        opacity: root.currentIndex < root.allItems.length - 1 ? 1.0 : 0.25
+        Behavior on color { ColorAnimation { duration: 80 } }
+        scale: nextMa.pressed ? 0.92 : 1.0
         Behavior on scale { NumberAnimation { duration: 80 } }
-        onClicked: root.navigateNext()
-        background: Rectangle { radius: 26; color: Qt.alpha("white", 0.14); border.color: Qt.alpha("white", 0.08); border.width: 1 }
-        contentItem: M3Icon { name: "chevron_right"; size: 26; color: "white"; anchors.centerIn: parent }
+        M3Icon { anchors.centerIn: parent; name: "chevron_right"; size: 26; color: "white" }
+        MouseArea { id: nextMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; enabled: root.currentIndex < root.allItems.length - 1; onClicked: root.navigateNext() }
     }
 
     // ── Close ─────────────────────────────────────────────────────────────
-    Button {
+    Rectangle {
         anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 24
-        width: 48; height: 48
-        scale: pressed ? 0.92 : 1.0
+        width: 48; height: 48; radius: 24
+        color: Qt.alpha("white", closeMa.pressed ? 0.28 : closeMa.containsMouse ? 0.20 : 0.14)
+        Behavior on color { ColorAnimation { duration: 80 } }
+        scale: closeMa.pressed ? 0.92 : 1.0
         Behavior on scale { NumberAnimation { duration: 80 } }
-        onClicked: root.active = false
-        background: Rectangle { radius: 24; color: Qt.alpha("white", 0.14) }
-        contentItem: M3Icon { name: "close"; size: 22; color: "white"; anchors.centerIn: parent }
+        M3Icon { anchors.centerIn: parent; name: "close"; size: 22; color: "white" }
+        MouseArea { id: closeMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.active = false }
     }
 
     // ── Filename + date ───────────────────────────────────────────────────
@@ -177,35 +180,53 @@ Rectangle {
         anchors.bottomMargin: 24
         spacing: 8
 
-        Repeater {
-            model: [
-                { icon: (root.mediaData && root.mediaData.is_favorite) ? "favorite_fill" : "favorite", tip: "Favourite",
-                  action: function() { if (!root.mediaData) return; DB.toggleFavorite(root.mediaData.id); root.mediaData = DB.getMediaById(root.mediaData.id); TimelineModel.refresh() } },
-                { icon: "delete",         tip: "Move to Trash",
-                  action: function() { if (!root.mediaData) return; DB.setTrashed(root.mediaData.id, true); root.active = false; TimelineModel.refresh() } },
-                { icon: "folder_open",    tip: "Show in folder",
-                  action: function() { if (root.mediaData) Qt.openUrlExternally("file://" + root.mediaData.folder_path) } },
-                { icon: "info",           tip: "Info",
-                  action: function() { root.infoPanelOpen = !root.infoPanelOpen } },
-                { icon: "delete_forever", tip: "Delete permanently",
-                  action: function() { deleteConfirm.visible = true } }
-            ]
+        // Action buttons as Rectangle+MouseArea so icons are always centered correctly
+        property bool isFav: root.mediaData ? !!root.mediaData.is_favorite : false
 
-            Button {
-                width: 48; height: 48
-                scale: pressed ? 0.90 : 1.0
-                Behavior on scale { NumberAnimation { duration: 80 } }
-                background: Rectangle {
-                    radius: 24
-                    color: (modelData.icon === "info" && root.infoPanelOpen)
-                           ? Qt.alpha("white", 0.28) : Qt.alpha("white", 0.12)
-                }
-                contentItem: M3Icon {
-                    name: modelData.icon; size: 22; color: "white"; anchors.centerIn: parent
-                }
-                ToolTip.visible: hovered; ToolTip.text: modelData.tip
-                onClicked: modelData.action()
-            }
+        Rectangle {
+            width: 48; height: 48; radius: 24
+            color: Qt.alpha("white", favMa.pressed ? 0.28 : favMa.containsMouse ? 0.20 : 0.14)
+            Behavior on color { ColorAnimation { duration: 80 } }
+            scale: favMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: 80 } }
+            M3Icon { anchors.centerIn: parent; name: actionRow.isFav ? "favorite_fill" : "favorite"; size: 22; color: "white" }
+            MouseArea { id: favMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                onClicked: { if (!root.mediaData) return; DB.toggleFavorite(root.mediaData.id); root.mediaData = DB.getMediaById(root.mediaData.id); TimelineModel.refresh() } }
+        }
+        Rectangle {
+            width: 48; height: 48; radius: 24
+            color: Qt.alpha("white", trashMa.pressed ? 0.28 : trashMa.containsMouse ? 0.20 : 0.14)
+            Behavior on color { ColorAnimation { duration: 80 } }
+            scale: trashMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: 80 } }
+            M3Icon { anchors.centerIn: parent; name: "delete"; size: 22; color: "white" }
+            MouseArea { id: trashMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                onClicked: { if (!root.mediaData) return; DB.setTrashed(root.mediaData.id, true); root.active = false; TimelineModel.refresh() } }
+        }
+        Rectangle {
+            width: 48; height: 48; radius: 24
+            color: Qt.alpha("white", folderMa.pressed ? 0.28 : folderMa.containsMouse ? 0.20 : 0.14)
+            Behavior on color { ColorAnimation { duration: 80 } }
+            scale: folderMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: 80 } }
+            M3Icon { anchors.centerIn: parent; name: "folder_open"; size: 22; color: "white" }
+            MouseArea { id: folderMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                onClicked: { if (root.mediaData) Qt.openUrlExternally("file://" + root.mediaData.folder_path) } }
+        }
+        Rectangle {
+            width: 48; height: 48; radius: 24
+            color: Qt.alpha("white", infoMa.pressed ? 0.28 : root.infoPanelOpen ? 0.28 : infoMa.containsMouse ? 0.20 : 0.14)
+            Behavior on color { ColorAnimation { duration: 80 } }
+            scale: infoMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: 80 } }
+            M3Icon { anchors.centerIn: parent; name: "info"; size: 22; color: "white" }
+            MouseArea { id: infoMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                onClicked: root.infoPanelOpen = !root.infoPanelOpen }
+        }
+        Rectangle {
+            width: 48; height: 48; radius: 24
+            color: Qt.alpha("white", delMa.pressed ? 0.28 : delMa.containsMouse ? 0.20 : 0.14)
+            Behavior on color { ColorAnimation { duration: 80 } }
+            scale: delMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: 80 } }
+            M3Icon { anchors.centerIn: parent; name: "delete_forever"; size: 22; color: "#ffd8e4" }
+            MouseArea { id: delMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                onClicked: deleteConfirm.visible = true }
         }
     }
 

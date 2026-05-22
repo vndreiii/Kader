@@ -86,15 +86,6 @@ Rectangle {
 
         Item { width: 1; height: 8 }
 
-        Label {
-            width: parent.width; height: 32
-            leftPadding: 28; text: "Library"
-            visible: !root.collapsed
-            font.pixelSize: 11; font.weight: Font.Medium
-            color: ThemeManager.onSurfaceVariant
-            verticalAlignment: Text.AlignVCenter
-        }
-
         SidebarItem { id: itTimeline;  icon: "schedule";      label: "Timeline";  active: root.currentView === "timeline";   collapsed: root.collapsed; onClicked: root.viewChanged("timeline")  }
         SidebarItem { id: itAlbums;    icon: "folder";        label: "Albums";    active: root.currentView === "albums";     collapsed: root.collapsed; onClicked: root.viewChanged("albums")   }
         SidebarItem { id: itVideos;    icon: "video_library"; label: "Videos";    active: root.currentView === "videos";     collapsed: root.collapsed; onClicked: root.viewChanged("videos")   }
@@ -104,17 +95,8 @@ Rectangle {
             width: parent.width - 48; height: 1
             color: ThemeManager.outlineVariant; opacity: 0.3
             anchors.horizontalCenter: parent.horizontalCenter
-            visible: !root.collapsed
         }
-        Item { width: 1; height: 16; visible: root.collapsed }
-
-        Label {
-            width: parent.width; height: 32; leftPadding: 28; topPadding: 8
-            text: "Smart views"; visible: !root.collapsed
-            font.pixelSize: 11; font.weight: Font.Medium
-            color: ThemeManager.onSurfaceVariant
-            verticalAlignment: Text.AlignVCenter
-        }
+        Item { width: 1; height: 8 }
 
         SidebarItem { id: itFavorites; icon: "favorite";  label: "Favorites"; active: root.currentView === "favorites"; collapsed: root.collapsed; onClicked: root.viewChanged("favorites") }
         SidebarItem { id: itTrash;     icon: "delete";    label: "Trash";     active: root.currentView === "trash";     collapsed: root.collapsed; onClicked: root.viewChanged("trash")     }

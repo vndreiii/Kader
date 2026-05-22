@@ -32,19 +32,25 @@ Item {
             width: gridView.cellWidth
             height: gridView.cellHeight
 
+            // Capture model values so context menu onTriggered can access them
+            // even after the delegate is recycled or model goes out of scope.
+            property string _path:   model.path   || ""
+            property string _name:   model.name   || ""
+            property bool   _pinned: model.pinned || false
+
             MD.Menu {
                 id: albumMenu
                 MD.MenuItem {
-                    text: model.pinned ? "Unpin album" : "Pin album"
-                    onTriggered: { DB.pinAlbum(model.folder_path, !model.pinned); AlbumModel.refresh() }
+                    text: albumItem._pinned ? "Unpin album" : "Pin album"
+                    onTriggered: { DB.pinAlbum(albumItem._path, !albumItem._pinned); AlbumModel.refresh() }
                 }
                 MD.MenuItem {
                     text: "Add to Ignored"
-                    onTriggered: { DB.ignoreAlbum(model.folder_path, true); AlbumModel.refresh(); TimelineModel.refresh() }
+                    onTriggered: { DB.ignoreAlbum(albumItem._path, true); AlbumModel.refresh(); TimelineModel.refresh() }
                 }
                 MD.MenuItem {
                     text: "Move to Trash"
-                    onTriggered: { DB.trashAlbum(model.folder_path); AlbumModel.refresh(); TimelineModel.refresh() }
+                    onTriggered: { DB.trashAlbum(albumItem._path); AlbumModel.refresh(); TimelineModel.refresh() }
                 }
             }
 
@@ -55,7 +61,7 @@ Item {
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 onClicked: (mouse) => {
                     if (mouse.button === Qt.RightButton) albumMenu.popup()
-                    else root.openAlbum(model.path, model.name)
+                    else root.openAlbum(albumItem._path, albumItem._name)
                 }
             }
 

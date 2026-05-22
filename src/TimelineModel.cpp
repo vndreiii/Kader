@@ -217,13 +217,28 @@ void TimelineModel::refresh(bool hideIgnored) {
         map["thumb"]       = ThumbnailGenerator::thumbnailUrl(fp);
         map["path"]        = "file://" + fp;
         map["_flat_index"] = flatIdx++;
-        rowBuf.append(map);
-        rowArSum += aspectRatio(map, flatIdx - 1);
-
-        // Flush when the projected row width reaches or exceeds cw
-        float projectedWidth = rowArSum * target + gap * (rowBuf.size() - 1);
-        if (projectedWidth >= cw)
+        // Every 9th photo: hero — flush current row, emit a prominent full-width row.
+        const bool isHero = (flatIdx % 9 == 4 && flatIdx > 0); // offset by 4 so it's mid-sequence
+        if (isHero && !rowBuf.isEmpty()) {
+            // Flush what's pending before the hero
             flushRow(false);
+        }
+        if (isHero) {
+            // Hero row: single photo at full content width, 2× target height.
+            float heroH = target * 2.2f;
+            map["item_width"]  = qRound(cw);
+            map["item_height"] = qRound(heroH);
+            QVariantList heroItems;
+            heroItems.append(map);
+            m_rows.append({false, {}, heroItems, heroH});
+        } else {
+            rowBuf.append(map);
+            rowArSum += aspectRatio(map, flatIdx - 1);
+            // Flush when projected row width reaches content width
+            float projectedWidth = rowArSum * target + gap * (rowBuf.size() - 1);
+            if (projectedWidth >= cw)
+                flushRow(false);
+        }
     }
     flushRow(true); // last partial row
 
