@@ -2,6 +2,8 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QIcon>
+#include <QtConcurrent>
+#include <QTimer>
 #include "ThemeManager.h"
 #include "FileScanner.h"
 #include "DatabaseManager.h"
@@ -31,10 +33,32 @@ int main(int argc, char *argv[]) {
     TimelineModel timelineModel(&dbManager);
     AlbumModel albumModel(&dbManager, &thumbGenerator);
 
+    // Prune helper: runs off-thread, refreshes models on main thread if anything was removed.
+    auto runPrune = [&]() {
+        QtConcurrent::run([&]() {
+            int pruned = dbManager.pruneOrphanedMedia();
+            if (pruned > 0) {
+                QMetaObject::invokeMethod(&app, [&]() {
+                    mediaModel.refresh(settingsManager.hideIgnoredInTimeline());
+                    timelineModel.refresh(settingsManager.hideIgnoredInTimeline());
+                    albumModel.refresh(true);
+                    storageManager.refresh();
+                }, Qt::QueuedConnection);
+            }
+        });
+    };
+
+    // Run once at startup, then every 3 minutes to catch external file deletions.
+    runPrune();
+    QTimer *pruneTimer = new QTimer(&app);
+    pruneTimer->setInterval(3 * 60 * 1000);
+    QObject::connect(pruneTimer, &QTimer::timeout, &app, runPrune);
+    pruneTimer->start();
+
     // Initial refresh with settings
     mediaModel.refresh(settingsManager.hideIgnoredInTimeline());
     timelineModel.refresh(settingsManager.hideIgnoredInTimeline());
-    albumModel.refresh(true); // Albums usually always hide ignored unless in settings
+    albumModel.refresh(true);
 
     // Context object (&app) ensures the lambda runs on the main thread via a queued connection.
     QObject::connect(&fileScanner, &FileScanner::scanFinished, &app, [&](const QStringList &, int, double, const QString &) {

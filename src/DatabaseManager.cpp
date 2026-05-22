@@ -420,3 +420,42 @@ QVariantList DatabaseManager::getAllMedia(bool hideIgnored) {
     }
     return list;
 }
+
+int DatabaseManager::pruneOrphanedMedia() {
+    // Safe to call from any thread: uses checkConnection() + thread-local db handle
+    // (same pattern as getAllMedia), never touches m_db from a foreign thread.
+    checkConnection();
+    const QString connName = (QThread::currentThread() == qApp->thread())
+        ? QLatin1String("qt_sql_default_connection")
+        : QString("connection_%1").arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
+    QSqlDatabase db = QSqlDatabase::database(connName);
+    if (!db.isOpen()) return 0;
+
+    QSqlQuery sel(db);
+    sel.exec("SELECT file_path FROM media");
+
+    QStringList missing;
+    while (sel.next()) {
+        const QString fp = sel.value(0).toString();
+        if (!QFileInfo::exists(fp))
+            missing.append(fp);
+    }
+
+    if (missing.isEmpty()) return 0;
+
+    db.transaction();
+    QSqlQuery del(db);
+    del.prepare("DELETE FROM media WHERE file_path = ?");
+    QSqlQuery delThumb(db);
+    delThumb.prepare("DELETE FROM thumbnails WHERE file_path = ?");
+    for (const QString &fp : missing) {
+        del.addBindValue(fp);
+        del.exec();
+        delThumb.addBindValue(fp);
+        delThumb.exec();
+    }
+    db.commit();
+
+    qDebug() << "pruneOrphanedMedia: removed" << missing.size() << "entries for missing files";
+    return missing.size();
+}

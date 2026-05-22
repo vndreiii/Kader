@@ -57,6 +57,9 @@ public:
     Q_INVOKABLE bool pinAlbum(const QString &folderPath, bool pinned);
     Q_INVOKABLE bool trashAlbum(const QString &folderPath);
 
+    // Remove media rows for files that no longer exist on disk. Returns count pruned.
+    Q_INVOKABLE int pruneOrphanedMedia();
+
     // Storage stats
     Q_INVOKABLE qint64 getTotalMediaSizeBytes();
 

@@ -75,6 +75,14 @@ void TimelineModel::setMimeFilter(const QString &prefix) {
     }
 }
 
+void TimelineModel::setContentWidth(int px) {
+    if (px > 0 && qAbs(px - m_contentWidth) > 8) {
+        m_contentWidth = px;
+        emit contentWidthChanged();
+        refresh();
+    }
+}
+
 QVariantList TimelineModel::getFlatMediaList() const {
     QVariantList flat;
     for (const Row &row : m_rows)
@@ -117,60 +125,55 @@ void TimelineModel::refresh(bool hideIgnored) {
         allMedia = filtered;
     }
 
-    // Mosaic patterns: each entry has column-spans (sum = numCols) + height multiplier.
-    // Patterns with large heightMult + narrow colSpans create portrait-feel tiles.
-    struct Pattern { QVector<int> spans; float hMult; };
-    const int nc = m_numColumns;
+    // ── Aspect-ratio row packing (Google Photos style) ──────────────────────
+    // Photos keep their real aspect ratios. We pack them into rows so the total
+    // width equals contentWidth at a target height, then scale up/down to fill exactly.
+    //
+    // Row height varies naturally: a row of wide landscape photos is short;
+    // a row with a portrait photo and a small square is tall.
+    // The result: every row is different, every tile has a natural size.
 
-    // Build a rich pattern set scaled to the current column count.
-    // All span-sums equal nc. hMult drives the row's pixel height relative to a square tile.
-    QVector<Pattern> patterns;
-    if (nc == 4) {
-        patterns = {
-            {{1,1,1,1}, 0.75f},   // four small square tiles (short row)
-            {{2,1,1},   1.0f},    // wide + two small
-            {{1,1,2},   1.0f},    // two small + wide
-            {{2,2},     1.35f},   // two wide landscape tiles
-            {{1,3},     1.65f},   // narrow + very wide  → narrow tile looks portrait
-            {{3,1},     1.65f},   // very wide + narrow  → idem
-            {{1,2,1},   1.2f},    // small + wide + small
-            {{2,1,1},   1.4f},    // wide + two small, taller pass
-            {{1,1,2},   1.4f},    // two small + wide, taller
-            {{2,2},     0.85f},   // two wide, shorter (panoramic)
-        };
-    } else if (nc == 3) {
-        patterns = {
-            {{1,1,1},   0.8f},
-            {{2,1},     1.0f},
-            {{1,2},     1.0f},
-            {{1,1,1},   1.4f},
-            {{2,1},     1.5f},
-            {{3},       0.55f},
-        };
-    } else {
-        // Generic fallback
-        for (int i = 0; i < 5; ++i)
-            patterns.append({{nc}, i % 2 == 0 ? 0.75f : 1.2f});
-        patterns.append({{nc/2, nc-nc/2}, 1.0f});
-    }
+    const float cw     = qMax(400, m_contentWidth);  // available pixel width
+    const float gap    = 6.0f;
+    const float target = 260.0f; // target row height in pixels
+    const float minH   = 140.0f;
+    const float maxH   = 520.0f;
 
-    int patternIdx = 0;
-    int flatIdx    = 0;
+    // Per-item aspect ratio: use stored EXIF dimensions if available, else 4:3 fallback
+    auto aspectRatio = [](const QVariantMap &m) -> float {
+        int w = m.value("width",  0).toInt();
+        int h = m.value("height", 0).toInt();
+        if (w > 0 && h > 0) return float(w) / float(h);
+        return 4.0f / 3.0f;  // landscape fallback
+    };
+
+    // Flush accumulated rowBuf: compute per-item pixel widths and row height.
+    int  flatIdx = 0;
     QString      currentMonth;
-    QVariantList rowBuf;
+    QVariantList rowBuf;       // items being packed into the current row
+    float        rowArSum = 0; // sum of aspect-ratios in rowBuf (for width calc)
 
-    auto flushRow = [&]() {
+    auto flushRow = [&](bool isLastRow) {
         if (rowBuf.isEmpty()) return;
-        const Pattern &pat = patterns[patternIdx % patterns.size()];
+        int  n = rowBuf.size();
+        // Total gaps between n items
+        float gaps = gap * (n - 1);
+        // Height that makes items fill cw exactly
+        float h = (cw - gaps) / qMax(0.01f, rowArSum);
+        // Clamp: last row shouldn't expand wildly if it has few items
+        h = qBound(minH, h, isLastRow ? target : maxH);
+        // Recompute item widths at the chosen h
         QVariantList rowItems;
-        for (int i = 0; i < rowBuf.size(); ++i) {
+        for (int i = 0; i < n; ++i) {
             QVariantMap m = rowBuf.at(i).toMap();
-            m["col_span"] = (i < pat.spans.size()) ? pat.spans[i] : 1;
+            float ar = aspectRatio(m);
+            m["item_width"]  = qRound(ar * h);
+            m["item_height"] = qRound(h);
             rowItems.append(m);
         }
-        m_rows.append({false, {}, rowItems, pat.hMult});
+        m_rows.append({false, {}, rowItems, h});
         rowBuf.clear();
-        patternIdx++;
+        rowArSum = 0;
     };
 
     for (const QVariant &v : allMedia) {
@@ -188,22 +191,23 @@ void TimelineModel::refresh(bool hideIgnored) {
         const QString month = QDateTime::fromSecsSinceEpoch(ts).toString("MMMM yyyy");
 
         if (month != currentMonth) {
-            if (!rowBuf.isEmpty()) flushRow();
+            flushRow(false);
             currentMonth = month;
-            patternIdx   = 0; // restart mosaic pattern at each month
-            m_rows.append({true, month, {}});
+            m_rows.append({true, month, {}, 0});
         }
 
         map["thumb"]       = ThumbnailGenerator::thumbnailUrl(fp);
         map["path"]        = "file://" + fp;
         map["_flat_index"] = flatIdx++;
         rowBuf.append(map);
+        rowArSum += aspectRatio(map);
 
-        const Pattern &pat = patterns[patternIdx % patterns.size()];
-        if (rowBuf.size() >= pat.spans.size())
-            flushRow();
+        // Flush when the projected row width reaches or exceeds cw
+        float projectedWidth = rowArSum * target + gap * (rowBuf.size() - 1);
+        if (projectedWidth >= cw)
+            flushRow(false);
     }
-    if (!rowBuf.isEmpty()) flushRow();
+    flushRow(true); // last partial row
 
     qDebug() << "Timeline refresh:" << m_rows.size() << "rows ("
              << allMedia.size() << "items," << m_numColumns << "cols)";

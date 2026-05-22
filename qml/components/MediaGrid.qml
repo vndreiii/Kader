@@ -10,17 +10,19 @@ Item {
     implicitWidth: 800
     implicitHeight: 600
 
-    // Dynamic column count: 3 minimum, scales with width
-    readonly property int  numCols:  Math.max(3, Math.floor(contentW / 280))
+    readonly property real hMargin:  20
     readonly property real gap:      6
-    readonly property real hMargin:  24
     readonly property real contentW: width - hMargin * 2
-    // Base tile size = square tile in a numCols grid
-    readonly property real tileSize: (contentW - (numCols - 1) * gap) / numCols
 
-    // Push the current column count down to the model so it rebuilds its patterns
-    onNumColsChanged: TimelineModel.numColumns = numCols
-    Component.onCompleted: TimelineModel.numColumns = numCols
+    // Push content width to TimelineModel for aspect-ratio row packing.
+    // Debounced via a timer so window-resize doesn't hammer the model.
+    Timer {
+        id: widthDebounce
+        interval: 120
+        onTriggered: TimelineModel.setContentWidth(Math.round(root.contentW))
+    }
+    onContentWChanged: widthDebounce.restart()
+    Component.onCompleted: TimelineModel.setContentWidth(Math.round(contentW))
 
     ListView {
         id: listView
@@ -40,21 +42,23 @@ Item {
             readonly property bool   _isHeader:    model.isHeader   || false
             readonly property string _month:       model.monthName  || ""
             readonly property var    _items:       model.items      || []
-            readonly property real   _heightMult:  model.heightMult || 1.0
+            // heightMult now carries the actual row pixel height from the packing algorithm
+            readonly property real   _rowH:        model.heightMult || 200
 
-            width:  listView.width - hMargin * 2
-            height: _isHeader ? 72 : Math.round(root.tileSize * _heightMult)
+            width:  listView.width - root.hMargin * 2
+            height: _isHeader ? 56 : Math.round(_rowH)
 
             Label {
                 visible: rowItem._isHeader
                 anchors.bottom: parent.bottom
-                anchors.bottomMargin: 12
+                anchors.bottomMargin: 8
                 text: rowItem._month
                 font.family: "Roboto Flex"
-                font.pixelSize: 22; font.weight: Font.Medium
+                font.pixelSize: 20; font.weight: Font.Medium
                 color: ThemeManager.onSurface
             }
 
+            // Photo row: tiles have individually computed widths from aspect ratios
             Row {
                 visible: !rowItem._isHeader
                 spacing: root.gap
@@ -63,11 +67,10 @@ Item {
                     model: rowItem._items
 
                     Tile {
-                        width: {
-                            var span = (modelData && modelData.col_span) ? modelData.col_span : 1
-                            return root.tileSize * span + root.gap * (span - 1)
-                        }
-                        height: rowItem.height
+                        // item_width and item_height are pre-computed by TimelineModel
+                        // using the photo's real aspect ratio + row-packing algorithm.
+                        width:  modelData ? (modelData.item_width  || rowItem._rowH * 1.33) : rowItem._rowH * 1.33
+                        height: rowItem._rowH
                         tileData: modelData
                         onOpen: {
                             if (modelData) root.openViewer(modelData, modelData._flat_index || 0)
