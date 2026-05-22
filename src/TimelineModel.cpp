@@ -225,7 +225,7 @@ void TimelineModel::refresh(bool hideIgnored) {
         }
         if (isHero) {
             // Hero row: single photo at full content width, 2× target height.
-            float heroH = target * 2.2f;
+            float heroH = target * 1.5f;
             map["item_width"]  = qRound(cw);
             map["item_height"] = qRound(heroH);
             QVariantList heroItems;

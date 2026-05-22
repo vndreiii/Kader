@@ -131,7 +131,7 @@ ApplicationWindow {
                         width: 40; height: 40; radius: 20
                         color: foldHover.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
                         Behavior on color { ColorAnimation { duration: 80 } }
-                        M3Icon { anchors.centerIn: parent; name: window.sidebarCollapsed ? "menu_open" : "menu_close"; size: 24; color: ThemeManager.onSurfaceVariant }
+                        M3Icon { anchors.centerIn: parent; name: window.sidebarCollapsed ? "menu" : "menu_close"; size: 24; color: ThemeManager.onSurfaceVariant }
                         MouseArea { id: foldHover; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: window.sidebarCollapsed = !window.sidebarCollapsed }
                     }
 
@@ -155,15 +155,6 @@ ApplicationWindow {
                     }
 
                     Item { Layout.fillWidth: true }
-
-                    // Filter/tune button
-                    Rectangle {
-                        width: 40; height: 40; radius: 20
-                        color: tuneHover.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
-                        Behavior on color { ColorAnimation { duration: 80 } }
-                        M3Icon { anchors.centerIn: parent; name: "tune"; size: 20; color: ThemeManager.onSurfaceVariant }
-                        MouseArea { id: tuneHover; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor }
-                    }
 
                     Rectangle {
                         id: searchPill
@@ -217,20 +208,13 @@ ApplicationWindow {
                                 }
                             }
 
-                            Button {
+                            Rectangle {
                                 visible: searchField.text !== ""
-                                width: 28; height: 28
-                                background: Rectangle {
-                                    radius: 14
-                                    color: parent.hovered ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
-                                }
-                                contentItem: M3Icon {
-                                    name: "close"
-                                    size: 18
-                                    color: ThemeManager.onSurfaceVariant
-                                    anchors.centerIn: parent
-                                }
-                                onClicked: searchField.text = ""
+                                width: 28; height: 28; radius: 14
+                                color: clearHover.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
+                                Behavior on color { ColorAnimation { duration: 80 } }
+                                M3Icon { anchors.centerIn: parent; name: "close"; size: 18; color: ThemeManager.onSurfaceVariant }
+                                MouseArea { id: clearHover; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: searchField.text = "" }
                             }
                         }
                     }
