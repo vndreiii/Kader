@@ -4,16 +4,16 @@ import ".."
 
 Item {
     id: root
-    property var modelData: null
+    property var tileData: null
     property bool selectable: false
     property bool selected: false
     signal open()
     signal toggleFav()
     signal selectToggle()
 
-    // Safe accessor — avoids TypeError when modelData is temporarily null/undefined
+    // Safe accessor — avoids TypeError when tileData is temporarily null/undefined
     // during model reset while 9000+ items are being loaded.
-    readonly property var _d: (modelData !== null && modelData !== undefined) ? modelData : ({})
+    readonly property var _d: (tileData !== null && tileData !== undefined) ? tileData : ({})
 
     Rectangle {
         anchors.fill: parent

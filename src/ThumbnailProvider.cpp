@@ -12,7 +12,8 @@ ThumbnailProvider::ThumbnailProvider(DatabaseManager *db, ThumbnailGenerator *ge
 
 QImage ThumbnailProvider::requestImage(const QString &id, QSize *size, const QSize &requestedSize) {
     Q_UNUSED(requestedSize)
-    const QString filePath = id;
+    // Qt Quick strips one leading '/' from the URL path; restore it for absolute paths.
+    const QString filePath = id.startsWith('/') ? id : '/' + id;
 
     // Use the disk-based thumbnail cache — same path as AlbumModel covers, proven to work.
     // getOrCreateThumbnail is thread-safe via libvips and writes to ~/.cache/Kader/thumbnails/.

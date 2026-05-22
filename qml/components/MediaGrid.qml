@@ -65,7 +65,7 @@ Item {
                             return root.tileSize * span + root.gap * (span - 1)
                         }
                         height: root.tileSize
-                        modelData: modelData
+                        tileData: modelData
                         onOpen: {
                             if (modelData) root.openViewer(modelData, modelData._flat_index || 0)
                         }

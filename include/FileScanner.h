@@ -25,6 +25,7 @@ public:
     Q_INVOKABLE void startScan(const QString &rootPath);
 
 signals:
+    void scanStarted(const QString &rootPath);
     void scanFinished(const QStringList &paths, int dirsScanned, double duration, const QString &rootPath);
     void scanProgress(int filesFound);
 

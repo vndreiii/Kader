@@ -1,5 +1,6 @@
 #include "FileScanner.h"
 #include "DatabaseManager.h"
+#include <exiv2/exiv2.hpp>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/syscall.h>
@@ -70,6 +71,7 @@ FileScanner::FileScanner(DatabaseManager *db, QObject *parent) : QObject(parent)
 
 void FileScanner::startScan(const QString &rootPath) {
     qDebug() << "Start scan requested for:" << rootPath;
+    emit scanStarted(rootPath);
     QtConcurrent::run([this, rootPath]() {
         runScan(rootPath.toStdString());
     });
@@ -132,8 +134,15 @@ void FileScanner::runScan(const std::string &rootPath) {
                                         if (m_mediaExtensions.count(ext)) {
                                             struct stat st;
                                             if (stat(fullPath.c_str(), &st) == 0) {
-                                                std::lock_guard<std::mutex> lock(pathsMutex);
-                                                foundFiles.append({QString::fromStdString(fullPath), (qint64)st.st_size});
+                                                int newCount;
+                                                {
+                                                    std::lock_guard<std::mutex> lock(pathsMutex);
+                                                    foundFiles.append({QString::fromStdString(fullPath), (qint64)st.st_size});
+                                                    newCount = foundFiles.size();
+                                                }
+                                                if (newCount % 50 == 0) {
+                                                    emit scanProgress(newCount);
+                                                }
                                             }
                                         }
                                     }
@@ -153,16 +162,79 @@ void FileScanner::runScan(const std::string &rootPath) {
 
     qDebug() << "Scan found" << foundFiles.size() << "candidate files in" << dirsScanned.load() << "directories";
 
-    // Now update database
+    // Now update database with EXIF metadata.
     QStringList finalPaths;
     QMimeDatabase mimeDb;
+
+    auto parseGPS = [](const Exiv2::ExifData &exif,
+                       const char *latKey, const char *latRefKey,
+                       const char *lonKey, const char *lonRefKey,
+                       double &lat, double &lon) {
+        auto itLat    = exif.findKey(Exiv2::ExifKey(latKey));
+        auto itLatRef = exif.findKey(Exiv2::ExifKey(latRefKey));
+        auto itLon    = exif.findKey(Exiv2::ExifKey(lonKey));
+        auto itLonRef = exif.findKey(Exiv2::ExifKey(lonRefKey));
+        if (itLat == exif.end() || itLon == exif.end()) return false;
+
+        auto toDeg = [](const Exiv2::Value &v) {
+            double d = static_cast<double>(v.toRational(0).first) / v.toRational(0).second;
+            double m = static_cast<double>(v.toRational(1).first) / v.toRational(1).second;
+            double s = static_cast<double>(v.toRational(2).first) / v.toRational(2).second;
+            return d + m / 60.0 + s / 3600.0;
+        };
+
+        lat = toDeg(itLat->value());
+        lon = toDeg(itLon->value());
+        if (itLatRef != exif.end() && itLatRef->toString() == "S") lat = -lat;
+        if (itLonRef != exif.end() && itLonRef->toString() == "W") lon = -lon;
+        return true;
+    };
+
     for (const auto& info : foundFiles) {
         finalPaths.append(info.path);
-        if (m_db->needsUpdate(info.path, info.size)) {
-            QFileInfo fi(info.path);
-            QString mime = mimeDb.mimeTypeForFile(fi).name();
-            m_db->addOrUpdateMedia(info.path, "", info.size, mime, fi.birthTime().isValid() ? fi.birthTime() : fi.lastModified(), 0, 0);
+        if (!m_db->needsUpdate(info.path, info.size)) continue;
+
+        QFileInfo fi(info.path);
+        QString mime = mimeDb.mimeTypeForFile(fi).name();
+
+        QDateTime creationDate = fi.lastModified();
+        double lat = 0.0, lon = 0.0;
+        int w = 0, h = 0;
+
+        if (mime.startsWith("image/")) {
+            try {
+                auto image = Exiv2::ImageFactory::open(info.path.toStdString());
+                image->readMetadata();
+                const Exiv2::ExifData &exif = image->exifData();
+
+                // Capture date (prefer DateTimeOriginal over DateTime).
+                for (const char *key : {"Exif.Photo.DateTimeOriginal", "Exif.Image.DateTime"}) {
+                    auto it = exif.findKey(Exiv2::ExifKey(key));
+                    if (it != exif.end()) {
+                        QDateTime dt = QDateTime::fromString(
+                            QString::fromStdString(it->toString()), "yyyy:MM:dd HH:mm:ss");
+                        if (dt.isValid()) { creationDate = dt; break; }
+                    }
+                }
+
+                // GPS coordinates.
+                parseGPS(exif,
+                         "Exif.GPSInfo.GPSLatitude",    "Exif.GPSInfo.GPSLatitudeRef",
+                         "Exif.GPSInfo.GPSLongitude",   "Exif.GPSInfo.GPSLongitudeRef",
+                         lat, lon);
+
+                // Dimensions.
+                auto itW = exif.findKey(Exiv2::ExifKey("Exif.Photo.PixelXDimension"));
+                auto itH = exif.findKey(Exiv2::ExifKey("Exif.Photo.PixelYDimension"));
+                if (itW != exif.end()) w = static_cast<int>(itW->value().toInt64());
+                if (itH != exif.end()) h = static_cast<int>(itH->value().toInt64());
+
+            } catch (...) {
+                // Non-fatal: use filesystem fallback values.
+            }
         }
+
+        m_db->addOrUpdateMedia(info.path, "", info.size, mime, creationDate, w, h, lat, lon);
     }
 
     m_db->updateDirectoryStats(QString::fromStdString(rootPath), finalPaths.size());

@@ -1,19 +1,31 @@
 #pragma once
 
 #include <QObject>
+#include <QImage>
 #include <QString>
-#include <QFuture>
+#include <QByteArray>
 #include <vips/vips8>
 
 class ThumbnailGenerator : public QObject {
     Q_OBJECT
 public:
     explicit ThumbnailGenerator(QObject *parent = nullptr);
-    
-    // Generates a thumbnail for a given file and returns the cache path
+
+    // Legacy file-based path (used by AlbumModel CoverRole synchronously).
     Q_INVOKABLE QString getOrCreateThumbnail(const QString &filePath, int size = 256);
 
+    // Generate thumbnail as raw JPEG bytes (not encrypted).
+    QByteArray generateThumbnailBytes(const QString &filePath, int size = 256);
+
+    // Encrypt / decrypt using AES-256-CBC with a machine-derived key.
+    static QByteArray encrypt(const QByteArray &plaintext);
+    static QByteArray decrypt(const QByteArray &ciphertext);
+
+    // Returns the URL to pass as an Image source in QML: "image://thumbnails/<path>"
+    static QString thumbnailUrl(const QString &filePath);
+
 private:
-    QString m_cacheDir;
+    static QByteArray deriveKey();
     QString generateHash(const QString &filePath);
+    QString m_cacheDir;
 };
