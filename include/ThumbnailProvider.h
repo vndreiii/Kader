@@ -15,5 +15,5 @@ public:
 private:
     DatabaseManager *m_db;
     ThumbnailGenerator *m_gen;
-    static constexpr int kThumbSize = 256;
+    static constexpr int kThumbSize = 512;
 };

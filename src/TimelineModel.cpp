@@ -18,18 +18,20 @@ QVariant TimelineModel::data(const QModelIndex &index, int role) const {
         return {};
     const Row &row = m_rows.at(index.row());
     switch (role) {
-    case IsHeaderRole:  return row.isHeader;
-    case MonthNameRole: return row.monthName;
-    case ItemsRole:     return row.items;
-    default:            return {};
+    case IsHeaderRole:   return row.isHeader;
+    case MonthNameRole:  return row.monthName;
+    case ItemsRole:      return row.items;
+    case HeightMultRole: return row.heightMult;
+    default:             return {};
     }
 }
 
 QHash<int, QByteArray> TimelineModel::roleNames() const {
     return {
-        { IsHeaderRole,  "isHeader"  },
-        { MonthNameRole, "monthName" },
-        { ItemsRole,     "items"     }
+        { IsHeaderRole,   "isHeader"   },
+        { MonthNameRole,  "monthName"  },
+        { ItemsRole,      "items"      },
+        { HeightMultRole, "heightMult" }
     };
 }
 
@@ -61,6 +63,14 @@ void TimelineModel::setSearchFilter(const QString &query) {
     if (m_searchFilter != query) {
         m_searchFilter = query;
         emit searchFilterChanged();
+        refresh();
+    }
+}
+
+void TimelineModel::setMimeFilter(const QString &prefix) {
+    if (m_mimeFilter != prefix) {
+        m_mimeFilter = prefix;
+        emit mimeFilterChanged();
         refresh();
     }
 }
@@ -98,14 +108,51 @@ void TimelineModel::refresh(bool hideIgnored) {
         allMedia = filtered;
     }
 
-    // Mosaic patterns: column spans cycling per row, reset at each month boundary.
-    // Each pattern's spans must sum to m_numColumns (4).
-    static const QVector<QVector<int>> kPatterns = {
-        {1, 1, 1, 1},  // four equal tiles
-        {2, 1, 1},     // one wide left + two small
-        {1, 1, 2},     // two small + one wide right
-        {2, 2},        // two wide
-    };
+    // In-memory MIME prefix filter (e.g. "video/" shows only videos)
+    if (!m_mimeFilter.isEmpty()) {
+        QVariantList filtered;
+        for (const QVariant &v : allMedia)
+            if (v.toMap().value("mime_type").toString().startsWith(m_mimeFilter))
+                filtered.append(v);
+        allMedia = filtered;
+    }
+
+    // Mosaic patterns: each entry has column-spans (sum = numCols) + height multiplier.
+    // Patterns with large heightMult + narrow colSpans create portrait-feel tiles.
+    struct Pattern { QVector<int> spans; float hMult; };
+    const int nc = m_numColumns;
+
+    // Build a rich pattern set scaled to the current column count.
+    // All span-sums equal nc. hMult drives the row's pixel height relative to a square tile.
+    QVector<Pattern> patterns;
+    if (nc == 4) {
+        patterns = {
+            {{1,1,1,1}, 0.75f},   // four small square tiles (short row)
+            {{2,1,1},   1.0f},    // wide + two small
+            {{1,1,2},   1.0f},    // two small + wide
+            {{2,2},     1.35f},   // two wide landscape tiles
+            {{1,3},     1.65f},   // narrow + very wide  → narrow tile looks portrait
+            {{3,1},     1.65f},   // very wide + narrow  → idem
+            {{1,2,1},   1.2f},    // small + wide + small
+            {{2,1,1},   1.4f},    // wide + two small, taller pass
+            {{1,1,2},   1.4f},    // two small + wide, taller
+            {{2,2},     0.85f},   // two wide, shorter (panoramic)
+        };
+    } else if (nc == 3) {
+        patterns = {
+            {{1,1,1},   0.8f},
+            {{2,1},     1.0f},
+            {{1,2},     1.0f},
+            {{1,1,1},   1.4f},
+            {{2,1},     1.5f},
+            {{3},       0.55f},
+        };
+    } else {
+        // Generic fallback
+        for (int i = 0; i < 5; ++i)
+            patterns.append({{nc}, i % 2 == 0 ? 0.75f : 1.2f});
+        patterns.append({{nc/2, nc-nc/2}, 1.0f});
+    }
 
     int patternIdx = 0;
     int flatIdx    = 0;
@@ -114,14 +161,14 @@ void TimelineModel::refresh(bool hideIgnored) {
 
     auto flushRow = [&]() {
         if (rowBuf.isEmpty()) return;
-        const auto &pat = kPatterns[patternIdx % kPatterns.size()];
+        const Pattern &pat = patterns[patternIdx % patterns.size()];
         QVariantList rowItems;
         for (int i = 0; i < rowBuf.size(); ++i) {
             QVariantMap m = rowBuf.at(i).toMap();
-            m["col_span"] = (i < pat.size()) ? pat[i] : 1;
+            m["col_span"] = (i < pat.spans.size()) ? pat.spans[i] : 1;
             rowItems.append(m);
         }
-        m_rows.append({false, {}, rowItems});
+        m_rows.append({false, {}, rowItems, pat.hMult});
         rowBuf.clear();
         patternIdx++;
     };
@@ -152,8 +199,8 @@ void TimelineModel::refresh(bool hideIgnored) {
         map["_flat_index"] = flatIdx++;
         rowBuf.append(map);
 
-        const auto &pat = kPatterns[patternIdx % kPatterns.size()];
-        if (rowBuf.size() >= pat.size())
+        const Pattern &pat = patterns[patternIdx % patterns.size()];
+        if (rowBuf.size() >= pat.spans.size())
             flushRow();
     }
     if (!rowBuf.isEmpty()) flushRow();

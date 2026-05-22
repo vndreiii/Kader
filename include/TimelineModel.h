@@ -11,15 +11,17 @@ class TimelineModel : public QAbstractListModel {
     Q_PROPERTY(int numColumns READ numColumns WRITE setNumColumns NOTIFY numColumnsChanged)
     Q_PROPERTY(QString folderFilter READ folderFilter WRITE setFolderFilter NOTIFY folderFilterChanged)
     Q_PROPERTY(QString searchFilter READ searchFilter WRITE setSearchFilter NOTIFY searchFilterChanged)
+    Q_PROPERTY(QString mimeFilter  READ mimeFilter  WRITE setMimeFilter  NOTIFY mimeFilterChanged)
 
 public:
     enum FilterMode { AllMode = 0, FavoritesMode = 1, TrashMode = 2 };
     Q_ENUM(FilterMode)
 
     enum Roles {
-        IsHeaderRole  = Qt::UserRole + 1,
+        IsHeaderRole    = Qt::UserRole + 1,
         MonthNameRole,
-        ItemsRole
+        ItemsRole,
+        HeightMultRole
     };
 
     explicit TimelineModel(DatabaseManager *db, QObject *parent = nullptr);
@@ -40,6 +42,9 @@ public:
     QString searchFilter() const { return m_searchFilter; }
     Q_INVOKABLE void setSearchFilter(const QString &query);
 
+    QString mimeFilter() const { return m_mimeFilter; }
+    Q_INVOKABLE void setMimeFilter(const QString &prefix);
+
     Q_INVOKABLE void refresh(bool hideIgnored = true);
     Q_INVOKABLE QVariantList getFlatMediaList() const;
 
@@ -48,13 +53,15 @@ signals:
     void numColumnsChanged();
     void folderFilterChanged();
     void searchFilterChanged();
+    void mimeFilterChanged();
 
 private:
     // Each row is either a month header or a strip of up to numColumns photos.
     struct Row {
-        bool       isHeader = false;
-        QString    monthName;
+        bool         isHeader = false;
+        QString      monthName;
         QVariantList items;
+        float        heightMult = 1.0f;
     };
 
     DatabaseManager *m_db;
@@ -63,4 +70,5 @@ private:
     int              m_numColumns = 4;
     QString          m_folderFilter;
     QString          m_searchFilter;
+    QString          m_mimeFilter;
 };

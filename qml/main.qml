@@ -69,11 +69,18 @@ ApplicationWindow {
             currentView: window.currentView
             onViewChanged: (view) => {
                 window.currentView = view
+                window.detailTitle = ""
+                // Reset all filters when switching top-level views
+                TimelineModel.setFolderFilter("")
+                TimelineModel.setMimeFilter("")
+                TimelineModel.filterMode = 0
                 if (view === "timeline") {
-                    TimelineModel.filterMode = 0
                     mainStack.replace(timelineView)
                 } else if (view === "albums") {
                     mainStack.replace(albumsView)
+                } else if (view === "videos") {
+                    TimelineModel.setMimeFilter("video/")
+                    mainStack.replace(timelineView)
                 } else if (view === "map") {
                     mainStack.replace(mapView)
                 } else if (view === "favorites") {
@@ -295,12 +302,13 @@ ApplicationWindow {
     }
 
     readonly property var viewTitles: ({
-        "timeline": "Timeline",
-        "albums": "Albums",
-        "map": "Places",
+        "timeline":  "Timeline",
+        "albums":    "Albums",
+        "videos":    "Videos",
+        "map":       "Places",
         "favorites": "Favorites",
-        "trash": "Trash",
-        "settings": "Settings"
+        "trash":     "Trash",
+        "settings":  "Settings"
     })
 
     Component {
@@ -427,5 +435,7 @@ ApplicationWindow {
 
     ViewerOverlay {
         id: viewerOverlay
+        parent: Overlay.overlay
+        anchors.fill: parent
     }
 }

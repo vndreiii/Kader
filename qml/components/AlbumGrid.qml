@@ -2,35 +2,40 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Qcm.Material as MD
-import "../components"
+import ".."
 
 Item {
     id: root
+    property string mimePrefix: ""   // "image/" or "video/" — filters which albums to show
     signal openAlbum(string folderPath, string albumName)
-    property alias topPadding: gridView.topMargin
 
-    implicitWidth: 800
-    implicitHeight: 600
+    readonly property int count: gridView.count
+    implicitHeight: gridView.contentHeight
 
     GridView {
         id: gridView
         anchors.fill: parent
+        // Filter the shared AlbumModel by dominant MIME type
+        model: AlbumModel
+        clip: false
+        interactive: false
+        leftMargin: 24
+        rightMargin: 24
+        topMargin: 0
+        bottomMargin: 0
 
         readonly property real contentW: width - leftMargin - rightMargin
         readonly property int  numCols:  Math.max(1, Math.floor(contentW / 220))
         cellWidth:  contentW / numCols
         cellHeight: cellWidth + 64
 
-        model: AlbumModel
-        clip: true
-        cacheBuffer: height * 2
-        leftMargin: 24; rightMargin: 24
-        topMargin: 0; bottomMargin: 40
-
         delegate: Item {
             id: albumItem
             width: gridView.cellWidth
-            height: gridView.cellHeight
+            readonly property bool _show: root.mimePrefix === "" ||
+                (model.mime_prefix ? model.mime_prefix.toString().startsWith(root.mimePrefix) : root.mimePrefix.startsWith("image/"))
+            visible: _show
+            height: _show ? gridView.cellHeight : 0
 
             MD.Menu {
                 id: albumMenu
@@ -60,7 +65,6 @@ Item {
             }
 
             Button {
-                id: moreBtn
                 z: 10
                 anchors.top: parent.top; anchors.right: parent.right
                 anchors.topMargin: 20; anchors.rightMargin: 20
@@ -75,10 +79,11 @@ Item {
                 anchors.fill: parent; anchors.margins: 8; spacing: 8
 
                 Rectangle {
-                    id: coverRect
-                    Layout.fillWidth: true; Layout.preferredHeight: width
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: width
                     radius: mouseArea.containsMouse ? 28 : 24
-                    color: ThemeManager.surfaceContainerHigh; clip: true
+                    color: ThemeManager.surfaceContainerHigh
+                    clip: true
                     Behavior on radius { NumberAnimation { duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
 
                     Image {
@@ -88,7 +93,17 @@ Item {
                             if (p && p.indexOf("://") === -1) return "file://" + p
                             return p
                         }
-                        fillMode: Image.PreserveAspectCrop; asynchronous: true
+                        fillMode: Image.PreserveAspectCrop
+                        asynchronous: true
+                    }
+
+                    // Video badge
+                    Rectangle {
+                        visible: root.mimePrefix.startsWith("video/")
+                        anchors.centerIn: parent
+                        width: 48; height: 48; radius: 24
+                        color: Qt.alpha("black", 0.55)
+                        M3Icon { anchors.centerIn: parent; name: "play"; size: 28; color: "white" }
                     }
 
                     Rectangle {
@@ -110,20 +125,9 @@ Item {
                 ColumnLayout {
                     Layout.fillWidth: true; spacing: 2
                     Label { Layout.fillWidth: true; text: model.name || ""; font.pixelSize: 16; font.weight: Font.Medium; color: ThemeManager.onSurface; elide: Text.ElideRight }
-                    RowLayout {
-                        spacing: 6
-                        Label { text: (model.count || 0) + " items"; font.pixelSize: 12; color: ThemeManager.onSurfaceVariant }
-                    }
+                    Label { text: (model.count || 0) + " items"; font.pixelSize: 12; color: ThemeManager.onSurfaceVariant }
                 }
             }
         }
-    }
-
-    ColumnLayout {
-        anchors.centerIn: parent
-        visible: gridView.count === 0
-        spacing: 16
-        M3Icon { Layout.alignment: Qt.AlignHCenter; name: "folder"; size: 96; color: ThemeManager.onSurfaceVariant; opacity: 0.5 }
-        Label { Layout.alignment: Qt.AlignHCenter; text: "No albums"; font.pixelSize: 24; font.weight: Font.Light; color: ThemeManager.onSurface }
     }
 }

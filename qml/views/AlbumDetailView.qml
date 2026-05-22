@@ -10,14 +10,11 @@ Item {
     signal openViewer(var mediaData, int index)
 
     Component.onCompleted: {
+        TimelineModel.setMimeFilter("")
         TimelineModel.setFolderFilter(folderPath)
     }
     Component.onDestruction: {
         TimelineModel.setFolderFilter("")
-        // Clear topbar title — walk up to find ApplicationWindow
-        var win = parent
-        while (win && win.detailTitle === undefined) win = win.parent
-        if (win) win.detailTitle = ""
     }
 
     MediaGrid {

@@ -13,56 +13,58 @@ Item {
 
     width: parent ? parent.width : 0
     height: 56
-    
-    // Sidebar column margins are 12. 
-    // This highlight starts at 4px from that column edge (16px from window edge)
-    // The icon starts at 12px from highlight edge (28px from window edge?)
-    // WAIT, user said "shifted more left aligned to for exmaple when the widget for the this pc starts ont he left side"
-    
-    // If I use 0 margins on sidebar column, and handle everything here:
-    
-    Rectangle {
-        id: highlight
+
+    Row {
         anchors.fill: parent
-        anchors.leftMargin: 12
-        anchors.rightMargin: 12
-        radius: 28
-        color: root.active ? ThemeManager.secondaryContainer : "transparent"
-        
-        Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
+        anchors.leftMargin: 28
+        spacing: 12
 
-        Row {
-            anchors.fill: parent
-            anchors.leftMargin: 16 // Icon starts 16px from highlight edge (12+16 = 28 from window edge)
-            spacing: 12
+        Item {
+            width: 24; height: 24
+            anchors.verticalCenter: parent.verticalCenter
 
+            // Outline icon (fades out when active)
             M3Icon {
-                anchors.verticalCenter: parent.verticalCenter
+                anchors.fill: parent
                 name: root.icon
                 size: 24
                 color: root.active ? ThemeManager.onSecondaryContainer : ThemeManager.onSurfaceVariant
+                opacity: root.active ? 0 : 1
+                Behavior on opacity { NumberAnimation { duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
             }
 
-            Label {
-                visible: !root.collapsed
-                anchors.verticalCenter: parent.verticalCenter
-                text: root.label
-                color: root.active ? ThemeManager.onSecondaryContainer : ThemeManager.onSurfaceVariant
-                font.pixelSize: 14
-                font.weight: root.active ? Font.Medium : Font.Normal
-                elide: Text.ElideRight
-                width: parent.width - 64
+            // Filled icon (fades in when active)
+            M3Icon {
+                anchors.fill: parent
+                name: root.icon + "_fill"
+                size: 24
+                color: ThemeManager.onSecondaryContainer
+                opacity: root.active ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
             }
         }
 
-        // Hover layer
-        Rectangle {
-            anchors.fill: parent
-            radius: parent.radius
-            color: ThemeManager.onSurface
-            opacity: mouseArea.containsMouse && !root.active ? 0.08 : 0
-            Behavior on opacity { NumberAnimation { duration: ThemeManager.durShort } }
+        Label {
+            visible: !root.collapsed
+            anchors.verticalCenter: parent.verticalCenter
+            text: root.label
+            color: root.active ? ThemeManager.onSecondaryContainer : ThemeManager.onSurfaceVariant
+            font.pixelSize: 14
+            font.weight: root.active ? Font.Medium : Font.Normal
+            elide: Text.ElideRight
+            width: parent.width - 64
+            Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
         }
+    }
+
+    // Hover layer
+    Rectangle {
+        anchors.fill: parent
+        anchors.leftMargin: 12; anchors.rightMargin: 12
+        radius: 28
+        color: ThemeManager.onSurface
+        opacity: mouseArea.containsMouse && !root.active ? 0.08 : 0
+        Behavior on opacity { NumberAnimation { duration: ThemeManager.durShort } }
     }
 
     MouseArea {
