@@ -1,6 +1,6 @@
 # Maintainer: Alex <alex@milfs.party>
 pkgname=kader
-pkgver=0.1.0.r35.cad6ca8
+pkgver=0.1.0.r37.5daa9de
 pkgrel=1
 pkgdesc="Modern photo gallery"
 arch=('x86_64')

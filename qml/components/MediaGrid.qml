@@ -267,7 +267,7 @@ Item {
         anchors.bottomMargin: 16
         z: 200
         height: 56
-        width: selBarRow.implicitWidth + 32
+        width: selBarRow.contentWidth + 8
         radius: 28
         color: ThemeManager.inverseSurface
         opacity: root.selectionMode ? 1 : 0

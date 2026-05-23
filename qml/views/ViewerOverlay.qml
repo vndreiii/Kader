@@ -22,6 +22,8 @@ Rectangle {
 
     onActiveChanged: {
         if (!active) {
+            videoPlayer.stop()
+            videoPlayer.source = ""
             if (_isFullscreen) { ApplicationWindow.window.showNormal(); _isFullscreen = false }
             if (viewerOnlyMode) Qt.quit()
         }
@@ -172,123 +174,196 @@ Rectangle {
             visible: root._isVideo
         }
 
-        // Video controls overlay (play/pause + scrubber + volume)
+        // Video controls overlay — two rows: scrubber + controls
         Rectangle {
+            id: videoControls
             visible: root._isVideo
             z: 3
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: 12
-            width: videoControlRow.implicitWidth + 32
-            height: 52
-            radius: 26
-            color: Qt.alpha("black", 0.55)
+            anchors.bottomMargin: 16
+            width: Math.min(Math.max(400, parent.width * 0.65), 640)
+            height: 76
+            radius: 20
+            color: Qt.alpha("black", 0.70)
 
-            Row {
-                id: videoControlRow
-                anchors.centerIn: parent
-                spacing: 12
+            Column {
+                anchors.fill: parent
+                anchors.topMargin: 14
+                anchors.bottomMargin: 10
+                anchors.leftMargin: 16
+                anchors.rightMargin: 16
+                spacing: 6
 
-                // Play / pause
-                Rectangle {
-                    width: 36; height: 36; radius: 18
-                    color: Qt.alpha("white", playPauseMa.containsMouse ? 0.18 : 0.10)
-                    Behavior on color { ColorAnimation { duration: 80 } }
-                    M3Icon {
-                        anchors.centerIn: parent
-                        name: videoPlayer.playbackState === MediaPlayer.PlayingState ? "pause" : "play"
-                        size: 18; color: "white"
-                    }
-                    MouseArea {
-                        id: playPauseMa
-                        anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                        onClicked: videoPlayer.playbackState === MediaPlayer.PlayingState ? videoPlayer.pause() : videoPlayer.play()
-                    }
-                }
-
-                // Scrubber
+                // ── Scrubber track with M3-style stadium thumb ────────────
                 Item {
-                    width: 200; height: 36
-                    anchors.verticalCenter: parent.verticalCenter
+                    id: seekTrack
+                    width: parent.width
+                    height: 20
 
+                    readonly property real _playRatio:
+                        videoPlayer.duration > 0
+                        ? Math.min(1.0, videoPlayer.position / videoPlayer.duration) : 0
+                    readonly property real _ratio:
+                        seekDrag.pressed ? seekDrag._seekRatio : _playRatio
+
+                    // Track background
                     Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
                         width: parent.width; height: 4; radius: 2
-                        color: Qt.alpha("white", 0.25)
-
-                        Rectangle {
-                            width: videoPlayer.duration > 0
-                                   ? parent.width * (videoPlayer.position / videoPlayer.duration)
-                                   : 0
-                            height: parent.height; radius: parent.radius
-                            color: ThemeManager.primary
-                        }
+                        color: Qt.alpha("white", 0.20)
+                    }
+                    // Filled portion
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: seekTrack._ratio * parent.width
+                        height: 4; radius: 2; color: "white"
+                    }
+                    // Stadium thumb
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        x: seekTrack._ratio * (seekTrack.width - width)
+                        width: seekDrag.pressed ? 20 : 12
+                        height: 12; radius: 6; color: "white"
+                        Behavior on width { NumberAnimation { duration: 80; easing.type: Easing.OutQuart } }
                     }
 
                     MouseArea {
+                        id: seekDrag
                         anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                        onClicked: (mouse) => {
+                        hoverEnabled: false
+                        property real _seekRatio: seekTrack._playRatio
+
+                        onPressed: (m) => {
+                            _seekRatio = Math.max(0, Math.min(1, m.x / width))
                             if (videoPlayer.duration > 0)
-                                videoPlayer.position = Math.round((mouse.x / width) * videoPlayer.duration)
+                                videoPlayer.position = Math.round(_seekRatio * videoPlayer.duration)
                         }
-                        onPositionChanged: (mouse) => {
-                            if (pressed && videoPlayer.duration > 0)
-                                videoPlayer.position = Math.round((mouse.x / width) * videoPlayer.duration)
+                        onPositionChanged: (m) => {
+                            if (pressed) {
+                                _seekRatio = Math.max(0, Math.min(1, m.x / width))
+                                if (videoPlayer.duration > 0)
+                                    videoPlayer.position = Math.round(_seekRatio * videoPlayer.duration)
+                            }
                         }
                     }
                 }
 
-                // Timestamp
-                Label {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: {
-                        var s = Math.floor(videoPlayer.position / 1000)
-                        var m = Math.floor(s / 60); s = s % 60
-                        return m + ":" + (s < 10 ? "0" : "") + s
-                    }
-                    color: "white"; font.pixelSize: 12; font.weight: Font.Medium
-                }
-
-                // Mute toggle
-                Rectangle {
-                    width: 32; height: 32; radius: 16
-                    color: Qt.alpha("white", muteMa.containsMouse ? 0.18 : 0.10)
-                    Behavior on color { ColorAnimation { duration: 80 } }
-                    M3Icon {
-                        anchors.centerIn: parent
-                        name: audioOut.muted ? "volume_off" : "volume_up"
-                        size: 16; color: "white"
-                    }
-                    MouseArea {
-                        id: muteMa
-                        anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                        onClicked: audioOut.muted = !audioOut.muted
-                    }
-                }
-
-                // Volume slider
+                // ── Controls row ──────────────────────────────────────────
                 Item {
-                    width: 72; height: 36
-                    anchors.verticalCenter: parent.verticalCenter
-                    opacity: audioOut.muted ? 0.4 : 1.0
-                    Behavior on opacity { NumberAnimation { duration: 100 } }
+                    width: parent.width
+                    height: 28
 
+                    // Play / Pause
                     Rectangle {
+                        id: ppBtn
                         anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width; height: 4; radius: 2
-                        color: Qt.alpha("white", 0.25)
-                        Rectangle {
-                            width: parent.width * audioOut.volume
-                            height: parent.height; radius: parent.radius
-                            color: "white"
+                        width: 28; height: 28; radius: 14
+                        color: Qt.alpha("white", ppMa.containsMouse ? 0.20 : 0.12)
+                        Behavior on color { ColorAnimation { duration: 80 } }
+                        M3Icon {
+                            anchors.centerIn: parent
+                            name: videoPlayer.playbackState === MediaPlayer.PlayingState ? "pause" : "play"
+                            size: 16; color: "white"
+                        }
+                        MouseArea {
+                            id: ppMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onClicked: videoPlayer.playbackState === MediaPlayer.PlayingState
+                                       ? videoPlayer.pause() : videoPlayer.play()
                         }
                     }
 
-                    MouseArea {
-                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                        onClicked: (mouse) => { audioOut.volume = Math.max(0, Math.min(1, mouse.x / width)) }
-                        onPositionChanged: (mouse) => {
-                            if (pressed) audioOut.volume = Math.max(0, Math.min(1, mouse.x / width))
+                    // Position / Duration label
+                    Label {
+                        anchors.left: ppBtn.right; anchors.leftMargin: 8
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: {
+                            function fmt(ms) {
+                                var s = Math.floor(ms / 1000)
+                                var m = Math.floor(s / 60); s = s % 60
+                                return m + ":" + (s < 10 ? "0" : "") + s
+                            }
+                            return fmt(videoPlayer.position) + " / " + fmt(videoPlayer.duration)
+                        }
+                        color: Qt.alpha("white", 0.75)
+                        font.pixelSize: 12; font.weight: Font.Medium
+                        font.family: "JetBrains Mono"
+                    }
+
+                    // Volume section (compact → expands on hover)
+                    Item {
+                        id: volWrapper
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        height: 28
+                        width: volHoverMa.containsMouse ? (30 + 6 + 80) : 30
+                        clip: true
+                        Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutQuint } }
+
+                        // Hover catcher (passes clicks through)
+                        MouseArea {
+                            id: volHoverMa
+                            anchors.fill: parent; hoverEnabled: true
+                            acceptedButtons: Qt.NoButton
+                        }
+
+                        Row {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 6
+
+                            // Volume track (only visible when expanded)
+                            Item {
+                                width: 80; height: 12
+                                anchors.verticalCenter: parent.verticalCenter
+                                opacity: volHoverMa.containsMouse ? (audioOut.muted ? 0.35 : 1.0) : 0
+                                Behavior on opacity { NumberAnimation { duration: 150 } }
+
+                                Rectangle {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: parent.width; height: 4; radius: 2
+                                    color: Qt.alpha("white", 0.25)
+                                }
+                                Rectangle {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: audioOut.muted ? 0 : audioOut.volume * parent.width
+                                    height: 4; radius: 2; color: "white"
+                                }
+                                Rectangle {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    x: (audioOut.muted ? 0 : audioOut.volume) * (parent.width - 12)
+                                    width: 12; height: 12; radius: 6; color: "white"
+                                }
+                                MouseArea {
+                                    anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                    onClicked: (m) => {
+                                        audioOut.muted = false
+                                        audioOut.volume = Math.max(0, Math.min(1, m.x / width))
+                                    }
+                                    onPositionChanged: (m) => {
+                                        if (pressed) {
+                                            audioOut.muted = false
+                                            audioOut.volume = Math.max(0, Math.min(1, m.x / width))
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Mute button
+                            Rectangle {
+                                width: 28; height: 28; radius: 14
+                                color: Qt.alpha("white", muteMa.containsMouse ? 0.20 : 0.12)
+                                Behavior on color { ColorAnimation { duration: 80 } }
+                                M3Icon {
+                                    anchors.centerIn: parent
+                                    name: audioOut.muted ? "volume_off" : "volume_up"
+                                    size: 15; color: "white"
+                                }
+                                MouseArea {
+                                    id: muteMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                    onClicked: audioOut.muted = !audioOut.muted
+                                }
+                            }
                         }
                     }
                 }

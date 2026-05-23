@@ -140,6 +140,10 @@ Item {
     MD.Menu {
         id: tileMenu
         MD.MenuItem {
+            text: "Select"
+            onTriggered: root.enterSelectionMode()
+        }
+        MD.MenuItem {
             text: root._isFav ? "Unfavorite" : "Favorite"
             onTriggered: { if (root._mediaId) { DB.toggleFavorite(root._mediaId); TimelineModel.refresh() } }
         }
@@ -175,11 +179,8 @@ Item {
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         onClicked: (mouse) => {
             if (mouse.button === Qt.RightButton) {
-                if (!root.selectable) {
-                    root.enterSelectionMode()
-                } else {
-                    root.selectToggle()
-                }
+                if (root.selectable) root.selectToggle()
+                else tileMenu.popup()
             } else if (root.selectable) {
                 root.selectToggle()
             } else {

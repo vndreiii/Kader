@@ -60,6 +60,10 @@ Item {
             MD.Menu {
                 id: albumMenu
                 MD.MenuItem {
+                    text: "Select"
+                    onTriggered: { root.selectionMode = true; root.selectAlbum(albumItem._path) }
+                }
+                MD.MenuItem {
                     text: albumItem._pinned ? "Unpin album" : "Pin album"
                     onTriggered: { DB.pinAlbum(albumItem._path, !albumItem._pinned); AlbumModel.refresh() }
                 }
@@ -73,10 +77,11 @@ Item {
                 }
             }
 
-            // Selection indicator ring
+            // Selection ring — wraps thumbnail only (not text labels below)
             Rectangle {
-                anchors.fill: parent
-                anchors.margins: 8
+                x: 8; y: 8
+                width: albumItem.width - 16
+                height: albumItem.width - 16
                 radius: mouseArea.containsMouse ? 28 : 24
                 color: "transparent"
                 border.width: root.isAlbumSelected(albumItem._path) ? 3 : 0
@@ -85,12 +90,11 @@ Item {
                 Behavior on border.width { NumberAnimation { duration: 80 } }
             }
 
-            // Selection checkmark
+            // Selection checkmark — inside thumbnail area
             Rectangle {
                 visible: root.selectionMode
-                anchors.top: parent.top; anchors.left: parent.left
-                anchors.topMargin: 20; anchors.leftMargin: 20
-                width: 28; height: 28; radius: 14; z: 5
+                x: 20; y: 20; z: 6
+                width: 28; height: 28; radius: 14
                 color: root.isAlbumSelected(albumItem._path) ? ThemeManager.primary : Qt.alpha("white", 0.5)
                 Behavior on color { ColorAnimation { duration: 100 } }
                 M3Icon {
@@ -110,8 +114,7 @@ Item {
                     if (root.selectionMode) {
                         root.toggleAlbum(albumItem._path)
                     } else if (mouse.button === Qt.RightButton) {
-                        root.selectionMode = true
-                        root.selectAlbum(albumItem._path)
+                        albumMenu.popup()
                     } else {
                         root.openAlbum(albumItem._path, albumItem._name)
                     }
@@ -233,7 +236,7 @@ Item {
         anchors.bottomMargin: 16
         z: 200
         height: 56
-        width: selAlbumRow.implicitWidth + 32
+        width: selAlbumRow.contentWidth + 8
         radius: 28
         color: ThemeManager.inverseSurface
         opacity: root.selectionMode ? 1 : 0
@@ -246,20 +249,34 @@ Item {
 
             Label {
                 anchors.verticalCenter: parent.verticalCenter
-                leftPadding: 8; rightPadding: 4
+                leftPadding: 12; rightPadding: 8
                 text: Object.keys(root._selSet).length + " selected"
                 color: ThemeManager.inverseOnSurface
                 font.pixelSize: 14; font.weight: Font.Medium
             }
 
-            Rectangle { width: 1; height: 32; color: Qt.alpha(ThemeManager.inverseOnSurface, 0.2); anchors.verticalCenter: parent.verticalCenter }
+            // Pin / Unpin
+            Rectangle {
+                width: 44; height: 44; radius: 22
+                color: pinSelMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
+                Behavior on color { ColorAnimation { duration: 80 } }
+                M3Icon { anchors.centerIn: parent; name: "pin"; size: 20; color: ThemeManager.inverseOnSurface }
+                MouseArea {
+                    id: pinSelMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        var paths = root.selectedPaths()
+                        for (var i = 0; i < paths.length; i++) DB.pinAlbum(paths[i], true)
+                        AlbumModel.refresh(); root.clearSelection()
+                    }
+                }
+            }
 
-            // Ignore selected
+            // Ignore / hide from gallery
             Rectangle {
                 width: 44; height: 44; radius: 22
                 color: ignoreSelMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
                 Behavior on color { ColorAnimation { duration: 80 } }
-                M3Icon { anchors.centerIn: parent; name: "close"; size: 20; color: ThemeManager.inverseOnSurface }
+                M3Icon { anchors.centerIn: parent; name: "visibility_off"; size: 20; color: ThemeManager.inverseOnSurface }
                 MouseArea {
                     id: ignoreSelMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                     onClicked: {
@@ -286,19 +303,21 @@ Item {
                 }
             }
 
-            Rectangle { width: 1; height: 32; color: Qt.alpha(ThemeManager.inverseOnSurface, 0.2); anchors.verticalCenter: parent.verticalCenter }
+            Item { width: 4; height: 1 }
 
             // Clear selection
             Rectangle {
                 width: 44; height: 44; radius: 22
                 color: clearAlbSelMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
                 Behavior on color { ColorAnimation { duration: 80 } }
-                M3Icon { anchors.centerIn: parent; name: "close"; size: 20; color: Qt.alpha(ThemeManager.inverseOnSurface, 0.5) }
+                M3Icon { anchors.centerIn: parent; name: "close"; size: 18; color: Qt.alpha(ThemeManager.inverseOnSurface, 0.6) }
                 MouseArea {
                     id: clearAlbSelMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                     onClicked: root.clearSelection()
                 }
             }
+
+            Item { width: 4; height: 1 }
         }
     }
 

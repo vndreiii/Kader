@@ -51,7 +51,7 @@ QString ThumbnailGenerator::getOrCreateThumbnail(const QString &filePath, int si
             "-i", filePath,
             "-o", thumbPath,
             "-s", QString::number(size),
-            "-t", "10",
+            "-t", "10%",
             "-c", "jpeg"
         });
         if (proc.waitForFinished(10000) && QFile::exists(thumbPath))
@@ -78,11 +78,16 @@ QByteArray ThumbnailGenerator::generateVideoThumbnailBytes(const QString &filePa
         "-i", filePath,
         "-o", tmpPath,
         "-s", QString::number(size),
-        "-t", "10",
+        "-t", "10%",
         "-c", "jpeg"
     });
     if (!proc.waitForFinished(10000)) {
+        proc.kill();
         qWarning() << "ffmpegthumbnailer timed out for" << filePath;
+        return {};
+    }
+    if (proc.exitCode() != 0) {
+        qWarning() << "ffmpegthumbnailer failed for" << filePath << ":" << proc.readAllStandardError();
         return {};
     }
     QFile f(tmpPath);
