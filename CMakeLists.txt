@@ -79,6 +79,7 @@ target_link_libraries(KaderLib PUBLIC
 
 # QML Module setup
 qt_add_qml_module(KaderApp
+    STATIC
     URI Kader
     VERSION 1.0
     RESOURCE_PREFIX /

@@ -1,6 +1,6 @@
 # Maintainer: Alex <alex@milfs.party>
 pkgname=kader
-pkgver=0.1.0
+pkgver=0.1.0.r29.756489c
 pkgrel=1
 pkgdesc="Modern photo gallery"
 arch=('x86_64')
@@ -10,7 +10,9 @@ depends=(
     'qt6-base'
     'qt6-declarative'
     'qt6-location'
-    'vips'
+    'qt6-positioning'
+    'qt6-shadertools'
+    'libvips'
     'exiv2'
     'openssl'
     'libheif'
@@ -21,13 +23,27 @@ makedepends=(
     'qt6-tools'
     'pkgconfig'
 )
-source=("$pkgname::git+ssh://git@code.milfs.party:2222/alex/Kader.git")
-sha256sums=('SKIP')
+source=(
+    "$pkgname::git+ssh://git@code.milfs.party:2222/alex/Kader.git"
+    "QmlMaterial::git+https://github.com/hypengw/QmlMaterial"
+)
+sha256sums=('SKIP' 'SKIP')
 
 pkgver() {
     cd "$pkgname"
-    git describe --tags --long 2>/dev/null | sed 's/\([^-]*-g\)/r\1/;s/-/./g' \
-        || printf "0.1.0.r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+    local ver=$(git describe --tags --long 2>/dev/null | sed 's/\([^-]*-g\)/r\1/;s/-/./g')
+    if [ -z "$ver" ]; then
+        printf "0.1.0.r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+    else
+        echo "$ver"
+    fi
+}
+
+prepare() {
+    cd "$pkgname"
+    mkdir -p lib
+    rm -rf lib/QmlMaterial
+    ln -sf "$srcdir/QmlMaterial" lib/QmlMaterial
 }
 
 build() {
