@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Effects
 import Qcm.Material as MD
 import "../components"
 
@@ -84,32 +85,53 @@ Item {
                     id: coverRect
                     Layout.fillWidth: true; Layout.preferredHeight: width
                     radius: mouseArea.containsMouse ? 28 : 24
-                    color: ThemeManager.surfaceContainerHigh; clip: true
+                    color: ThemeManager.surfaceContainerHigh
                     Behavior on radius { NumberAnimation { duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
 
-                    Image {
+                    Rectangle {
+                        id: coverMask
                         anchors.fill: parent
-                        source: {
-                            var p = model.cover || ""
-                            if (p && p.indexOf("://") === -1) return "file://" + p
-                            return p
+                        radius: parent.radius
+                        color: "white"
+                        visible: false
+                        layer.enabled: true
+                    }
+
+                    Item {
+                        anchors.fill: parent
+
+                        Image {
+                            anchors.fill: parent
+                            source: {
+                                var p = model.cover || ""
+                                if (p && p.indexOf("://") === -1) return "file://" + p
+                                return p
+                            }
+                            fillMode: Image.PreserveAspectCrop; asynchronous: true
                         }
-                        fillMode: Image.PreserveAspectCrop; asynchronous: true
-                    }
 
-                    Rectangle {
-                        visible: model.pinned || false
-                        anchors.top: parent.top; anchors.left: parent.left; anchors.margins: 12
-                        width: 32; height: 32; radius: 16
-                        color: Qt.alpha(ThemeManager.surface, 0.85)
-                        M3Icon { anchors.centerIn: parent; name: "pin"; size: 16; color: ThemeManager.primary }
-                    }
+                        Rectangle {
+                            visible: model.pinned || false
+                            anchors.top: parent.top; anchors.left: parent.left; anchors.margins: 12
+                            width: 32; height: 32; radius: 16
+                            color: Qt.alpha(ThemeManager.surface, 0.85)
+                            M3Icon { anchors.centerIn: parent; name: "pin"; size: 16; color: ThemeManager.primary }
+                        }
 
-                    Rectangle {
-                        anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.margins: 12
-                        width: weightLabel.width + 20; height: 24; radius: 12
-                        color: Qt.alpha("black", 0.55)
-                        Label { id: weightLabel; anchors.centerIn: parent; text: model.size || "–"; color: "white"; font.pixelSize: 11; font.weight: Font.Medium }
+                        Rectangle {
+                            anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.margins: 12
+                            width: weightLabel.width + 20; height: 24; radius: 12
+                            color: Qt.alpha("black", 0.55)
+                            Label { id: weightLabel; anchors.centerIn: parent; text: model.size || "–"; color: "white"; font.pixelSize: 11; font.weight: Font.Medium }
+                        }
+
+                        layer.enabled: true
+                        layer.effect: MultiEffect {
+                            maskEnabled: true
+                            maskThresholdMin: 0.5
+                            maskSpreadAtMin: 1.0
+                            maskSource: coverMask
+                        }
                     }
                 }
 

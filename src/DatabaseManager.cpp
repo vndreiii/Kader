@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QDebug>
 #include <QSqlRecord>
+#include <QFile>
 #include <QFileInfo>
 #include <QThread>
 #include <QCoreApplication>
@@ -34,6 +35,9 @@ void DatabaseManager::checkConnection() {
         if (!m_db.open()) {
             qCritical() << "Error opening database in thread" << connectionName << ":" << m_db.lastError().text();
         } else {
+            QSqlQuery wal(m_db);
+            wal.exec("PRAGMA journal_mode=WAL");
+            wal.exec("PRAGMA synchronous=NORMAL");
             createTables();
         }
     }
@@ -110,6 +114,28 @@ bool DatabaseManager::createTables() {
     migrate("media",  "latitude",    "REAL");
     migrate("media",  "longitude",   "REAL");
 
+    // Migrate albums table so path_prefix has UNIQUE constraint (older DBs had name UNIQUE instead).
+    {
+        QSqlQuery check(m_db);
+        check.exec("SELECT sql FROM sqlite_master WHERE type='table' AND name='albums'");
+        if (check.next() && !check.value(0).toString().contains("path_prefix TEXT UNIQUE")) {
+            QSqlQuery mq(m_db);
+            mq.exec("CREATE TABLE IF NOT EXISTS albums_v2 ("
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    "name TEXT,"
+                    "path_prefix TEXT UNIQUE,"
+                    "cover_media_id INTEGER,"
+                    "is_pinned BOOLEAN DEFAULT 0,"
+                    "is_ignored BOOLEAN DEFAULT 0"
+                    ")");
+            mq.exec("INSERT OR IGNORE INTO albums_v2 (id, name, path_prefix, "
+                    "is_pinned, is_ignored) "
+                    "SELECT id, name, path_prefix, is_pinned, is_ignored FROM albums");
+            mq.exec("DROP TABLE albums");
+            mq.exec("ALTER TABLE albums_v2 RENAME TO albums");
+        }
+    }
+
     return success;
 }
 
@@ -156,14 +182,38 @@ bool DatabaseManager::updateDirectoryStats(const QString &path, int count) {
 
 bool DatabaseManager::ignoreAlbum(const QString &folderPath, bool ignore) {
     checkConnection();
-    QSqlQuery query(m_db);
-    query.prepare("INSERT INTO albums (name, path_prefix, is_ignored) "
-                  "VALUES (:name, :path, :ignored) "
-                  "ON CONFLICT(path_prefix) DO UPDATE SET is_ignored = :ignored");
-    query.bindValue(":name", QDir(folderPath).dirName());
-    query.bindValue(":path", folderPath);
-    query.bindValue(":ignored", ignore ? 1 : 0);
-    return query.exec();
+    // Update existing row if one already tracks this path
+    {
+        QSqlQuery q(m_db);
+        q.prepare("UPDATE albums SET is_ignored = :v WHERE path_prefix = :path");
+        q.bindValue(":v", ignore ? 1 : 0);
+        q.bindValue(":path", folderPath);
+        q.exec();
+        if (q.numRowsAffected() > 0) return true;
+    }
+    // No existing row — insert; use full path as name so it never conflicts on name UNIQUE
+    QSqlQuery q(m_db);
+    q.prepare("INSERT INTO albums (name, path_prefix, is_ignored) VALUES (:n, :p, :v) "
+              "ON CONFLICT(name) DO UPDATE SET path_prefix = :p, is_ignored = :v");
+    q.bindValue(":n", folderPath);
+    q.bindValue(":p", folderPath);
+    q.bindValue(":v", ignore ? 1 : 0);
+    return q.exec();
+}
+
+QVariantList DatabaseManager::getIgnoredFolders() {
+    checkConnection();
+    QSqlQuery q(m_db);
+    q.exec("SELECT path_prefix FROM albums WHERE is_ignored = 1 ORDER BY path_prefix");
+    QVariantList list;
+    while (q.next()) {
+        QString path = q.value(0).toString();
+        QVariantMap map;
+        map["path"] = path;
+        map["name"] = QDir(path).dirName();
+        list.append(map);
+    }
+    return list;
 }
 
 bool DatabaseManager::addOrUpdateMedia(const QString &filePath, const QString &hash,
@@ -224,12 +274,12 @@ QVariantList DatabaseManager::getAlbums(bool hideIgnored) {
     QSqlDatabase db = QSqlDatabase::database(connName);
 
     QVariantList list;
-    QString sql = "SELECT folder_path, COUNT(*), SUM(file_size), MIN(file_path) FROM media ";
+    QString sql = "SELECT folder_path, COUNT(*), SUM(file_size), MIN(file_path) FROM media WHERE is_trashed = 0 ";
     if (hideIgnored) {
-        sql += "WHERE COALESCE(folder_path,'') NOT IN "
+        sql += "AND COALESCE(folder_path,'') NOT IN "
                "(SELECT COALESCE(path_prefix,'') FROM albums WHERE is_ignored = 1) ";
     }
-    sql += "GROUP BY folder_path ORDER BY folder_path ASC";
+    sql += "GROUP BY folder_path HAVING COUNT(*) > 0 ORDER BY folder_path ASC";
 
     QSqlQuery query(db);
     if (!query.exec(sql)) {
@@ -366,12 +416,20 @@ QVariantMap DatabaseManager::getMediaById(int mediaId) {
 
 bool DatabaseManager::pinAlbum(const QString &folderPath, bool pinned) {
     checkConnection();
+    {
+        QSqlQuery q(m_db);
+        q.prepare("UPDATE albums SET is_pinned = :v WHERE path_prefix = :path");
+        q.bindValue(":v", pinned ? 1 : 0);
+        q.bindValue(":path", folderPath);
+        q.exec();
+        if (q.numRowsAffected() > 0) return true;
+    }
     QSqlQuery q(m_db);
-    q.prepare("INSERT INTO albums (name, path_prefix, is_pinned) VALUES (:name, :path, :pin) "
-              "ON CONFLICT(path_prefix) DO UPDATE SET is_pinned = :pin");
-    q.bindValue(":name", QDir(folderPath).dirName());
-    q.bindValue(":path", folderPath);
-    q.bindValue(":pin",  pinned ? 1 : 0);
+    q.prepare("INSERT INTO albums (name, path_prefix, is_pinned) VALUES (:n, :p, :v) "
+              "ON CONFLICT(name) DO UPDATE SET path_prefix = :p, is_pinned = :v");
+    q.bindValue(":n", folderPath);
+    q.bindValue(":p", folderPath);
+    q.bindValue(":v", pinned ? 1 : 0);
     return q.exec();
 }
 
@@ -421,6 +479,38 @@ QVariantList DatabaseManager::getAllMedia(bool hideIgnored) {
         list.append(map);
     }
     return list;
+}
+
+int DatabaseManager::emptyTrash() {
+    checkConnection();
+    QSqlQuery sel(m_db);
+    sel.exec("SELECT id, file_path FROM media WHERE is_trashed = 1");
+
+    QList<QPair<int, QString>> trashed;
+    while (sel.next())
+        trashed.append({sel.value(0).toInt(), sel.value(1).toString()});
+
+    if (trashed.isEmpty()) return 0;
+
+    m_db.transaction();
+    QSqlQuery delMedia(m_db);
+    delMedia.prepare("DELETE FROM media WHERE id = ?");
+    QSqlQuery delThumb(m_db);
+    delThumb.prepare("DELETE FROM thumbnails WHERE file_path = ?");
+
+    int deleted = 0;
+    for (auto &[id, path] : trashed) {
+        QFile::remove(path);
+        delMedia.addBindValue(id);
+        delMedia.exec();
+        delThumb.addBindValue(path);
+        delThumb.exec();
+        ++deleted;
+    }
+    m_db.commit();
+
+    qDebug() << "emptyTrash: permanently deleted" << deleted << "files";
+    return deleted;
 }
 
 int DatabaseManager::pruneOrphanedMedia() {

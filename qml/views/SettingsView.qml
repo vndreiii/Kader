@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Qcm.Material as MD
-import Qt.labs.platform as Platform
+import QtQuick.Dialogs
 import "../components"
 
 Item {
@@ -13,18 +13,23 @@ Item {
     implicitHeight: 600
 
     property var indexedDirs: []
+    property var ignoredFolders: []
 
     function refreshDirs() {
         indexedDirs = DB.getIndexedDirectories()
     }
 
-    Component.onCompleted: refreshDirs()
+    function refreshIgnored() {
+        ignoredFolders = DB.getIgnoredFolders()
+    }
 
-    Platform.FolderDialog {
+    Component.onCompleted: { refreshDirs(); refreshIgnored() }
+
+    FolderDialog {
         id: folderPicker
         title: "Choose a directory to index"
         onAccepted: {
-            var path = folder.toString().replace(/^file:\/\//, "")
+            var path = selectedFolder.toString().replace(/^file:\/\//, "")
             DB.addIndexedDirectory(path)
             root.refreshDirs()
             FileScanner.startScan(path)
@@ -38,6 +43,182 @@ Item {
             // Also refresh other models
             TimelineModel.refresh()
             AlbumModel.refresh()
+        }
+    }
+
+    // Ignored folders modal
+    Rectangle {
+        id: ignoredModal
+        property bool open: false
+        anchors.fill: parent
+        color: Qt.alpha("black", 0.45)
+        visible: open
+        z: 200
+        Behavior on opacity { NumberAnimation { duration: 150 } }
+
+        MouseArea { anchors.fill: parent; onClicked: ignoredModal.open = false }
+
+        Rectangle {
+            width: 520
+            height: Math.min(root.height - 96, cardColumn.implicitHeight + 48)
+            radius: 28
+            color: ThemeManager.surfaceContainerHigh
+            anchors.centerIn: parent
+
+            MouseArea { anchors.fill: parent }
+
+            ColumnLayout {
+                id: cardColumn
+                anchors.fill: parent
+                anchors.margins: 24
+                spacing: 0
+
+                Label {
+                    text: "Ignored folders"
+                    font.pixelSize: 22
+                    font.weight: Font.Medium
+                    color: ThemeManager.onSurface
+                    bottomPadding: 4
+                }
+                Label {
+                    text: "These folders are hidden from your timeline and albums."
+                    font.pixelSize: 13
+                    color: ThemeManager.onSurfaceVariant
+                    wrapMode: Text.Wrap
+                    Layout.fillWidth: true
+                    bottomPadding: 16
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 1
+                    color: ThemeManager.outlineVariant
+                }
+
+                // Scrollable list
+                Flickable {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.maximumHeight: root.height - 300
+                    contentHeight: ignoredList.implicitHeight
+                    clip: true
+
+                    Column {
+                        id: ignoredList
+                        width: parent.width
+
+                        Repeater {
+                            model: root.ignoredFolders
+                            delegate: Item {
+                                width: parent.width
+                                height: 64
+
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 4
+                                    anchors.rightMargin: 4
+                                    spacing: 12
+
+                                    Rectangle {
+                                        width: 36; height: 36; radius: 12
+                                        color: ThemeManager.surfaceContainerHighest
+                                        M3Icon { anchors.centerIn: parent; name: "folder"; size: 18; color: ThemeManager.onSurfaceVariant }
+                                    }
+
+                                    Column {
+                                        Layout.fillWidth: true
+                                        spacing: 2
+                                        Label {
+                                            width: parent.width
+                                            text: modelData.name || modelData.path.split("/").filter(Boolean).pop()
+                                            font.pixelSize: 14
+                                            font.weight: Font.Medium
+                                            color: ThemeManager.onSurface
+                                            elide: Text.ElideRight
+                                        }
+                                        Label {
+                                            width: parent.width
+                                            text: modelData.path
+                                            font.family: "JetBrains Mono"
+                                            font.pixelSize: 11
+                                            color: ThemeManager.onSurfaceVariant
+                                            elide: Text.ElideRight
+                                        }
+                                    }
+
+                                    Button {
+                                        Layout.preferredWidth: 80
+                                        Layout.preferredHeight: 32
+                                        background: Rectangle {
+                                            radius: 16
+                                            color: parent.hovered ? Qt.alpha(ThemeManager.primary, 0.12) : Qt.alpha(ThemeManager.primary, 0.06)
+                                        }
+                                        contentItem: Label {
+                                            text: "Unignore"
+                                            font.pixelSize: 12
+                                            font.weight: Font.Medium
+                                            color: ThemeManager.primary
+                                            horizontalAlignment: Text.AlignHCenter
+                                            verticalAlignment: Text.AlignVCenter
+                                        }
+                                        onClicked: {
+                                            DB.ignoreAlbum(modelData.path, false)
+                                            root.refreshIgnored()
+                                            AlbumModel.refresh()
+                                            TimelineModel.refresh()
+                                        }
+                                    }
+                                }
+
+                                Rectangle {
+                                    anchors.bottom: parent.bottom
+                                    width: parent.width
+                                    height: 1
+                                    color: ThemeManager.outlineVariant
+                                    opacity: 0.5
+                                }
+                            }
+                        }
+
+                        // Empty state
+                        Item {
+                            width: parent.width
+                            height: 80
+                            visible: root.ignoredFolders.length === 0
+                            Label {
+                                anchors.centerIn: parent
+                                text: "No ignored folders"
+                                font.pixelSize: 14
+                                color: ThemeManager.onSurfaceVariant
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 1
+                    color: ThemeManager.outlineVariant
+                }
+
+                Item { height: 16 }
+
+                Button {
+                    Layout.alignment: Qt.AlignRight
+                    text: "Done"
+                    onClicked: ignoredModal.open = false
+                    background: Rectangle { radius: 20; color: ThemeManager.primaryContainer }
+                    contentItem: Label {
+                        text: parent.text
+                        color: ThemeManager.onPrimaryContainer
+                        font.weight: Font.Medium
+                        font.pixelSize: 14
+                        topPadding: 8; bottomPadding: 8; leftPadding: 20; rightPadding: 20
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
+            }
         }
     }
 
@@ -142,6 +323,21 @@ Item {
                             Label { anchors.verticalCenter: parent.verticalCenter; text: "Add directory & Scan"; font.pixelSize: 14; font.weight: Font.Medium; color: ThemeManager.primary }
                         }
                         onClicked: folderPicker.open()
+                    }
+
+                    Button {
+                        width: parent.width
+                        height: 56
+                        flat: true
+                        background: Rectangle { color: parent.hovered ? Qt.alpha(ThemeManager.onSurface, 0.04) : "transparent" }
+                        contentItem: Row {
+                            spacing: 12
+                            leftPadding: 20
+                            anchors.verticalCenter: parent.verticalCenter
+                            M3Icon { anchors.verticalCenter: parent.verticalCenter; name: "close"; size: 20; color: ThemeManager.onSurfaceVariant }
+                            Label { anchors.verticalCenter: parent.verticalCenter; text: "Manage ignored folders"; font.pixelSize: 14; font.weight: Font.Medium; color: ThemeManager.onSurfaceVariant }
+                        }
+                        onClicked: { root.refreshIgnored(); ignoredModal.open = true }
                     }
 
                     SettingsRow {

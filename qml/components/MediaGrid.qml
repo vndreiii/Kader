@@ -70,14 +70,23 @@ Item {
             width:  listView.width - root.hMargin * 2
             height: _isHeader ? 56 : Math.round(_rowH)
 
-            Label {
+            Rectangle {
                 visible: rowItem._isHeader
                 anchors.bottom: parent.bottom
-                anchors.bottomMargin: 8
-                text: rowItem._month
-                font.family: "Roboto Flex"
-                font.pixelSize: 20; font.weight: Font.Medium
-                color: ThemeManager.onSurface
+                anchors.bottomMargin: 10
+                height: 30
+                width: dateLabel.implicitWidth + 20
+                radius: 15
+                color: ThemeManager.surfaceContainerHigh
+                Label {
+                    id: dateLabel
+                    anchors.centerIn: parent
+                    text: rowItem._month
+                    font.family: "Roboto Flex"
+                    font.pixelSize: 13
+                    font.weight: Font.Medium
+                    color: ThemeManager.onSurface
+                }
             }
 
             Row {

@@ -34,6 +34,9 @@ public:
     // Ignore an album and its items
     Q_INVOKABLE bool ignoreAlbum(const QString &folderPath, bool ignore = true);
 
+    // Returns [{path, name}] for all currently-ignored folders
+    Q_INVOKABLE QVariantList getIgnoredFolders();
+
     // Indexed Directories
     Q_INVOKABLE QVariantList getIndexedDirectories();
     Q_INVOKABLE bool addIndexedDirectory(const QString &path);
@@ -56,6 +59,9 @@ public:
     // Album actions
     Q_INVOKABLE bool pinAlbum(const QString &folderPath, bool pinned);
     Q_INVOKABLE bool trashAlbum(const QString &folderPath);
+
+    // Permanently delete all trashed files from disk and DB. Returns count deleted.
+    Q_INVOKABLE int emptyTrash();
 
     // Remove media rows for files that no longer exist on disk. Returns count pruned.
     Q_INVOKABLE int pruneOrphanedMedia();

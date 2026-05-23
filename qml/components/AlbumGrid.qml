@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Effects
 import Qcm.Material as MD
 import ".."
 
@@ -79,46 +80,70 @@ Item {
                 anchors.fill: parent; anchors.margins: 8; spacing: 8
 
                 Rectangle {
+                    id: thumbRect
                     Layout.fillWidth: true
                     Layout.preferredHeight: width
                     radius: mouseArea.containsMouse ? 28 : 24
                     color: ThemeManager.surfaceContainerHigh
-                    clip: true
                     Behavior on radius { NumberAnimation { duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
 
-                    Image {
+                    // Mask shape — invisible, feeds MultiEffect below
+                    Rectangle {
+                        id: thumbMask
                         anchors.fill: parent
-                        source: {
-                            var p = model.cover || ""
-                            if (p && p.indexOf("://") === -1) return "file://" + p
-                            return p
+                        radius: parent.radius
+                        color: "white"
+                        visible: false
+                        layer.enabled: true
+                    }
+
+                    // Content clipped to rounded rect via MultiEffect
+                    Item {
+                        id: thumbContent
+                        anchors.fill: parent
+
+                        Image {
+                            anchors.fill: parent
+                            source: {
+                                var p = model.cover || ""
+                                if (p && p.indexOf("://") === -1) return "file://" + p
+                                return p
+                            }
+                            fillMode: Image.PreserveAspectCrop
+                            asynchronous: true
                         }
-                        fillMode: Image.PreserveAspectCrop
-                        asynchronous: true
-                    }
 
-                    // Video badge
-                    Rectangle {
-                        visible: root.mimePrefix.startsWith("video/")
-                        anchors.centerIn: parent
-                        width: 48; height: 48; radius: 24
-                        color: Qt.alpha("black", 0.55)
-                        M3Icon { anchors.centerIn: parent; name: "play"; size: 28; color: "white" }
-                    }
+                        // Video badge
+                        Rectangle {
+                            visible: root.mimePrefix.startsWith("video/")
+                            anchors.centerIn: parent
+                            width: 48; height: 48; radius: 24
+                            color: Qt.alpha("black", 0.55)
+                            M3Icon { anchors.centerIn: parent; name: "play"; size: 28; color: "white" }
+                        }
 
-                    Rectangle {
-                        visible: model.pinned || false
-                        anchors.top: parent.top; anchors.left: parent.left; anchors.margins: 12
-                        width: 32; height: 32; radius: 16
-                        color: Qt.alpha(ThemeManager.surface, 0.85)
-                        M3Icon { anchors.centerIn: parent; name: "pin"; size: 16; color: ThemeManager.primary }
-                    }
+                        Rectangle {
+                            visible: model.pinned || false
+                            anchors.top: parent.top; anchors.left: parent.left; anchors.margins: 12
+                            width: 32; height: 32; radius: 16
+                            color: Qt.alpha(ThemeManager.surface, 0.85)
+                            M3Icon { anchors.centerIn: parent; name: "pin"; size: 16; color: ThemeManager.primary }
+                        }
 
-                    Rectangle {
-                        anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.margins: 12
-                        width: weightLabel.width + 20; height: 24; radius: 12
-                        color: Qt.alpha("black", 0.55)
-                        Label { id: weightLabel; anchors.centerIn: parent; text: model.size || "–"; color: "white"; font.pixelSize: 11; font.weight: Font.Medium }
+                        Rectangle {
+                            anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.margins: 12
+                            width: weightLabel.width + 20; height: 24; radius: 12
+                            color: Qt.alpha("black", 0.55)
+                            Label { id: weightLabel; anchors.centerIn: parent; text: model.size || "–"; color: "white"; font.pixelSize: 11; font.weight: Font.Medium }
+                        }
+
+                        layer.enabled: true
+                        layer.effect: MultiEffect {
+                            maskEnabled: true
+                            maskThresholdMin: 0.5
+                            maskSpreadAtMin: 1.0
+                            maskSource: thumbMask
+                        }
                     }
                 }
 

@@ -62,8 +62,8 @@ Rectangle {
         anchors.fill: parent
         onClicked: { if (root._zoom <= 1.0) root.active = false }
         onWheel: (wheel) => {
-            if (wheel.modifiers & Qt.ControlModifier) {
-                var factor = wheel.angleDelta.y > 0 ? 1.25 : 0.8
+            if (wheel.angleDelta.y !== 0) {
+                var factor = wheel.angleDelta.y > 0 ? 1.15 : (1.0 / 1.15)
                 root._zoom = Math.max(1.0, Math.min(8.0, root._zoom * factor))
                 if (root._zoom <= 1.02) root.resetZoom()
                 wheel.accepted = true
@@ -363,9 +363,13 @@ Rectangle {
     // ── Info panel ────────────────────────────────────────────────────────
     MediaInfoPanel {
         id: infoPanel
-        anchors.top: parent.top; anchors.bottom: parent.bottom; anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.right: parent.right
         width: 380
         mediaData: root.mediaData
+
+        opacity: root.infoPanelOpen ? 1.0 : 0.0
+        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutQuint } }
 
         transform: Translate {
             x: root.infoPanelOpen ? 0 : 380

@@ -116,6 +116,15 @@ ApplicationWindow {
                     anchors.rightMargin: 24
                     spacing: 16
 
+                    // Sidebar toggle
+                    Rectangle {
+                        width: 40; height: 40; radius: 20
+                        color: foldHover.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
+                        Behavior on color { ColorAnimation { duration: 80 } }
+                        M3Icon { anchors.centerIn: parent; name: window.sidebarCollapsed ? "menu" : "sidebar"; size: 24; color: ThemeManager.onSurfaceVariant }
+                        MouseArea { id: foldHover; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: window.sidebarCollapsed = !window.sidebarCollapsed }
+                    }
+
                     // Back button — Rectangle+MouseArea avoids Material style interference
                     Rectangle {
                         width: 40; height: 40; radius: 20
@@ -124,15 +133,6 @@ ApplicationWindow {
                         Behavior on color { ColorAnimation { duration: 80 } }
                         M3Icon { anchors.centerIn: parent; name: "arrow_back"; size: 24; color: ThemeManager.onSurfaceVariant }
                         MouseArea { id: backHover; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: mainStack.pop() }
-                    }
-
-                    // Sidebar toggle
-                    Rectangle {
-                        width: 40; height: 40; radius: 20
-                        color: foldHover.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
-                        Behavior on color { ColorAnimation { duration: 80 } }
-                        M3Icon { anchors.centerIn: parent; name: window.sidebarCollapsed ? "menu" : "menu_close"; size: 24; color: ThemeManager.onSurfaceVariant }
-                        MouseArea { id: foldHover; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: window.sidebarCollapsed = !window.sidebarCollapsed }
                     }
 
                     Column {
@@ -155,6 +155,46 @@ ApplicationWindow {
                     }
 
                     Item { Layout.fillWidth: true }
+
+                    // Empty Trash button — only shown in trash view
+                    Rectangle {
+                        visible: window.currentView === "trash"
+                        height: 40
+                        width: emptyTrashRow.implicitWidth + 24
+                        radius: 20
+                        color: emptyTrashHover.containsMouse
+                               ? Qt.alpha(ThemeManager.error, 0.16)
+                               : Qt.alpha(ThemeManager.error, 0.08)
+                        Behavior on color { ColorAnimation { duration: 80 } }
+
+                        RowLayout {
+                            id: emptyTrashRow
+                            anchors.centerIn: parent
+                            spacing: 6
+                            M3Icon {
+                                name: "delete_forever"
+                                size: 18
+                                color: ThemeManager.error
+                            }
+                            Label {
+                                text: "Empty trash"
+                                font.pixelSize: 14
+                                font.weight: Font.Medium
+                                color: ThemeManager.error
+                            }
+                        }
+
+                        MouseArea {
+                            id: emptyTrashHover
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                DB.emptyTrash()
+                                TimelineModel.refresh()
+                            }
+                        }
+                    }
 
                     Rectangle {
                         id: searchPill
