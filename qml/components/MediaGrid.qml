@@ -72,10 +72,9 @@ Item {
         leftMargin: hMargin
         rightMargin: hMargin
         topMargin: 0
-        bottomMargin: 40
+        bottomMargin: root.selectionMode ? 88 : 40
         cacheBuffer: Math.round(height * 3)
         visible: count > 0
-        bottomMargin: root.selectionMode ? 88 : 40
 
         delegate: Item {
             id: rowItem
