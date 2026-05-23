@@ -36,7 +36,9 @@ ApplicationWindow {
         }
     }
 
-    // ── Folder picker (FAB + any other caller) ────────────────────────────
+    // ── Folder picker (FAB + Settings "Add directory") ───────────────────
+    function openFolderPickerForSettings() { mainFolderPicker.open() }
+
     FolderDialog {
         id: mainFolderPicker
         title: "Choose a directory to scan"

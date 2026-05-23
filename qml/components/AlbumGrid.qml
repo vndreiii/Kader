@@ -65,17 +65,6 @@ Item {
                 }
             }
 
-            Button {
-                z: 10
-                anchors.top: parent.top; anchors.right: parent.right
-                anchors.topMargin: 20; anchors.rightMargin: 20
-                width: 32; height: 32
-                visible: mouseArea.containsMouse
-                background: Rectangle { radius: 16; color: Qt.alpha("black", 0.4) }
-                contentItem: M3Icon { name: "more_vert"; size: 18; color: "white"; anchors.centerIn: parent }
-                onClicked: albumMenu.popup()
-            }
-
             ColumnLayout {
                 anchors.fill: parent; anchors.margins: 8; spacing: 8
 

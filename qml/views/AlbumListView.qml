@@ -13,6 +13,24 @@ Item {
     implicitWidth: 800
     implicitHeight: 600
 
+    // ── Multi-select state ─────────────────────────────────────────────────
+    property bool selectionMode: false
+    property var  _selSet: ({})
+
+    function isAlbumSelected(path) { return !!_selSet[path] }
+    function selectAlbum(path) {
+        if (!_selSet[path]) { var s = Object.assign({}, _selSet); s[path] = true; _selSet = s }
+    }
+    function toggleAlbum(path) {
+        var s = Object.assign({}, _selSet)
+        if (s[path]) delete s[path]; else s[path] = true
+        _selSet = s
+    }
+    function clearSelection() { _selSet = {}; selectionMode = false }
+    function selectedPaths() { return Object.keys(_selSet) }
+
+    Keys.onEscapePressed: if (selectionMode) clearSelection()
+
     GridView {
         id: gridView
         anchors.fill: parent
@@ -55,27 +73,49 @@ Item {
                 }
             }
 
+            // Selection indicator ring
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: 8
+                radius: mouseArea.containsMouse ? 28 : 24
+                color: "transparent"
+                border.width: root.isAlbumSelected(albumItem._path) ? 3 : 0
+                border.color: ThemeManager.primary
+                z: 5
+                Behavior on border.width { NumberAnimation { duration: 80 } }
+            }
+
+            // Selection checkmark
+            Rectangle {
+                visible: root.selectionMode
+                anchors.top: parent.top; anchors.left: parent.left
+                anchors.topMargin: 20; anchors.leftMargin: 20
+                width: 28; height: 28; radius: 14; z: 5
+                color: root.isAlbumSelected(albumItem._path) ? ThemeManager.primary : Qt.alpha("white", 0.5)
+                Behavior on color { ColorAnimation { duration: 100 } }
+                M3Icon {
+                    anchors.centerIn: parent
+                    name: "check"; size: 16; color: "white"
+                    opacity: root.isAlbumSelected(albumItem._path) ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 80 } }
+                }
+            }
+
             MouseArea {
                 id: mouseArea
                 anchors.fill: parent
                 hoverEnabled: true
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 onClicked: (mouse) => {
-                    if (mouse.button === Qt.RightButton) albumMenu.popup()
-                    else root.openAlbum(albumItem._path, albumItem._name)
+                    if (root.selectionMode) {
+                        root.toggleAlbum(albumItem._path)
+                    } else if (mouse.button === Qt.RightButton) {
+                        root.selectionMode = true
+                        root.selectAlbum(albumItem._path)
+                    } else {
+                        root.openAlbum(albumItem._path, albumItem._name)
+                    }
                 }
-            }
-
-            Button {
-                id: moreBtn
-                z: 10
-                anchors.top: parent.top; anchors.right: parent.right
-                anchors.topMargin: 20; anchors.rightMargin: 20
-                width: 32; height: 32
-                visible: mouseArea.containsMouse
-                background: Rectangle { radius: 16; color: Qt.alpha("black", 0.4) }
-                contentItem: M3Icon { name: "more_vert"; size: 18; color: "white"; anchors.centerIn: parent }
-                onClicked: albumMenu.popup()
             }
 
             ColumnLayout {
@@ -142,6 +182,121 @@ Item {
                         spacing: 6
                         Label { text: (model.count || 0) + " items"; font.pixelSize: 12; color: ThemeManager.onSurfaceVariant }
                     }
+                }
+            }
+        }
+    }
+
+    // Selection drag overlay
+    MouseArea {
+        id: albumSelOverlay
+        anchors.fill: gridView
+        enabled: root.selectionMode
+        z: 50
+        propagateComposedEvents: false
+
+        property point _pressPos: Qt.point(0, 0)
+        property bool  _dragging: false
+
+        onPressed: (mouse) => {
+            _pressPos = Qt.point(mouse.x, mouse.y)
+            _dragging = false
+        }
+        onPositionChanged: (mouse) => {
+            if (!pressed) return
+            var dx = mouse.x - _pressPos.x; var dy = mouse.y - _pressPos.y
+            if (Math.sqrt(dx*dx + dy*dy) > 6) { _dragging = true }
+            if (_dragging) _selectAtPos(mouse.x, mouse.y)
+        }
+        onReleased: (mouse) => {
+            if (!_dragging) _toggleAtPos(mouse.x, mouse.y)
+            _dragging = false
+        }
+
+        function _selectAtPos(mx, my) {
+            var pt = albumSelOverlay.mapToItem(gridView.contentItem, mx, my)
+            var item = gridView.itemAt(pt.x, pt.y)
+            if (item && item._path) root.selectAlbum(item._path)
+        }
+        function _toggleAtPos(mx, my) {
+            var pt = albumSelOverlay.mapToItem(gridView.contentItem, mx, my)
+            var item = gridView.itemAt(pt.x, pt.y)
+            if (item && item._path) root.toggleAlbum(item._path)
+        }
+    }
+
+    // Selection action bar
+    Rectangle {
+        visible: root.selectionMode
+        anchors.bottom: parent.bottom
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottomMargin: 16
+        z: 200
+        height: 56
+        width: selAlbumRow.implicitWidth + 32
+        radius: 28
+        color: ThemeManager.inverseSurface
+        opacity: root.selectionMode ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: 180 } }
+
+        Row {
+            id: selAlbumRow
+            anchors.centerIn: parent
+            spacing: 4
+
+            Label {
+                anchors.verticalCenter: parent.verticalCenter
+                leftPadding: 8; rightPadding: 4
+                text: Object.keys(root._selSet).length + " selected"
+                color: ThemeManager.inverseOnSurface
+                font.pixelSize: 14; font.weight: Font.Medium
+            }
+
+            Rectangle { width: 1; height: 32; color: Qt.alpha(ThemeManager.inverseOnSurface, 0.2); anchors.verticalCenter: parent.verticalCenter }
+
+            // Ignore selected
+            Rectangle {
+                width: 44; height: 44; radius: 22
+                color: ignoreSelMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
+                Behavior on color { ColorAnimation { duration: 80 } }
+                M3Icon { anchors.centerIn: parent; name: "close"; size: 20; color: ThemeManager.inverseOnSurface }
+                MouseArea {
+                    id: ignoreSelMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        var paths = root.selectedPaths()
+                        for (var i = 0; i < paths.length; i++) DB.ignoreAlbum(paths[i], true)
+                        AlbumModel.refresh(); TimelineModel.refresh(); root.clearSelection()
+                    }
+                }
+            }
+
+            // Trash selected
+            Rectangle {
+                width: 44; height: 44; radius: 22
+                color: trashSelMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
+                Behavior on color { ColorAnimation { duration: 80 } }
+                M3Icon { anchors.centerIn: parent; name: "delete"; size: 20; color: ThemeManager.inverseOnSurface }
+                MouseArea {
+                    id: trashSelMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        var paths = root.selectedPaths()
+                        for (var i = 0; i < paths.length; i++) DB.trashAlbum(paths[i])
+                        AlbumModel.refresh(); TimelineModel.refresh(); root.clearSelection()
+                    }
+                }
+            }
+
+            Rectangle { width: 1; height: 32; color: Qt.alpha(ThemeManager.inverseOnSurface, 0.2); anchors.verticalCenter: parent.verticalCenter }
+
+            // Clear selection
+            Rectangle {
+                width: 44; height: 44; radius: 22
+                color: clearAlbSelMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
+                Behavior on color { ColorAnimation { duration: 80 } }
+                M3Icon { anchors.centerIn: parent; name: "close"; size: 20; color: Qt.alpha(ThemeManager.inverseOnSurface, 0.5) }
+                MouseArea {
+                    id: clearAlbSelMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                    onClicked: root.clearSelection()
                 }
             }
         }

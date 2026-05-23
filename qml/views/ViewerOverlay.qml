@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Window
 import QtMultimedia
 import "../components"
 
@@ -17,9 +18,13 @@ Rectangle {
     property var  allItems: []
     property bool infoPanelOpen: false
     property bool viewerOnlyMode: false  // launched via argv[1]; close = quit
+    property bool _isFullscreen: false
 
     onActiveChanged: {
-        if (!active && viewerOnlyMode) Qt.quit()
+        if (!active) {
+            if (_isFullscreen) { ApplicationWindow.window.showNormal(); _isFullscreen = false }
+            if (viewerOnlyMode) Qt.quit()
+        }
     }
 
     // ── Zoom / pan state ──────────────────────────────────────────────────
@@ -156,7 +161,10 @@ Rectangle {
         MediaPlayer {
             id: videoPlayer
             videoOutput: videoOut
+            audioOutput: audioOut
         }
+
+        AudioOutput { id: audioOut }
 
         VideoOutput {
             id: videoOut
@@ -164,9 +172,10 @@ Rectangle {
             visible: root._isVideo
         }
 
-        // Video controls overlay (play/pause + scrubber)
+        // Video controls overlay (play/pause + scrubber + volume)
         Rectangle {
             visible: root._isVideo
+            z: 3
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
             anchors.bottomMargin: 12
@@ -180,6 +189,7 @@ Rectangle {
                 anchors.centerIn: parent
                 spacing: 12
 
+                // Play / pause
                 Rectangle {
                     width: 36; height: 36; radius: 18
                     color: Qt.alpha("white", playPauseMa.containsMouse ? 0.18 : 0.10)
@@ -221,9 +231,14 @@ Rectangle {
                             if (videoPlayer.duration > 0)
                                 videoPlayer.position = Math.round((mouse.x / width) * videoPlayer.duration)
                         }
+                        onPositionChanged: (mouse) => {
+                            if (pressed && videoPlayer.duration > 0)
+                                videoPlayer.position = Math.round((mouse.x / width) * videoPlayer.duration)
+                        }
                     }
                 }
 
+                // Timestamp
                 Label {
                     anchors.verticalCenter: parent.verticalCenter
                     text: {
@@ -233,10 +248,54 @@ Rectangle {
                     }
                     color: "white"; font.pixelSize: 12; font.weight: Font.Medium
                 }
+
+                // Mute toggle
+                Rectangle {
+                    width: 32; height: 32; radius: 16
+                    color: Qt.alpha("white", muteMa.containsMouse ? 0.18 : 0.10)
+                    Behavior on color { ColorAnimation { duration: 80 } }
+                    M3Icon {
+                        anchors.centerIn: parent
+                        name: audioOut.muted ? "volume_off" : "volume_up"
+                        size: 16; color: "white"
+                    }
+                    MouseArea {
+                        id: muteMa
+                        anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                        onClicked: audioOut.muted = !audioOut.muted
+                    }
+                }
+
+                // Volume slider
+                Item {
+                    width: 72; height: 36
+                    anchors.verticalCenter: parent.verticalCenter
+                    opacity: audioOut.muted ? 0.4 : 1.0
+                    Behavior on opacity { NumberAnimation { duration: 100 } }
+
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width; height: 4; radius: 2
+                        color: Qt.alpha("white", 0.25)
+                        Rectangle {
+                            width: parent.width * audioOut.volume
+                            height: parent.height; radius: parent.radius
+                            color: "white"
+                        }
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                        onClicked: (mouse) => { audioOut.volume = Math.max(0, Math.min(1, mouse.x / width)) }
+                        onPositionChanged: (mouse) => {
+                            if (pressed) audioOut.volume = Math.max(0, Math.min(1, mouse.x / width))
+                        }
+                    }
+                }
             }
         }
 
-        // Double-click zoom toggle + pan drag handler
+        // Double-click zoom toggle + pan drag handler (images only)
         MouseArea {
             id: imgMouseArea
             anchors.fill: parent
@@ -244,30 +303,28 @@ Rectangle {
             hoverEnabled: false
             acceptedButtons: Qt.LeftButton
 
-            property real _dragStartX:   0
-            property real _dragStartY:   0
+            property real _dragStartX:    0
+            property real _dragStartY:    0
             property real _dragStartPanX: 0
             property real _dragStartPanY: 0
-            property bool _wasDrag:      false
+            property bool _wasDrag:       false
 
             onDoubleClicked: {
-                if (root._zoom > 1.05) {
-                    root.resetZoom()
-                } else {
-                    root._zoom = 2.5
-                }
+                if (root._isVideo) return
+                if (root._zoom > 1.05) root.resetZoom()
+                else root._zoom = 2.5
             }
 
             onPressed: {
                 _wasDrag = false
-                if (root._zoom > 1.05) {
+                if (!root._isVideo && root._zoom > 1.05) {
                     _dragStartX    = mouseX; _dragStartY    = mouseY
                     _dragStartPanX = root._panX; _dragStartPanY = root._panY
                 }
             }
 
             onPositionChanged: {
-                if (pressed && root._zoom > 1.05) {
+                if (pressed && !root._isVideo && root._zoom > 1.05) {
                     _wasDrag = true
                     root._panX = _dragStartPanX + (mouseX - _dragStartX)
                     root._panY = _dragStartPanY + (mouseY - _dragStartY)
@@ -275,10 +332,11 @@ Rectangle {
             }
 
             onClicked: {
+                if (root._isVideo) return
                 if (!_wasDrag && root._zoom <= 1.05) root.active = false
             }
 
-            cursorShape: root._zoom > 1.05 ? Qt.OpenHandCursor : Qt.ArrowCursor
+            cursorShape: (!root._isVideo && root._zoom > 1.05) ? Qt.OpenHandCursor : Qt.ArrowCursor
         }
     }
 
@@ -425,6 +483,23 @@ Rectangle {
             M3Icon { anchors.centerIn: parent; name: "info"; size: 22; color: "white" }
             MouseArea { id: infoMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                 onClicked: root.infoPanelOpen = !root.infoPanelOpen }
+        }
+        Rectangle {
+            width: 48; height: 48; radius: 24
+            color: Qt.alpha("white", fsMa.pressed ? 0.28 : fsMa.containsMouse ? 0.20 : 0.14)
+            Behavior on color { ColorAnimation { duration: 80 } }
+            scale: fsMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: 80 } }
+            M3Icon {
+                anchors.centerIn: parent
+                name: root._isFullscreen ? "fullscreen_exit" : "fullscreen"
+                size: 22; color: "white"
+            }
+            MouseArea { id: fsMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    if (root._isFullscreen) { ApplicationWindow.window.showNormal(); root._isFullscreen = false }
+                    else { ApplicationWindow.window.showFullScreen(); root._isFullscreen = true }
+                }
+            }
         }
         Rectangle {
             width: 48; height: 48; radius: 24

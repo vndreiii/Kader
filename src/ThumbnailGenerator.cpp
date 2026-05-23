@@ -4,9 +4,16 @@
 #include <QFile>
 #include <QCryptographicHash>
 #include <QBuffer>
+#include <QProcess>
 #include <QDebug>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
+
+static bool isVideoFile(const QString &filePath) {
+    static const QSet<QString> exts = {".mp4", ".mkv", ".mov", ".avi", ".webm"};
+    int dot = filePath.lastIndexOf('.');
+    return dot >= 0 && exts.contains(filePath.mid(dot).toLower());
+}
 
 static constexpr int AES_IV_SIZE = 16;
 
@@ -38,6 +45,20 @@ QString ThumbnailGenerator::getOrCreateThumbnail(const QString &filePath, int si
         return thumbPath;
     }
 
+    if (isVideoFile(filePath)) {
+        QProcess proc;
+        proc.start("/usr/bin/ffmpegthumbnailer", {
+            "-i", filePath,
+            "-o", thumbPath,
+            "-s", QString::number(size),
+            "-t", "10",
+            "-c", "jpeg"
+        });
+        if (proc.waitForFinished(10000) && QFile::exists(thumbPath))
+            return thumbPath;
+        return "";
+    }
+
     try {
         vips::VImage thumb = vips::VImage::thumbnail(filePath.toLocal8Bit().constData(), size);
         thumb.write_to_file(thumbPath.toLocal8Bit().constData());
@@ -50,8 +71,32 @@ QString ThumbnailGenerator::getOrCreateThumbnail(const QString &filePath, int si
     return "";
 }
 
+QByteArray ThumbnailGenerator::generateVideoThumbnailBytes(const QString &filePath, int size) {
+    QString tmpPath = m_cacheDir + "/_vtmp_" + generateHash(filePath) + ".jpg";
+    QProcess proc;
+    proc.start("/usr/bin/ffmpegthumbnailer", {
+        "-i", filePath,
+        "-o", tmpPath,
+        "-s", QString::number(size),
+        "-t", "10",
+        "-c", "jpeg"
+    });
+    if (!proc.waitForFinished(10000)) {
+        qWarning() << "ffmpegthumbnailer timed out for" << filePath;
+        return {};
+    }
+    QFile f(tmpPath);
+    if (!f.open(QIODevice::ReadOnly)) return {};
+    QByteArray data = f.readAll();
+    f.close();
+    QFile::remove(tmpPath);
+    return data;
+}
+
 // Generate thumbnail and return raw JPEG bytes.
 QByteArray ThumbnailGenerator::generateThumbnailBytes(const QString &filePath, int size) {
+    if (isVideoFile(filePath))
+        return generateVideoThumbnailBytes(filePath, size);
     try {
         vips::VImage thumb = vips::VImage::thumbnail(filePath.toLocal8Bit().constData(), size);
         void *buf = nullptr;

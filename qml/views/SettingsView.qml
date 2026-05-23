@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Qcm.Material as MD
-import QtQuick.Dialogs
 import "../components"
 
 Item {
@@ -29,17 +28,6 @@ Item {
     }
 
     Component.onCompleted: { refreshDirs(); refreshIgnored(); refreshExclusions() }
-
-    FolderDialog {
-        id: folderPicker
-        title: "Choose a directory to index"
-        onAccepted: {
-            var path = selectedFolder.toString().replace(/^file:\/\//, "")
-            DB.addIndexedDirectory(path)
-            root.refreshDirs()
-            FileScanner.startScan(path)
-        }
-    }
 
     Connections {
         target: FileScanner
@@ -327,7 +315,7 @@ Item {
                             M3Icon { anchors.verticalCenter: parent.verticalCenter; name: "add"; size: 20; color: ThemeManager.primary }
                             Label { anchors.verticalCenter: parent.verticalCenter; text: "Add directory & Scan"; font.pixelSize: 14; font.weight: Font.Medium; color: ThemeManager.primary }
                         }
-                        onClicked: folderPicker.open()
+                        onClicked: ApplicationWindow.window.openFolderPickerForSettings()
                     }
 
                     Button {

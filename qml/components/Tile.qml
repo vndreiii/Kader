@@ -12,6 +12,7 @@ Item {
     signal open()
     signal toggleFav()
     signal selectToggle()
+    signal enterSelectionMode()
 
     readonly property var _d: (tileData !== null && tileData !== undefined) ? tileData : ({})
 
@@ -173,9 +174,17 @@ Item {
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         onClicked: (mouse) => {
-            if (mouse.button === Qt.RightButton) tileMenu.popup()
-            else if (root.selectable) root.selectToggle()
-            else root.open()
+            if (mouse.button === Qt.RightButton) {
+                if (!root.selectable) {
+                    root.enterSelectionMode()
+                } else {
+                    root.selectToggle()
+                }
+            } else if (root.selectable) {
+                root.selectToggle()
+            } else {
+                root.open()
+            }
         }
     }
 }
