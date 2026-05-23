@@ -58,17 +58,20 @@ build() {
 package() {
     cd "$srcdir"
 
-    # Binary lives in /usr/lib/kader/ so applicationDirPath()+"/qml_modules" resolves correctly
+    # Binary lives in /usr/lib/kader/
     install -Dm755 "build-pkg/kader" "$pkgdir/usr/lib/kader/kader"
 
-    # QML module (QmlMaterial / Qcm.Material)
+    # QML modules (like Qcm.Material)
     if [ -d "build-pkg/qml_modules" ]; then
-        cp -r "build-pkg/qml_modules" "$pkgdir/usr/lib/kader/qml_modules"
+        mkdir -p "$pkgdir/usr/lib/kader/qml_modules"
+        cp -r build-pkg/qml_modules/* "$pkgdir/usr/lib/kader/qml_modules/"
     fi
 
     # Wrapper script in PATH
     install -Dm755 /dev/stdin "$pkgdir/usr/bin/kader" <<'EOF'
 #!/bin/sh
+# QmlMaterial is looked up relative to app path or via import path
+export QML2_IMPORT_PATH="/usr/lib/kader/qml_modules:$QML2_IMPORT_PATH"
 exec /usr/lib/kader/kader "$@"
 EOF
 
