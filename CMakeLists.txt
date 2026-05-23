@@ -98,6 +98,7 @@ qt_add_qml_module(KaderApp
         qml/components/Sidebar.qml
         qml/components/Tile.qml
         qml/components/AlbumGrid.qml
+        qml/components/PasswordPrompt.qml
         qml/views/AlbumListView.qml
         qml/views/AlbumDetailView.qml
         qml/views/ViewerOverlay.qml
