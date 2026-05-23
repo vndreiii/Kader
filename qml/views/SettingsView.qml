@@ -400,13 +400,12 @@ Item {
 
                     // Add new exclusion pattern row
                     RowLayout {
-                        width: parent.width
                         height: 56
                         anchors.left: parent.left
                         anchors.right: parent.right
+                        anchors.leftMargin: 20
+                        anchors.rightMargin: 12
                         spacing: 0
-                        leftPadding: 20
-                        rightPadding: 12
 
                         TextField {
                             id: exclusionInput
