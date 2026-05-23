@@ -2,6 +2,8 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QIcon>
+#include <QUrl>
+#include <QFile>
 #include <QtConcurrent>
 #include <QTimer>
 #include "ThemeManager.h"
@@ -17,6 +19,19 @@
 
 int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
+
+    // File passed on the command line (e.g. "kader /path/to/photo.jpg" or via .desktop %U)
+    QString startupFile;
+    {
+        QStringList args = app.arguments();
+        if (args.size() > 1) {
+            QString arg = args[1];
+            if (arg.startsWith("file://"))
+                arg = QUrl(arg).toLocalFile();
+            if (QFile::exists(arg))
+                startupFile = arg;
+        }
+    }
 
     app.setOrganizationName("Kader");
     app.setOrganizationDomain("kader.app");
@@ -93,6 +108,7 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("AlbumModel", &albumModel);
     engine.rootContext()->setContextProperty("ThumbGen", &thumbGenerator);
     engine.rootContext()->setContextProperty("CMAKE_SOURCE_DIR", CMAKE_SOURCE_DIR);
+    engine.rootContext()->setContextProperty("STARTUP_FILE", startupFile);
 
     const QUrl url(u"qrc:/Kader/qml/main.qml"_qs);
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,

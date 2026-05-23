@@ -8,6 +8,7 @@
 #include <QFileInfo>
 #include <QThread>
 #include <QCoreApplication>
+#include <QCryptographicHash>
 
 DatabaseManager::DatabaseManager(QObject *parent) : QObject(parent) {
     m_dbPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/gallery.db";
@@ -111,8 +112,22 @@ bool DatabaseManager::createTables() {
     migrate("albums", "is_ignored",  "BOOLEAN DEFAULT 0");
     migrate("media",  "is_favorite", "BOOLEAN DEFAULT 0");
     migrate("media",  "is_trashed",  "BOOLEAN DEFAULT 0");
+    migrate("media",  "is_hidden",   "BOOLEAN DEFAULT 0");
     migrate("media",  "latitude",    "REAL");
     migrate("media",  "longitude",   "REAL");
+
+    query.exec(
+        "CREATE TABLE IF NOT EXISTS scan_exclusions ("
+        "pattern TEXT PRIMARY KEY"
+        ")"
+    );
+
+    query.exec(
+        "CREATE TABLE IF NOT EXISTS settings_kv ("
+        "key TEXT PRIMARY KEY,"
+        "value TEXT NOT NULL DEFAULT ''"
+        ")"
+    );
 
     // Migrate albums table so path_prefix has UNIQUE constraint (older DBs had name UNIQUE instead).
     {
@@ -550,4 +565,74 @@ int DatabaseManager::pruneOrphanedMedia() {
 
     qDebug() << "pruneOrphanedMedia: removed" << missing.size() << "entries for missing files";
     return missing.size();
+}
+
+// ── Scan exclusion patterns ───────────────────────────────────────────────────
+
+QStringList DatabaseManager::getScanExclusions() {
+    checkConnection();
+    QSqlQuery q(m_db);
+    q.exec("SELECT pattern FROM scan_exclusions ORDER BY pattern");
+    QStringList list;
+    while (q.next())
+        list.append(q.value(0).toString());
+    return list;
+}
+
+bool DatabaseManager::addScanExclusion(const QString &pattern) {
+    checkConnection();
+    QSqlQuery q(m_db);
+    q.prepare("INSERT OR IGNORE INTO scan_exclusions (pattern) VALUES (:p)");
+    q.bindValue(":p", pattern.trimmed());
+    return q.exec();
+}
+
+bool DatabaseManager::removeScanExclusion(const QString &pattern) {
+    checkConnection();
+    QSqlQuery q(m_db);
+    q.prepare("DELETE FROM scan_exclusions WHERE pattern = :p");
+    q.bindValue(":p", pattern);
+    return q.exec();
+}
+
+// ── Hidden media ──────────────────────────────────────────────────────────────
+
+bool DatabaseManager::setHidden(int mediaId, bool hidden) {
+    checkConnection();
+    QSqlQuery q(m_db);
+    q.prepare("UPDATE media SET is_hidden = :v WHERE id = :id");
+    q.bindValue(":v", hidden ? 1 : 0);
+    q.bindValue(":id", mediaId);
+    return q.exec();
+}
+
+bool DatabaseManager::hasHiddenPassword() {
+    checkConnection();
+    QSqlQuery q(m_db);
+    q.prepare("SELECT value FROM settings_kv WHERE key = 'hidden_password_hash'");
+    q.exec();
+    return q.next() && !q.value(0).toString().isEmpty();
+}
+
+bool DatabaseManager::checkHiddenPassword(const QString &password) {
+    checkConnection();
+    QSqlQuery q(m_db);
+    q.prepare("SELECT value FROM settings_kv WHERE key = 'hidden_password_hash'");
+    q.exec();
+    if (!q.next()) return false;
+    QString stored = q.value(0).toString();
+    QString hash = QString::fromLatin1(
+        QCryptographicHash::hash(password.toUtf8(), QCryptographicHash::Sha256).toHex());
+    return hash == stored;
+}
+
+bool DatabaseManager::setHiddenPassword(const QString &password) {
+    checkConnection();
+    QString hash = QString::fromLatin1(
+        QCryptographicHash::hash(password.toUtf8(), QCryptographicHash::Sha256).toHex());
+    QSqlQuery q(m_db);
+    q.prepare("INSERT INTO settings_kv (key, value) VALUES ('hidden_password_hash', :h) "
+              "ON CONFLICT(key) DO UPDATE SET value = :h");
+    q.bindValue(":h", hash);
+    return q.exec();
 }

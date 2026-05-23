@@ -133,6 +133,7 @@ Item {
     property int    _mediaId:    root._d.id          || 0
     property bool   _isFav:      root._d.is_favorite ? true : false
     property bool   _isTrashed:  root._d.is_trashed  ? true : false
+    property bool   _isHidden:   root._d.is_hidden   ? true : false
     property string _folderPath: root._d.folder_path || ""
 
     MD.Menu {
@@ -144,6 +145,15 @@ Item {
         MD.MenuItem {
             text: "Open in Folder"
             onTriggered: { if (root._folderPath) Qt.openUrlExternally("file://" + root._folderPath) }
+        }
+        MD.MenuItem {
+            text: root._isHidden ? "Unhide" : "Hide"
+            onTriggered: {
+                if (root._mediaId) {
+                    DB.setHidden(root._mediaId, !root._isHidden)
+                    TimelineModel.refresh()
+                }
+            }
         }
         MD.MenuItem {
             text: root._isTrashed ? "Restore" : "Move to Trash"

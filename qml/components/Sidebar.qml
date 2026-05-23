@@ -99,6 +99,7 @@ Rectangle {
         Item { width: 1; height: 8 }
 
         SidebarItem { id: itFavorites; icon: "favorite";  label: "Favorites"; active: root.currentView === "favorites"; collapsed: root.collapsed; onClicked: root.viewChanged("favorites") }
+        SidebarItem { id: itHidden;    icon: "lock";      label: "Hidden";    active: root.currentView === "hidden";    collapsed: root.collapsed; onClicked: root.viewChanged("hidden")    }
         SidebarItem { id: itTrash;     icon: "delete";    label: "Trash";     active: root.currentView === "trash";     collapsed: root.collapsed; onClicked: root.viewChanged("trash")     }
     }
 
@@ -111,6 +112,7 @@ Rectangle {
         case "videos":    return itVideos
         case "map":       return itMap
         case "favorites": return itFavorites
+        case "hidden":    return itHidden
         case "trash":     return itTrash
         default:          return itTimeline
         }

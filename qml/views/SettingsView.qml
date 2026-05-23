@@ -14,6 +14,7 @@ Item {
 
     property var indexedDirs: []
     property var ignoredFolders: []
+    property var scanExclusions: []
 
     function refreshDirs() {
         indexedDirs = DB.getIndexedDirectories()
@@ -23,7 +24,11 @@ Item {
         ignoredFolders = DB.getIgnoredFolders()
     }
 
-    Component.onCompleted: { refreshDirs(); refreshIgnored() }
+    function refreshExclusions() {
+        scanExclusions = DB.getScanExclusions()
+    }
+
+    Component.onCompleted: { refreshDirs(); refreshIgnored(); refreshExclusions() }
 
     FolderDialog {
         id: folderPicker
@@ -338,6 +343,94 @@ Item {
                             Label { anchors.verticalCenter: parent.verticalCenter; text: "Manage ignored folders"; font.pixelSize: 14; font.weight: Font.Medium; color: ThemeManager.onSurfaceVariant }
                         }
                         onClicked: { root.refreshIgnored(); ignoredModal.open = true }
+                    }
+
+                    // Scan exclusion patterns
+                    Label {
+                        text: "Scan exclusion filters"
+                        font.pixelSize: 13
+                        font.weight: Font.Medium
+                        color: ThemeManager.onSurfaceVariant
+                        topPadding: 16
+                        bottomPadding: 4
+                        leftPadding: 20
+                    }
+                    Label {
+                        text: "Directories whose path contains any of these substrings will be skipped during scan."
+                        font.pixelSize: 12
+                        color: ThemeManager.onSurfaceVariant
+                        wrapMode: Text.Wrap
+                        width: parent.width - 40
+                        leftPadding: 20
+                        bottomPadding: 8
+                    }
+
+                    Repeater {
+                        model: root.scanExclusions
+                        delegate: Item {
+                            width: parent.width
+                            height: 48
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 20
+                                anchors.rightMargin: 12
+                                spacing: 12
+                                Rectangle {
+                                    width: 28; height: 28; radius: 8
+                                    color: ThemeManager.surfaceContainerHighest
+                                    Label { anchors.centerIn: parent; text: "/"; font.family: "JetBrains Mono"; font.pixelSize: 14; color: ThemeManager.onSurfaceVariant }
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: modelData
+                                    font.family: "JetBrains Mono"
+                                    font.pixelSize: 13
+                                    color: ThemeManager.onSurface
+                                    elide: Text.ElideRight
+                                }
+                                Button {
+                                    Layout.preferredWidth: 32; Layout.preferredHeight: 32
+                                    background: Rectangle { radius: 16; color: parent.hovered ? Qt.alpha(ThemeManager.error, 0.08) : "transparent" }
+                                    contentItem: M3Icon { name: "delete"; size: 16; color: ThemeManager.error; anchors.centerIn: parent }
+                                    onClicked: { DB.removeScanExclusion(modelData); root.refreshExclusions() }
+                                }
+                            }
+                        }
+                    }
+
+                    // Add new exclusion pattern row
+                    RowLayout {
+                        width: parent.width
+                        height: 56
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        spacing: 0
+                        leftPadding: 20
+                        rightPadding: 12
+
+                        TextField {
+                            id: exclusionInput
+                            Layout.fillWidth: true
+                            placeholderText: "e.g.  /src/  or  node_modules"
+                            font.family: "JetBrains Mono"
+                            font.pixelSize: 13
+                            background: Rectangle { radius: 8; color: ThemeManager.surfaceContainerHighest; border.color: ThemeManager.outline; border.width: 1 }
+                            color: ThemeManager.onSurface
+                            leftPadding: 12; rightPadding: 12
+                            Keys.onReturnPressed: addExclusion()
+                        }
+                        Item { width: 8 }
+                        Button {
+                            Layout.preferredWidth: 32; Layout.preferredHeight: 32
+                            background: Rectangle { radius: 16; color: parent.hovered ? Qt.alpha(ThemeManager.primary, 0.12) : Qt.alpha(ThemeManager.primary, 0.06) }
+                            contentItem: M3Icon { name: "add"; size: 18; color: ThemeManager.primary; anchors.centerIn: parent }
+                            onClicked: addExclusion()
+                        }
+
+                        function addExclusion() {
+                            var p = exclusionInput.text.trim()
+                            if (p.length > 0) { DB.addScanExclusion(p); root.refreshExclusions(); exclusionInput.text = "" }
+                        }
                     }
 
                     SettingsRow {

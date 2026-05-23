@@ -9,7 +9,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick QuickDialogs2 Sql Positioning Location Concurrent Test QuickTest)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick QuickDialogs2 Sql Positioning Location Concurrent Multimedia Test QuickTest)
 find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(VIPS REQUIRED vips-cpp)
@@ -71,6 +71,7 @@ target_link_libraries(KaderLib PUBLIC
     Qt6::Positioning
     Qt6::Location
     Qt6::Concurrent
+    Qt6::Multimedia
     OpenSSL::Crypto
     ${VIPS_LIBRARIES}
     ${EXIV2_LIBRARIES}

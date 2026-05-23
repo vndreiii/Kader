@@ -15,7 +15,7 @@ class TimelineModel : public QAbstractListModel {
     Q_PROPERTY(int contentWidth     READ contentWidth WRITE setContentWidth NOTIFY contentWidthChanged)
 
 public:
-    enum FilterMode { AllMode = 0, FavoritesMode = 1, TrashMode = 2 };
+    enum FilterMode { AllMode = 0, FavoritesMode = 1, TrashMode = 2, HiddenMode = 3 };
     Q_ENUM(FilterMode)
 
     enum Roles {

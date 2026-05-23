@@ -199,10 +199,12 @@ void TimelineModel::refresh(bool hideIgnored) {
 
         const bool isFav     = map.value("is_favorite", false).toBool();
         const bool isTrashed = map.value("is_trashed",  false).toBool();
+        const bool isHidden  = map.value("is_hidden",   false).toBool();
 
-        if (m_filterMode == FavoritesMode && (!isFav || isTrashed)) continue;
-        if (m_filterMode == TrashMode     && !isTrashed)            continue;
-        if (m_filterMode == AllMode       &&  isTrashed)            continue;
+        if (m_filterMode == FavoritesMode && (!isFav || isTrashed || isHidden)) continue;
+        if (m_filterMode == TrashMode     && !isTrashed)                         continue;
+        if (m_filterMode == HiddenMode    && !isHidden)                          continue;
+        if (m_filterMode == AllMode       && (isTrashed || isHidden))            continue;
 
         const QString fp    = map.value("file_path").toString();
         const qint64  ts    = map.value("creation_date").toLongLong();

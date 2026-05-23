@@ -30,8 +30,8 @@ signals:
     void scanProgress(int filesFound);
 
 private:
-    void runScan(const std::string &rootPath);
-    
+    void runScan(const std::string &rootPath, const std::vector<std::string> &exclusions);
+
     std::set<std::string> m_mediaExtensions;
     DatabaseManager *m_db;
 };

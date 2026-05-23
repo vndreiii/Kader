@@ -72,12 +72,16 @@ FileScanner::FileScanner(DatabaseManager *db, QObject *parent) : QObject(parent)
 void FileScanner::startScan(const QString &rootPath) {
     qDebug() << "Start scan requested for:" << rootPath;
     emit scanStarted(rootPath);
-    QtConcurrent::run([this, rootPath]() {
-        runScan(rootPath.toStdString());
+    QStringList qExclusions = m_db->getScanExclusions();
+    std::vector<std::string> exclusions;
+    for (const QString &p : qExclusions)
+        exclusions.push_back(p.toStdString());
+    QtConcurrent::run([this, rootPath, exclusions]() {
+        runScan(rootPath.toStdString(), exclusions);
     });
 }
 
-void FileScanner::runScan(const std::string &rootPath) {
+void FileScanner::runScan(const std::string &rootPath, const std::vector<std::string> &exclusions) {
     auto start = std::chrono::high_resolution_clock::now();
     
     InternalWorkQueue wq;
@@ -95,7 +99,7 @@ void FileScanner::runScan(const std::string &rootPath) {
     std::vector<std::thread> workers;
 
     for (int i = 0; i < numThreads; ++i) {
-        workers.emplace_back([this, &wq, &dirsScanned, &pathsMutex, &foundFiles]() {
+        workers.emplace_back([this, &wq, &dirsScanned, &pathsMutex, &foundFiles, &exclusions]() {
             std::string path;
             while (wq.pop(path)) {
                 int fd = open(path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
@@ -125,6 +129,10 @@ void FileScanner::runScan(const std::string &rootPath) {
                                 }
 
                                 if (isDir) {
+                                    bool excluded = false;
+                                    for (const auto &pat : exclusions)
+                                        if (!pat.empty() && fullPath.find(pat) != std::string::npos) { excluded = true; break; }
+                                    if (excluded) { bpos += d->d_reclen; continue; }
                                     wq.push(fullPath);
                                 } else if (isReg) {
                                     const char* dot = strrchr(d->d_name, '.');

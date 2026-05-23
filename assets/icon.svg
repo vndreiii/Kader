@@ -1,17 +1,48 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <!-- Outer Frame -->
-    <rect x="64" y="64" width="384" height="384" rx="48" stroke="currentColor" stroke-width="32" fill="none"/>
-    
-    <!-- Eye Shape -->
-    <path d="M128 256C128 256 192 160 256 160C320 160 384 256 384 256C384 256 320 352 256 352C192 352 128 256 128 256Z" 
-          stroke="currentColor" stroke-width="24" fill="none"/>
-    
-    <!-- Pupil/Iris (Stylized Aperture) -->
-    <circle cx="256" cy="256" r="48" stroke="currentColor" stroke-width="16" fill="none"/>
-    
-    <!-- Inner detail -->
-    <path d="M256 208L256 224" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
-    <path d="M256 288L256 304" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
-    <path d="M208 256L224 256" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
-    <path d="M288 256L304 256" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#160826"/>
+      <stop offset="100%" stop-color="#200D18"/>
+    </linearGradient>
+    <linearGradient id="tl" x1="80" y1="80" x2="240" y2="240" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#6D28D9"/>
+    </linearGradient>
+    <linearGradient id="tr" x1="272" y1="80" x2="432" y2="240" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#06B6D4"/>
+      <stop offset="100%" stop-color="#0284C7"/>
+    </linearGradient>
+    <linearGradient id="bl" x1="80" y1="272" x2="240" y2="432" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F97316"/>
+      <stop offset="100%" stop-color="#EA580C"/>
+    </linearGradient>
+    <linearGradient id="br" x1="272" y1="272" x2="432" y2="432" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#EC4899"/>
+      <stop offset="100%" stop-color="#DB2777"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background rounded square -->
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+
+  <!-- Top-left: violet/indigo -->
+  <rect x="72" y="72" width="164" height="164" rx="32" fill="url(#tl)"/>
+  <!-- Subtle highlight on top-left tile -->
+  <rect x="72" y="72" width="164" height="56" rx="32" fill="white" opacity="0.06"/>
+
+  <!-- Top-right: cyan/sky -->
+  <rect x="276" y="72" width="164" height="164" rx="32" fill="url(#tr)"/>
+  <rect x="276" y="72" width="164" height="56" rx="32" fill="white" opacity="0.06"/>
+
+  <!-- Bottom-left: orange/amber -->
+  <rect x="72" y="276" width="164" height="164" rx="32" fill="url(#bl)"/>
+  <rect x="72" y="276" width="164" height="56" rx="32" fill="white" opacity="0.06"/>
+
+  <!-- Bottom-right: rose/pink -->
+  <rect x="276" y="276" width="164" height="164" rx="32" fill="url(#br)"/>
+  <rect x="276" y="276" width="164" height="56" rx="32" fill="white" opacity="0.06"/>
+
+  <!-- Center lens dot -->
+  <circle cx="256" cy="256" r="26" fill="white" opacity="0.92"/>
+  <circle cx="256" cy="256" r="14" fill="#160826" opacity="0.55"/>
 </svg>

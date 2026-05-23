@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtMultimedia
 import "../components"
 
 Rectangle {
@@ -15,14 +16,33 @@ Rectangle {
     property int  currentIndex: -1
     property var  allItems: []
     property bool infoPanelOpen: false
+    property bool viewerOnlyMode: false  // launched via argv[1]; close = quit
+
+    onActiveChanged: {
+        if (!active && viewerOnlyMode) Qt.quit()
+    }
 
     // ── Zoom / pan state ──────────────────────────────────────────────────
     property real _zoom: 1.0
     property real _panX: 0
     property real _panY: 0
 
+    readonly property bool _isVideo: {
+        var m = root.mediaData ? (root.mediaData.mime_type || "") : ""
+        return m.indexOf("video/") === 0
+    }
+
     function resetZoom() { _zoom = 1.0; _panX = 0; _panY = 0 }
-    onMediaDataChanged: resetZoom()
+    onMediaDataChanged: {
+        resetZoom()
+        if (_isVideo) {
+            videoPlayer.source = root.mediaData ? "file://" + root.mediaData.file_path : ""
+            videoPlayer.play()
+        } else {
+            videoPlayer.stop()
+            videoPlayer.source = ""
+        }
+    }
 
     focus: active
     Keys.onEscapePressed: root.active = false
@@ -129,6 +149,90 @@ Rectangle {
                 to: 0
                 duration: 320
                 easing.type: Easing.OutQuint
+            }
+        }
+
+        // ── Video player (shown instead of image when _isVideo) ──────────
+        MediaPlayer {
+            id: videoPlayer
+            videoOutput: videoOut
+        }
+
+        VideoOutput {
+            id: videoOut
+            anchors.fill: parent
+            visible: root._isVideo
+        }
+
+        // Video controls overlay (play/pause + scrubber)
+        Rectangle {
+            visible: root._isVideo
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 12
+            width: videoControlRow.implicitWidth + 32
+            height: 52
+            radius: 26
+            color: Qt.alpha("black", 0.55)
+
+            Row {
+                id: videoControlRow
+                anchors.centerIn: parent
+                spacing: 12
+
+                Rectangle {
+                    width: 36; height: 36; radius: 18
+                    color: Qt.alpha("white", playPauseMa.containsMouse ? 0.18 : 0.10)
+                    Behavior on color { ColorAnimation { duration: 80 } }
+                    M3Icon {
+                        anchors.centerIn: parent
+                        name: videoPlayer.playbackState === MediaPlayer.PlayingState ? "pause" : "play"
+                        size: 18; color: "white"
+                    }
+                    MouseArea {
+                        id: playPauseMa
+                        anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                        onClicked: videoPlayer.playbackState === MediaPlayer.PlayingState ? videoPlayer.pause() : videoPlayer.play()
+                    }
+                }
+
+                // Scrubber
+                Item {
+                    width: 200; height: 36
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width; height: 4; radius: 2
+                        color: Qt.alpha("white", 0.25)
+
+                        Rectangle {
+                            width: videoPlayer.duration > 0
+                                   ? parent.width * (videoPlayer.position / videoPlayer.duration)
+                                   : 0
+                            height: parent.height; radius: parent.radius
+                            color: ThemeManager.primary
+                        }
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                        onClicked: (mouse) => {
+                            if (videoPlayer.duration > 0)
+                                videoPlayer.position = Math.round((mouse.x / width) * videoPlayer.duration)
+                        }
+                    }
+                }
+
+                Label {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: {
+                        var s = Math.floor(videoPlayer.position / 1000)
+                        var m = Math.floor(s / 60); s = s % 60
+                        return m + ":" + (s < 10 ? "0" : "") + s
+                    }
+                    color: "white"; font.pixelSize: 12; font.weight: Font.Medium
+                }
             }
         }
 

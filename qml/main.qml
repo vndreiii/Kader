@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Dialogs
 import Qcm.Material
 import "components"
 import "views"
@@ -16,9 +17,35 @@ ApplicationWindow {
     property string currentView: "timeline"
     property bool sidebarCollapsed: false
     property string detailTitle: ""
+    property bool viewerOnlyMode: false   // true when launched via argv[1]
 
     // Persists the timeline scroll position across view switches
     property real timelineScrollY: 0
+
+    Component.onCompleted: {
+        if (typeof STARTUP_FILE === "string" && STARTUP_FILE !== "") {
+            var mime = ""
+            var fp = STARTUP_FILE
+            if (/\.(mp4|mkv|mov|avi|webm)$/i.test(fp)) mime = "video/mp4"
+            else mime = "image/jpeg"
+            viewerOnlyMode = true
+            viewerOverlay.allItems = [{ file_path: fp, mime_type: mime, id: -1, is_favorite: false, is_trashed: false }]
+            viewerOverlay.currentIndex = 0
+            viewerOverlay.mediaData = viewerOverlay.allItems[0]
+            viewerOverlay.active = true
+        }
+    }
+
+    // ── Folder picker (FAB + any other caller) ────────────────────────────
+    FolderDialog {
+        id: mainFolderPicker
+        title: "Choose a directory to scan"
+        onAccepted: {
+            var path = selectedFolder.toString().replace(/^file:\/\//, "")
+            DB.addIndexedDirectory(path)
+            FileScanner.startScan(path)
+        }
+    }
 
     // Scan state
     property bool isScanning: false
@@ -71,6 +98,10 @@ ApplicationWindow {
             collapsed: window.sidebarCollapsed
             currentView: window.currentView
             onViewChanged: (view) => {
+                if (view === "hidden") {
+                    passwordPrompt.open()
+                    return
+                }
                 window.currentView = view
                 window.detailTitle = ""
                 // Reset all filters when switching top-level views
@@ -306,13 +337,7 @@ ApplicationWindow {
                 color: ThemeManager.onPrimaryContainer
             }
         }
-        onClicked: {
-            if (window.currentView === "timeline" || window.currentView === "favorites" || window.currentView === "trash") {
-                var p = Settings.homePath + "/Pictures"
-                DB.addIndexedDirectory(p)
-                FileScanner.startScan(p)
-            }
-        }
+        onClicked: mainFolderPicker.open()
     }
 
     readonly property var viewTitles: ({
@@ -321,6 +346,7 @@ ApplicationWindow {
         "videos":    "Videos",
         "map":       "Places",
         "favorites": "Favorites",
+        "hidden":    "Hidden",
         "trash":     "Trash",
         "settings":  "Settings"
     })
@@ -455,9 +481,24 @@ ApplicationWindow {
         }
     }
 
+    PasswordPrompt {
+        id: passwordPrompt
+        parent: Overlay.overlay
+        anchors.fill: parent
+        onAccepted: {
+            window.currentView = "hidden"
+            TimelineModel.setFolderFilter("")
+            TimelineModel.setMimeFilter("")
+            TimelineModel.filterMode = 3
+            mainStack.replace(timelineView)
+        }
+        onRejected: { /* stay on current view */ }
+    }
+
     ViewerOverlay {
         id: viewerOverlay
         parent: Overlay.overlay
         anchors.fill: parent
+        viewerOnlyMode: window.viewerOnlyMode
     }
 }

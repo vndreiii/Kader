@@ -69,6 +69,17 @@ public:
     // Storage stats
     Q_INVOKABLE qint64 getTotalMediaSizeBytes();
 
+    // Scan exclusion patterns (substring match against full dir path)
+    Q_INVOKABLE QStringList getScanExclusions();
+    Q_INVOKABLE bool addScanExclusion(const QString &pattern);
+    Q_INVOKABLE bool removeScanExclusion(const QString &pattern);
+
+    // Hidden media
+    Q_INVOKABLE bool setHidden(int mediaId, bool hidden);
+    Q_INVOKABLE bool hasHiddenPassword();
+    Q_INVOKABLE bool checkHiddenPassword(const QString &password);
+    Q_INVOKABLE bool setHiddenPassword(const QString &password);
+
 private:
     bool createTables();
     void checkConnection();
