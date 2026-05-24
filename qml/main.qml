@@ -88,6 +88,33 @@ ApplicationWindow {
         border.width: 1
     }
 
+    // Mouse back/forward buttons — navigate stack or viewer
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.BackButton | Qt.ForwardButton
+        propagateComposedEvents: true
+        z: 9999
+        onClicked: (mouse) => {
+            if (mouse.button === Qt.BackButton) {
+                if (viewerOverlay.active) {
+                    viewerOverlay.navigatePrev()
+                } else if (mainStack.depth > 1) {
+                    mainStack.pop()
+                    if (window.currentView === "hidden" || window.currentView === "trash" ||
+                        window.currentView === "favorites") {
+                        window.currentView = "timeline"
+                        window.detailTitle = ""
+                        TimelineModel.setFolderFilter("")
+                        TimelineModel.setMimeFilter("")
+                        TimelineModel.filterMode = 0
+                    }
+                }
+            } else if (mouse.button === Qt.ForwardButton) {
+                if (viewerOverlay.active) viewerOverlay.navigateNext()
+            }
+        }
+    }
+
     RowLayout {
         anchors.fill: parent
         anchors.margins: 1 // For border
@@ -358,37 +385,44 @@ ApplicationWindow {
         }
     }
     
-    // FAB moved outside RowLayout for absolute positioning
+    // Timeline FAB — scan directory
     Button {
         id: fab
-        visible: (window.currentView === "timeline" || window.currentView === "albums")
+        visible: window.currentView === "timeline"
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         anchors.margins: 28
-        height: 56
-        padding: 16
-        z: 10
-        
-        background: Rectangle {
-            radius: 16
-            color: ThemeManager.primaryContainer
-        }
-        
+        height: 56; padding: 16; z: 10
+        background: Rectangle { radius: 16; color: ThemeManager.primaryContainer }
         contentItem: RowLayout {
             spacing: 8
-            M3Icon {
-                name: window.currentView === "timeline" ? "schedule" : "add"
-                size: 24
-                color: ThemeManager.onPrimaryContainer
-            }
-            Label {
-                text: window.currentView === "timeline" ? "Scan directory" : "New album"
-                font.weight: Font.Medium
-                font.pixelSize: 14
-                color: ThemeManager.onPrimaryContainer
-            }
+            M3Icon { name: "schedule"; size: 24; color: ThemeManager.onPrimaryContainer }
+            Label { text: "Scan directory"; font.weight: Font.Medium; font.pixelSize: 14; color: ThemeManager.onPrimaryContainer }
         }
         onClicked: mainFolderPicker.open()
+    }
+
+    // Albums FAB — new album modal
+    Button {
+        id: albumFab
+        visible: window.currentView === "albums"
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: 28
+        height: 56; padding: 16; z: 10
+        background: Rectangle { radius: 16; color: ThemeManager.primaryContainer }
+        contentItem: RowLayout {
+            spacing: 8
+            M3Icon { name: "add"; size: 24; color: ThemeManager.onPrimaryContainer }
+            Label { text: "New album"; font.weight: Font.Medium; font.pixelSize: 14; color: ThemeManager.onPrimaryContainer }
+        }
+        onClicked: newAlbumModal.open()
+    }
+
+    AlbumEditModal {
+        id: newAlbumModal
+        parent: Overlay.overlay
+        onSaved: AlbumModel.refresh()
     }
 
     readonly property var viewTitles: ({

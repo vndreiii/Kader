@@ -49,6 +49,7 @@ int main(int argc, char *argv[]) {
     StorageManager storageManager(&dbManager);
     ThumbnailGenerator thumbGenerator;
     FileScanner fileScanner(&dbManager);
+    fileScanner.setThumbnailGenerator(&thumbGenerator);
     MediaModel mediaModel(&dbManager, &thumbGenerator);
     TimelineModel timelineModel(&dbManager);
     AlbumModel albumModel(&dbManager, &thumbGenerator);
@@ -90,6 +91,12 @@ int main(int argc, char *argv[]) {
     timelineModel.refresh(settingsManager.hideIgnoredInTimeline());
     albumModel.refresh(true);
 
+    // Apply saved mosaic density
+    {
+        int d = settingsManager.mosaicDensity();
+        timelineModel.setNumColumns(d == 1 ? 5 : d == 3 ? 3 : 4);
+    }
+
     // Context object (&app) ensures the lambda runs on the main thread via a queued connection.
     QObject::connect(&fileScanner, &FileScanner::scanFinished, &app, [&](const QStringList &, int, double, const QString &) {
         mediaModel.refresh(settingsManager.hideIgnoredInTimeline());
@@ -102,6 +109,10 @@ int main(int argc, char *argv[]) {
     QObject::connect(&settingsManager, &SettingsManager::hideIgnoredInTimelineChanged, [&]() {
         mediaModel.refresh(settingsManager.hideIgnoredInTimeline());
         timelineModel.refresh(settingsManager.hideIgnoredInTimeline());
+    });
+    QObject::connect(&settingsManager, &SettingsManager::mosaicDensityChanged, &app, [&]() {
+        int d = settingsManager.mosaicDensity();
+        timelineModel.setNumColumns(d == 1 ? 5 : d == 3 ? 3 : 4);
     });
 
     QQmlApplicationEngine engine;

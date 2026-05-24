@@ -7,12 +7,18 @@
 #include <QVariantList>
 #include <QString>
 #include <QDateTime>
+#include <memory>
+#include "MediaRepository.h"
+#include "AlbumRepository.h"
 
 class DatabaseManager : public QObject {
     Q_OBJECT
 public:
     explicit DatabaseManager(QObject *parent = nullptr);
     ~DatabaseManager();
+
+    // Thread-local SQLite connection (safe to call from any thread).
+    QSqlDatabase threadDb();
 
     bool openDatabase();
     
@@ -21,6 +27,9 @@ public:
                          qint64 size, const QString &mimeType,
                          const QDateTime &creationDate, int width, int height,
                          double latitude = 0.0, double longitude = 0.0);
+
+    // Batch upsert — all rows in one SQLite transaction (crash-safe via WAL).
+    bool addOrUpdateMediaBatch(const QVector<MediaEntry> &entries);
 
     // Returns [{file_path, latitude, longitude, photo_count, thumb_path}] grouped ~1km.
     Q_INVOKABLE QVariantList getGeotaggedLocations();
@@ -60,6 +69,18 @@ public:
     Q_INVOKABLE bool pinAlbum(const QString &folderPath, bool pinned);
     Q_INVOKABLE bool trashAlbum(const QString &folderPath);
 
+    // Album metadata (name, description, cover) — works for folder-based and virtual albums
+    Q_INVOKABLE QString getRandomPhotoPath();
+    Q_INVOKABLE QString createVirtualAlbum(const QString &name, const QString &desc, const QString &coverPath);
+    Q_INVOKABLE bool    updateAlbumMeta(const QString &pathPrefix, const QString &customName,
+                                        const QString &desc, const QString &coverPath);
+
+    // Move a media file physically to a target folder, updating the DB record.
+    Q_INVOKABLE bool moveMediaToAlbum(int mediaId, const QString &targetFolderPath);
+
+    // Simple flat list of {path, name} for all non-ignored folder albums — used by "Send to" UI.
+    Q_INVOKABLE QVariantList getAlbumList();
+
     // Permanently delete all trashed files from disk and DB. Returns count deleted.
     Q_INVOKABLE int emptyTrash();
 
@@ -87,4 +108,6 @@ private:
     void checkConnection();
     QSqlDatabase m_db;
     QString m_dbPath;
+    std::unique_ptr<MediaRepository> m_media;
+    std::unique_ptr<AlbumRepository> m_album;
 };

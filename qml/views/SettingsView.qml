@@ -487,9 +487,9 @@ Item {
                         id: densitySlider
                         from: 1; to: 3; stepSize: 1
                         snapMode: Slider.SnapAlways
-                        value: 2
+                        value: Settings.mosaicDensity
                         width: 120
-                        onValueChanged: TimelineModel.numColumns = [5, 4, 3][Math.max(0, Math.min(Math.round(value) - 1, 2))]
+                        onMoved: Settings.mosaicDensity = Math.round(value)
                     }
                 }
             }

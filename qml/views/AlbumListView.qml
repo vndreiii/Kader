@@ -54,15 +54,27 @@ Item {
 
             // Capture model values so context menu onTriggered can access them
             // even after the delegate is recycled or model goes out of scope.
-            property string _path:   model.path   || ""
-            property string _name:   model.name   || ""
-            property bool   _pinned: model.pinned || false
+            property string _path:      model.path      || ""
+            property string _name:      model.name      || ""
+            property bool   _pinned:    model.pinned    || false
+            property string _desc:      model.description || ""
+            property string _coverPath: model.coverPath || ""
 
             MD.Menu {
                 id: albumMenu
                 MD.MenuItem {
                     text: "Select"
                     onTriggered: { root.selectionMode = true; root.selectAlbum(albumItem._path) }
+                }
+                MD.MenuItem {
+                    text: "Edit album"
+                    onTriggered: {
+                        albumEditModal.folderPath = albumItem._path
+                        albumEditModal.initName   = albumItem._name
+                        albumEditModal.initDesc   = albumItem._desc
+                        albumEditModal.initCover  = albumItem._coverPath
+                        albumEditModal.open()
+                    }
                 }
                 MD.MenuItem {
                     text: albumItem._pinned ? "Unpin album" : "Pin album"
@@ -322,5 +334,11 @@ Item {
         spacing: 16
         M3Icon { Layout.alignment: Qt.AlignHCenter; name: "folder"; size: 96; color: ThemeManager.onSurfaceVariant; opacity: 0.5 }
         Label { Layout.alignment: Qt.AlignHCenter; text: "No albums"; font.pixelSize: 24; font.weight: Font.Light; color: ThemeManager.onSurface }
+    }
+
+    AlbumEditModal {
+        id: albumEditModal
+        parent: Overlay.overlay
+        onSaved: AlbumModel.refresh()
     }
 }

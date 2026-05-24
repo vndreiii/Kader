@@ -19,9 +19,12 @@ QVariant AlbumModel::data(const QModelIndex &index, int role) const {
     const QVariantMap &item = m_data.at(index.row()).toMap();
 
     switch (role) {
-        case NameRole: return item.value("name");
-        case PathRole: return item.value("folder_path");
-        case CountRole: return item.value("count");
+        case NameRole:        return item.value("name");
+        case PathRole:        return item.value("folder_path");
+        case CountRole:       return item.value("count");
+        case PinnedRole:      return item.value("pinned");
+        case DescriptionRole: return item.value("description");
+        case CoverPathRole:   return item.value("cover");
         case SizeRole: {
             qint64 bytes = item.value("size").toLongLong();
             if (bytes < 1024) return QString::number(bytes) + " B";
@@ -40,11 +43,14 @@ QVariant AlbumModel::data(const QModelIndex &index, int role) const {
 
 QHash<int, QByteArray> AlbumModel::roleNames() const {
     QHash<int, QByteArray> roles;
-    roles[NameRole] = "name";
-    roles[PathRole] = "path";
-    roles[CountRole] = "count";
-    roles[SizeRole] = "size";
-    roles[CoverRole] = "cover";
+    roles[NameRole]        = "name";
+    roles[PathRole]        = "path";
+    roles[CountRole]       = "count";
+    roles[SizeRole]        = "size";
+    roles[CoverRole]       = "cover";
+    roles[PinnedRole]      = "pinned";
+    roles[DescriptionRole] = "description";
+    roles[CoverPathRole]   = "coverPath";
     return roles;
 }
 

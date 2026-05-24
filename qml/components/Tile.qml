@@ -154,6 +154,14 @@ Item {
             onTriggered: { if (root._folderPath) Qt.openUrlExternally("file://" + root._folderPath) }
         }
         MD.MenuItem {
+            text: "Send to album..."
+            visible: TimelineModel.filterMode !== TimelineModel.HiddenMode
+            onTriggered: {
+                sendToPopup.albumList = DB.getAlbumList()
+                sendToPopup.open()
+            }
+        }
+        MD.MenuItem {
             text: root._isHidden ? "Unhide" : "Hide"
             onTriggered: {
                 if (root._mediaId) {
@@ -175,6 +183,70 @@ Item {
             text: "Delete permanently"
             onTriggered: {
                 if (root._mediaId) { DB.deleteMediaPermanently(root._mediaId); TimelineModel.refresh() }
+            }
+        }
+    }
+
+    // Album picker popup for "Send to album..."
+    Popup {
+        id: sendToPopup
+        parent: Overlay.overlay
+        modal: true
+        anchors.centerIn: parent
+        width: 260
+        padding: 8
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+        property var albumList: []
+
+        background: Rectangle {
+            radius: 16
+            color: ThemeManager.surfaceContainer
+        }
+
+        Column {
+            width: parent.width - parent.padding * 2
+            spacing: 0
+
+            Label {
+                width: parent.width
+                text: "Send to album"
+                font.pixelSize: 13; font.weight: Font.Medium
+                color: ThemeManager.onSurfaceVariant
+                leftPadding: 8; topPadding: 4; bottomPadding: 8
+            }
+
+            Repeater {
+                model: sendToPopup.albumList
+                delegate: Rectangle {
+                    width: parent.width; height: 44; radius: 10
+                    color: sendMa.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
+                    Behavior on color { ColorAnimation { duration: 60 } }
+                    Row {
+                        anchors.left: parent.left; anchors.leftMargin: 10
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 8
+                        M3Icon { name: "folder"; size: 16; color: ThemeManager.onSurfaceVariant; anchors.verticalCenter: parent.verticalCenter }
+                        Label {
+                            text: modelData.name || ""
+                            font.pixelSize: 14; color: ThemeManager.onSurface
+                            elide: Text.ElideRight
+                            width: sendToPopup.width - 60
+                        }
+                    }
+                    MouseArea {
+                        id: sendMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            var targetPath = modelData.path || ""
+                            if (root._mediaId && targetPath) {
+                                DB.moveMediaToAlbum(root._mediaId, targetPath)
+                                TimelineModel.refresh()
+                                AlbumModel.refresh()
+                            }
+                            sendToPopup.close()
+                        }
+                    }
+                }
             }
         }
     }

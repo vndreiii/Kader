@@ -9,7 +9,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick QuickDialogs2 Sql Positioning Location Concurrent Multimedia Test QuickTest)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Qml Quick QuickDialogs2 Sql Positioning Location Concurrent Multimedia Test QuickTest)
 find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(VIPS REQUIRED vips-cpp)
@@ -33,6 +33,8 @@ set(SOURCES
     ${SOURCE_DIR}/ThemeManager.cpp
     ${SOURCE_DIR}/FileScanner.cpp
     ${SOURCE_DIR}/DatabaseManager.cpp
+    ${SOURCE_DIR}/MediaRepository.cpp
+    ${SOURCE_DIR}/AlbumRepository.cpp
     ${SOURCE_DIR}/ThumbnailGenerator.cpp
     ${SOURCE_DIR}/ThumbnailProvider.cpp
     ${SOURCE_DIR}/MediaModel.cpp
@@ -47,6 +49,8 @@ set(HEADERS
     ${INCLUDE_DIR}/ThemeManager.h
     ${INCLUDE_DIR}/FileScanner.h
     ${INCLUDE_DIR}/DatabaseManager.h
+    ${INCLUDE_DIR}/MediaRepository.h
+    ${INCLUDE_DIR}/AlbumRepository.h
     ${INCLUDE_DIR}/ThumbnailGenerator.h
     ${INCLUDE_DIR}/ThumbnailProvider.h
     ${INCLUDE_DIR}/MediaModel.h
@@ -64,6 +68,7 @@ add_library(KaderLib STATIC
 target_link_libraries(KaderLib PUBLIC
     Qt6::Core
     Qt6::Gui
+    Qt6::Widgets
     Qt6::Qml
     Qt6::Quick
     Qt6::QuickDialogs2

@@ -14,7 +14,10 @@ public:
         PathRole,
         CountRole,
         SizeRole,
-        CoverRole
+        CoverRole,
+        PinnedRole,
+        DescriptionRole,
+        CoverPathRole
     };
 
     explicit AlbumModel(DatabaseManager *db, ThumbnailGenerator *thumb, QObject *parent = nullptr);

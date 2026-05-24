@@ -1,5 +1,7 @@
 #include "FileScanner.h"
 #include "DatabaseManager.h"
+#include "MediaRepository.h"
+#include "ThumbnailGenerator.h"
 #include <exiv2/exiv2.hpp>
 #include <fcntl.h>
 #include <unistd.h>
@@ -175,9 +177,9 @@ void FileScanner::runScan(const std::string &rootPath, const std::vector<std::st
 
     qDebug() << "Scan found" << foundFiles.size() << "candidate files in" << dirsScanned.load() << "directories";
 
-    // Now update database with EXIF metadata.
     QStringList finalPaths;
     QMimeDatabase mimeDb;
+    QVector<MediaEntry> newEntries;
 
     auto parseGPS = [](const Exiv2::ExifData &exif,
                        const char *latKey, const char *latRefKey,
@@ -203,51 +205,63 @@ void FileScanner::runScan(const std::string &rootPath, const std::vector<std::st
         return true;
     };
 
+    // Collect entries that need updating; parse EXIF here before the batch write.
     for (const auto& info : foundFiles) {
         finalPaths.append(info.path);
         if (!m_db->needsUpdate(info.path, info.size)) continue;
 
         QFileInfo fi(info.path);
-        QString mime = mimeDb.mimeTypeForFile(fi).name();
+        MediaEntry entry;
+        entry.filePath   = info.path;
+        entry.folderPath = fi.absolutePath();
+        entry.fileSize   = info.size;
+        entry.mimeType   = mimeDb.mimeTypeForFile(fi).name();
+        entry.creationDate = fi.lastModified();
 
-        QDateTime creationDate = fi.lastModified();
-        double lat = 0.0, lon = 0.0;
-        int w = 0, h = 0;
-
-        if (mime.startsWith("image/")) {
+        if (entry.mimeType.startsWith("image/")) {
             try {
                 auto image = Exiv2::ImageFactory::open(info.path.toStdString());
                 image->readMetadata();
                 const Exiv2::ExifData &exif = image->exifData();
 
-                // Capture date (prefer DateTimeOriginal over DateTime).
                 for (const char *key : {"Exif.Photo.DateTimeOriginal", "Exif.Image.DateTime"}) {
                     auto it = exif.findKey(Exiv2::ExifKey(key));
                     if (it != exif.end()) {
                         QDateTime dt = QDateTime::fromString(
                             QString::fromStdString(it->toString()), "yyyy:MM:dd HH:mm:ss");
-                        if (dt.isValid()) { creationDate = dt; break; }
+                        if (dt.isValid()) { entry.creationDate = dt; break; }
                     }
                 }
 
-                // GPS coordinates.
                 parseGPS(exif,
                          "Exif.GPSInfo.GPSLatitude",    "Exif.GPSInfo.GPSLatitudeRef",
                          "Exif.GPSInfo.GPSLongitude",   "Exif.GPSInfo.GPSLongitudeRef",
-                         lat, lon);
+                         entry.latitude, entry.longitude);
 
-                // Dimensions.
                 auto itW = exif.findKey(Exiv2::ExifKey("Exif.Photo.PixelXDimension"));
                 auto itH = exif.findKey(Exiv2::ExifKey("Exif.Photo.PixelYDimension"));
-                if (itW != exif.end()) w = static_cast<int>(itW->value().toInt64());
-                if (itH != exif.end()) h = static_cast<int>(itH->value().toInt64());
+                if (itW != exif.end()) entry.width  = static_cast<int>(itW->value().toInt64());
+                if (itH != exif.end()) entry.height = static_cast<int>(itH->value().toInt64());
 
-            } catch (...) {
-                // Non-fatal: use filesystem fallback values.
-            }
+            } catch (...) {}
         }
 
-        m_db->addOrUpdateMedia(info.path, "", info.size, mime, creationDate, w, h, lat, lon);
+        newEntries.append(entry);
+    }
+
+    // One transaction for all new/updated rows — crash-safe via WAL.
+    if (!newEntries.isEmpty())
+        m_db->addOrUpdateMediaBatch(newEntries);
+
+    // Pre-generate thumbnails so the timeline shows them without a placeholder flash.
+    if (m_thumbGen && !newEntries.isEmpty()) {
+        for (const MediaEntry &e : newEntries) {
+            QByteArray bytes = e.mimeType.startsWith("video/")
+                ? m_thumbGen->generateVideoThumbnailBytes(e.filePath)
+                : m_thumbGen->generateThumbnailBytes(e.filePath);
+            if (!bytes.isEmpty())
+                m_db->storeThumbnailBlob(e.filePath, 256, ThumbnailGenerator::encrypt(bytes));
+        }
     }
 
     m_db->updateDirectoryStats(QString::fromStdString(rootPath), finalPaths.size());

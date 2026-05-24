@@ -135,7 +135,8 @@ void TimelineModel::refresh(bool hideIgnored) {
 
     const float cw     = qMax(400, m_contentWidth);  // available pixel width
     const float gap    = 6.0f;
-    const float target = 260.0f; // target row height in pixels
+    // Target row height driven by density setting: compact(5 cols)→200, comfortable(4)→260, spacious(3)→340
+    const float target = (m_numColumns <= 3) ? 340.0f : (m_numColumns >= 5) ? 200.0f : 260.0f;
     const float minH   = 140.0f;
     const float maxH   = 520.0f;
 

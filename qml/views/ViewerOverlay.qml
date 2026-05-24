@@ -105,14 +105,11 @@ Rectangle {
     function _transition(dir) {
         resetZoom()
         _dir = dir
-        // When leaving a video, snapshot its thumbnail so the slide-out has content
         outImg.source = root._isVideo
             ? (root.mediaData && root.mediaData.thumb ? root.mediaData.thumb : "")
             : mainImg.source
-        outImg.opacity = 1
-        outImg.x = 0
+        outImg.opacity = 1.0
         outAnim.restart()
-        inAnim.restart()
     }
 
     // ── Backdrop dismiss (only when not zoomed) ───────────────────────────
@@ -171,25 +168,22 @@ Rectangle {
             onClicked: (m) => m.accepted = false
         }
 
-        // Outgoing image (slides out during transition)
+        // Outgoing image — sits on top (z:5), fades out as crossfade over the incoming image
         Image {
             id: outImg
-            anchors.centerIn: parent
-            width:  Math.min(imgArea.width,  implicitWidth  > 0 ? implicitWidth  : imgArea.width)
-            height: Math.min(imgArea.height, implicitHeight > 0 ? implicitHeight : imgArea.height)
+            anchors.fill: parent
             fillMode: Image.PreserveAspectFit
             autoTransform: true
             opacity: 0
-            x: 0
+            z: 5
 
             NumberAnimation {
                 id: outAnim
                 target: outImg
-                property: "x"
-                to: root._dir < 0 ? imgArea.width * 0.3 : -imgArea.width * 0.3
-                duration: 280
+                property: "opacity"
+                from: 1.0; to: 0.0
+                duration: 260
                 easing.type: Easing.OutQuint
-                onRunningChanged: if (!running) outImg.opacity = 0
             }
         }
 
@@ -210,16 +204,6 @@ Rectangle {
             transform: Translate { x: root._panX; y: root._panY }
 
             Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutQuint } }
-
-            NumberAnimation {
-                id: inAnim
-                target: mainImg
-                property: "x"
-                from: root._dir > 0 ? imgArea.width * 0.18 : -imgArea.width * 0.18
-                to: 0
-                duration: 320
-                easing.type: Easing.OutQuint
-            }
         }
 
         // ── Video player (shown instead of image when _isVideo) ──────────
@@ -721,6 +705,16 @@ Rectangle {
             M3Icon { anchors.centerIn: parent; name: "info"; size: 22; color: "white" }
             MouseArea { id: infoMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                 onClicked: root.infoPanelOpen = !root.infoPanelOpen }
+        }
+        Rectangle {
+            visible: !root._isVideo
+            width: 48; height: 48; radius: 24
+            color: Qt.alpha("white", copyMa.pressed ? 0.28 : copyMa.containsMouse ? 0.20 : 0.14)
+            Behavior on color { ColorAnimation { duration: 80 } }
+            scale: copyMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: 80 } }
+            M3Icon { anchors.centerIn: parent; name: "content_copy"; size: 22; color: "white" }
+            MouseArea { id: copyMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                onClicked: { if (root.mediaData) Settings.copyImageToClipboard(root.mediaData.file_path) } }
         }
         Rectangle {
             width: 48; height: 48; radius: 24

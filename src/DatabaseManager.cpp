@@ -1,4 +1,6 @@
 #include "DatabaseManager.h"
+#include "MediaRepository.h"
+#include "AlbumRepository.h"
 #include "ThumbnailGenerator.h"
 #include <QStandardPaths>
 #include <QDir>
@@ -14,6 +16,8 @@ DatabaseManager::DatabaseManager(QObject *parent) : QObject(parent) {
     m_dbPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/gallery.db";
     QDir().mkpath(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation));
     openDatabase();
+    m_media = std::make_unique<MediaRepository>(this);
+    m_album = std::make_unique<AlbumRepository>(this);
 }
 
 DatabaseManager::~DatabaseManager() {
@@ -42,6 +46,10 @@ static QSqlDatabase openThreadDb(const QString &dbPath) {
         if (!db.isOpen()) db.open();
     }
     return QSqlDatabase::database(connName);
+}
+
+QSqlDatabase DatabaseManager::threadDb() {
+    return openThreadDb(m_dbPath);
 }
 
 void DatabaseManager::checkConnection() {
@@ -133,6 +141,9 @@ bool DatabaseManager::createTables() {
     };
     migrate("albums", "is_pinned",   "BOOLEAN DEFAULT 0");
     migrate("albums", "is_ignored",  "BOOLEAN DEFAULT 0");
+    migrate("albums", "custom_name", "TEXT");
+    migrate("albums", "description", "TEXT");
+    migrate("albums", "cover_path",  "TEXT");
     migrate("media",  "is_favorite", "BOOLEAN DEFAULT 0");
     migrate("media",  "is_trashed",  "BOOLEAN DEFAULT 0");
     migrate("media",  "is_hidden",   "BOOLEAN DEFAULT 0");
@@ -232,7 +243,7 @@ bool DatabaseManager::ignoreAlbum(const QString &folderPath, bool ignore) {
     // No existing row — insert; use full path as name so it never conflicts on name UNIQUE
     QSqlQuery q(m_db);
     q.prepare("INSERT INTO albums (name, path_prefix, is_ignored) VALUES (:n, :p, :v) "
-              "ON CONFLICT(name) DO UPDATE SET path_prefix = :p, is_ignored = :v");
+              "ON CONFLICT(path_prefix) DO UPDATE SET is_ignored = excluded.is_ignored");
     q.bindValue(":n", folderPath);
     q.bindValue(":p", folderPath);
     q.bindValue(":v", ignore ? 1 : 0);
@@ -264,9 +275,14 @@ bool DatabaseManager::addOrUpdateMedia(const QString &filePath, const QString &h
 
     QSqlQuery query(db);
     query.prepare(
-        "INSERT OR REPLACE INTO media "
+        "INSERT INTO media "
         "(file_path, folder_path, file_hash, file_size, mime_type, creation_date, width, height, latitude, longitude) "
-        "VALUES (:path, :folder, :hash, :size, :mime, :date, :w, :h, :lat, :lon)"
+        "VALUES (:path, :folder, :hash, :size, :mime, :date, :w, :h, :lat, :lon) "
+        "ON CONFLICT(file_path) DO UPDATE SET "
+        "folder_path=excluded.folder_path, file_hash=excluded.file_hash, "
+        "file_size=excluded.file_size, mime_type=excluded.mime_type, "
+        "creation_date=excluded.creation_date, width=excluded.width, height=excluded.height, "
+        "latitude=excluded.latitude, longitude=excluded.longitude"
     );
     query.bindValue(":path", filePath);
     query.bindValue(":folder", folderPath);
@@ -284,6 +300,10 @@ bool DatabaseManager::addOrUpdateMedia(const QString &filePath, const QString &h
         return false;
     }
     return true;
+}
+
+bool DatabaseManager::addOrUpdateMediaBatch(const QVector<MediaEntry> &entries) {
+    return m_media->upsertBatch(entries);
 }
 
 bool DatabaseManager::needsUpdate(const QString &filePath, qint64 size) {
@@ -312,12 +332,29 @@ QVariantList DatabaseManager::getAlbums(bool hideIgnored) {
     QSqlDatabase db = QSqlDatabase::database(connName);
 
     QVariantList list;
-    QString sql = "SELECT folder_path, COUNT(*), SUM(file_size), MIN(file_path) FROM media WHERE is_trashed = 0 ";
+
+    // Folder-based albums (grouped from media), joined with albums metadata
+    QString sql =
+        "SELECT m.folder_path, COUNT(*) AS cnt, SUM(m.file_size) AS sz, "
+        "MIN(m.file_path) AS cover_file, "
+        "COALESCE(a.custom_name,'') AS custom_name, "
+        "COALESCE(a.is_pinned,0) AS is_pinned, "
+        "COALESCE(a.cover_path,'') AS cover_path, "
+        "COALESCE(a.description,'') AS description "
+        "FROM media m "
+        "LEFT JOIN albums a ON a.path_prefix = m.folder_path "
+        "WHERE m.is_trashed = 0 ";
     if (hideIgnored) {
-        sql += "AND COALESCE(folder_path,'') NOT IN "
+        sql += "AND COALESCE(m.folder_path,'') NOT IN "
                "(SELECT COALESCE(path_prefix,'') FROM albums WHERE is_ignored = 1) ";
     }
-    sql += "GROUP BY folder_path HAVING COUNT(*) > 0 ORDER BY folder_path ASC";
+    sql += "GROUP BY m.folder_path HAVING COUNT(*) > 0 "
+           "UNION ALL "
+           "SELECT a.path_prefix, 0, 0, COALESCE(a.cover_path,''), "
+           "COALESCE(a.name,''), COALESCE(a.is_pinned,0), COALESCE(a.cover_path,''), "
+           "COALESCE(a.description,'') "
+           "FROM albums a WHERE a.path_prefix LIKE '__virtual__%' "
+           "ORDER BY 1 ASC";
 
     QSqlQuery query(db);
     if (!query.exec(sql)) {
@@ -326,11 +363,27 @@ QVariantList DatabaseManager::getAlbums(bool hideIgnored) {
     }
     while (query.next()) {
         QVariantMap map;
-        map["folder_path"] = query.value(0);
-        map["count"] = query.value(1);
-        map["size"] = query.value(2);
-        map["cover"] = query.value(3);
-        map["name"] = QDir(query.value(0).toString()).dirName();
+        QString fp          = query.value(0).toString();
+        QString customName  = query.value(4).toString();
+        QString coverPath   = query.value(6).toString();
+        QString coverFile   = query.value(3).toString();
+
+        map["folder_path"]  = fp;
+        map["count"]        = query.value(1);
+        map["size"]         = query.value(2);
+        map["cover_file"]   = coverFile;
+        map["cover_path"]   = coverPath;
+        map["cover"]        = coverPath.isEmpty() ? coverFile : coverPath;
+        map["pinned"]       = query.value(5).toBool();
+        map["description"]  = query.value(7);
+
+        if (!customName.isEmpty())
+            map["name"] = customName;
+        else if (fp.startsWith("__virtual__"))
+            map["name"] = fp.mid(11);
+        else
+            map["name"] = QDir(fp).dirName();
+
         list.append(map);
     }
     return list;
@@ -480,7 +533,7 @@ bool DatabaseManager::pinAlbum(const QString &folderPath, bool pinned) {
     }
     QSqlQuery q(m_db);
     q.prepare("INSERT INTO albums (name, path_prefix, is_pinned) VALUES (:n, :p, :v) "
-              "ON CONFLICT(name) DO UPDATE SET path_prefix = :p, is_pinned = :v");
+              "ON CONFLICT(path_prefix) DO UPDATE SET is_pinned = excluded.is_pinned");
     q.bindValue(":n", folderPath);
     q.bindValue(":p", folderPath);
     q.bindValue(":v", pinned ? 1 : 0);
@@ -688,4 +741,130 @@ bool DatabaseManager::setHiddenPassword(const QString &password) {
               "ON CONFLICT(key) DO UPDATE SET value = :h");
     q.bindValue(":h", hash);
     return q.exec();
+}
+
+// ── Album metadata & virtual albums ──────────────────────────────────────────
+
+QString DatabaseManager::getRandomPhotoPath() {
+    checkConnection();
+    QSqlQuery q(m_db);
+    q.exec("SELECT file_path FROM media WHERE is_trashed=0 AND mime_type NOT LIKE 'video/%' "
+           "ORDER BY RANDOM() LIMIT 1");
+    return q.next() ? q.value(0).toString() : QString();
+}
+
+QString DatabaseManager::createVirtualAlbum(const QString &name, const QString &desc,
+                                             const QString &coverPath) {
+    checkConnection();
+    QString safeName = name.simplified().replace(' ', '_').replace('/', '_');
+    QString prefix   = "__virtual__" + safeName;
+
+    QString cover = coverPath;
+    if (cover.isEmpty()) {
+        QSqlQuery rnd(m_db);
+        rnd.exec("SELECT file_path FROM media WHERE is_trashed=0 AND mime_type NOT LIKE 'video/%' "
+                 "ORDER BY RANDOM() LIMIT 1");
+        if (rnd.next()) cover = rnd.value(0).toString();
+    }
+
+    QSqlQuery q(m_db);
+    q.prepare("INSERT INTO albums (name, path_prefix, description, cover_path) "
+              "VALUES (:n, :p, :d, :c) "
+              "ON CONFLICT(path_prefix) DO UPDATE SET "
+              "name=excluded.name, description=excluded.description, cover_path=excluded.cover_path");
+    q.bindValue(":n", name);
+    q.bindValue(":p", prefix);
+    q.bindValue(":d", desc);
+    q.bindValue(":c", cover);
+    if (!q.exec()) {
+        qWarning() << "createVirtualAlbum failed:" << q.lastError().text();
+        return {};
+    }
+    return prefix;
+}
+
+bool DatabaseManager::updateAlbumMeta(const QString &pathPrefix, const QString &customName,
+                                       const QString &desc, const QString &coverPath) {
+    checkConnection();
+    // Ensure row exists before updating
+    {
+        QSqlQuery ins(m_db);
+        ins.prepare("INSERT OR IGNORE INTO albums (name, path_prefix) VALUES (:n, :p)");
+        ins.bindValue(":n", customName.isEmpty() ? pathPrefix : customName);
+        ins.bindValue(":p", pathPrefix);
+        ins.exec();
+    }
+    QSqlQuery q(m_db);
+    q.prepare("UPDATE albums SET custom_name=:cn, description=:d, cover_path=:c "
+              "WHERE path_prefix=:p");
+    q.bindValue(":cn", customName);
+    q.bindValue(":d",  desc);
+    q.bindValue(":c",  coverPath);
+    q.bindValue(":p",  pathPrefix);
+    return q.exec();
+}
+
+bool DatabaseManager::moveMediaToAlbum(int mediaId, const QString &targetFolderPath) {
+    checkConnection();
+    QSqlQuery sel(m_db);
+    sel.prepare("SELECT file_path FROM media WHERE id = :id");
+    sel.bindValue(":id", mediaId);
+    if (!sel.exec() || !sel.next()) return false;
+
+    QString srcPath = sel.value(0).toString();
+    QFileInfo fi(srcPath);
+    QString destPath = targetFolderPath + "/" + fi.fileName();
+
+    // Resolve name collision
+    if (QFile::exists(destPath) && destPath != srcPath) {
+        QString base = fi.completeBaseName();
+        QString ext  = fi.suffix();
+        int n = 1;
+        do {
+            destPath = targetFolderPath + "/" + base + "_" + QString::number(n++)
+                       + (ext.isEmpty() ? "" : "." + ext);
+        } while (QFile::exists(destPath));
+    }
+
+    if (!QFile::rename(srcPath, destPath)) {
+        qWarning() << "moveMediaToAlbum: rename failed" << srcPath << "->" << destPath;
+        return false;
+    }
+
+    // Also move any stored thumbnail blobs
+    QSqlQuery thumbUpd(m_db);
+    thumbUpd.prepare("UPDATE thumbnails SET file_path=:new WHERE file_path=:old");
+    thumbUpd.bindValue(":new", destPath);
+    thumbUpd.bindValue(":old", srcPath);
+    thumbUpd.exec();
+
+    QSqlQuery upd(m_db);
+    upd.prepare("UPDATE media SET file_path=:fp, folder_path=:folder WHERE id=:id");
+    upd.bindValue(":fp",     destPath);
+    upd.bindValue(":folder", targetFolderPath);
+    upd.bindValue(":id",     mediaId);
+    return upd.exec();
+}
+
+QVariantList DatabaseManager::getAlbumList() {
+    checkConnection();
+    QVariantList list;
+    QSqlQuery q(m_db);
+    // Folder-based, non-ignored
+    q.exec("SELECT DISTINCT m.folder_path, COALESCE(a.custom_name,'') "
+           "FROM media m "
+           "LEFT JOIN albums a ON a.path_prefix = m.folder_path "
+           "WHERE m.is_trashed = 0 "
+           "AND COALESCE(m.folder_path,'') NOT IN "
+           "  (SELECT COALESCE(path_prefix,'') FROM albums WHERE is_ignored = 1) "
+           "ORDER BY m.folder_path");
+    while (q.next()) {
+        QVariantMap m;
+        QString fp         = q.value(0).toString();
+        QString customName = q.value(1).toString();
+        m["path"] = fp;
+        m["name"] = customName.isEmpty() ? QDir(fp).dirName() : customName;
+        list.append(m);
+    }
+    return list;
 }

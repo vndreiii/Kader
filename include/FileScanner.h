@@ -9,6 +9,7 @@
 #include <atomic>
 
 class DatabaseManager;
+class ThumbnailGenerator;
 
 class FileScanner : public QObject {
     Q_OBJECT
@@ -25,6 +26,8 @@ public:
     // Performs a high-performance parallel scan
     Q_INVOKABLE void startScan(const QString &rootPath);
 
+    void setThumbnailGenerator(ThumbnailGenerator *gen) { m_thumbGen = gen; }
+
 signals:
     void scanStarted(const QString &rootPath);
     void scanFinished(const QStringList &paths, int dirsScanned, double duration, const QString &rootPath);
@@ -34,6 +37,7 @@ private:
     void runScan(const std::string &rootPath, const std::vector<std::string> &exclusions);
 
     std::set<std::string> m_mediaExtensions;
-    DatabaseManager *m_db;
-    QFuture<void> m_scanFuture;
+    DatabaseManager      *m_db;
+    ThumbnailGenerator   *m_thumbGen = nullptr;
+    QFuture<void>         m_scanFuture;
 };

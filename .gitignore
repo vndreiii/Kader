@@ -28,6 +28,9 @@ benchmarks/
 # Specs & planning docs
 docs/
 
+# Knowledge graph (graphify)
+graphify-out/
+
 #LLM stupid shit
 What-I-Did_Im-Gemini.md
 @What-I-Did_Im-Gemini.md

@@ -144,7 +144,7 @@ Rectangle {
         Rectangle {
             anchors.left: parent.left; anchors.right: parent.right
             anchors.leftMargin: 12; anchors.rightMargin: 12
-            height: root.collapsed ? 160 : 100
+            height: root.collapsed ? 160 : 120
             radius: root.collapsed ? 22 : 16
             color: ThemeManager.surfaceContainerLow
             clip: true
@@ -179,6 +179,13 @@ Rectangle {
                     Label { text: StorageManager.photoGb.toFixed(1) + " GB photos"; font.pixelSize: 11; color: ThemeManager.onSurfaceVariant }
                     Rectangle { width: 8; height: 8; radius: 4; color: ThemeManager.tertiary; anchors.verticalCenter: parent.verticalCenter }
                     Label { text: StorageManager.videoGb.toFixed(1) + " GB video"; font.pixelSize: 11; color: ThemeManager.onSurfaceVariant }
+                }
+                Label {
+                    width: parent.width
+                    text: StorageManager.freeGb.toFixed(1) + " GB free · " + StorageManager.totalGb.toFixed(0) + " GB total"
+                    font.pixelSize: 10
+                    color: Qt.alpha(ThemeManager.onSurfaceVariant, 0.6)
+                    elide: Text.ElideRight
                 }
             }
 
