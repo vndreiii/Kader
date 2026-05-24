@@ -19,28 +19,51 @@ DatabaseManager::DatabaseManager(QObject *parent) : QObject(parent) {
 DatabaseManager::~DatabaseManager() {
 }
 
-void DatabaseManager::checkConnection() {
-    QString connectionName = "qt_sql_default_connection";
-    if (QThread::currentThread() != qApp->thread()) {
-        connectionName = QString("connection_%1").arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
-    }
+// Returns the thread-local QSqlDatabase, opening it on first use.
+// Never writes to m_db from background threads — m_db is main-thread only.
+static QSqlDatabase openThreadDb(const QString &dbPath) {
+    const bool isMain = (QThread::currentThread() == qApp->thread());
+    const QString connName = isMain
+        ? QLatin1String("qt_sql_default_connection")
+        : QString("connection_%1").arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
 
-    if (QSqlDatabase::contains(connectionName)) {
-        m_db = QSqlDatabase::database(connectionName);
-    } else {
-        m_db = QSqlDatabase::addDatabase("QSQLITE", connectionName);
-        m_db.setDatabaseName(m_dbPath);
-    }
-
-    if (!m_db.isOpen()) {
-        if (!m_db.open()) {
-            qCritical() << "Error opening database in thread" << connectionName << ":" << m_db.lastError().text();
+    if (!QSqlDatabase::contains(connName)) {
+        QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", connName);
+        db.setDatabaseName(dbPath);
+        if (!db.open()) {
+            qCritical() << "Error opening DB in thread" << connName << ":" << db.lastError().text();
         } else {
-            QSqlQuery wal(m_db);
+            QSqlQuery wal(db);
             wal.exec("PRAGMA journal_mode=WAL");
             wal.exec("PRAGMA synchronous=NORMAL");
-            createTables();
         }
+    } else {
+        QSqlDatabase db = QSqlDatabase::database(connName);
+        if (!db.isOpen()) db.open();
+    }
+    return QSqlDatabase::database(connName);
+}
+
+void DatabaseManager::checkConnection() {
+    // Only update m_db on the main thread; background threads must call openThreadDb() directly.
+    if (QThread::currentThread() == qApp->thread()) {
+        const QString connName = QLatin1String("qt_sql_default_connection");
+        if (!QSqlDatabase::contains(connName)) {
+            m_db = QSqlDatabase::addDatabase("QSQLITE", connName);
+            m_db.setDatabaseName(m_dbPath);
+            if (m_db.open()) {
+                QSqlQuery wal(m_db);
+                wal.exec("PRAGMA journal_mode=WAL");
+                wal.exec("PRAGMA synchronous=NORMAL");
+                createTables();
+            }
+        } else {
+            m_db = QSqlDatabase::database(connName);
+            if (!m_db.isOpen()) m_db.open();
+        }
+    } else {
+        // Background thread: open thread-local connection without touching m_db.
+        openThreadDb(m_dbPath);
     }
 }
 
@@ -186,8 +209,8 @@ bool DatabaseManager::removeIndexedDirectory(const QString &path) {
 }
 
 bool DatabaseManager::updateDirectoryStats(const QString &path, int count) {
-    checkConnection();
-    QSqlQuery query(m_db);
+    QSqlDatabase db = openThreadDb(m_dbPath);
+    QSqlQuery query(db);
     query.prepare("UPDATE indexed_directories SET item_count = :count, last_scan = :now WHERE path = :path");
     query.bindValue(":count", count);
     query.bindValue(":now", QDateTime::currentDateTime().toSecsSinceEpoch());
@@ -235,11 +258,11 @@ bool DatabaseManager::addOrUpdateMedia(const QString &filePath, const QString &h
                                      qint64 size, const QString &mimeType,
                                      const QDateTime &creationDate, int width, int height,
                                      double latitude, double longitude) {
-    checkConnection();
+    QSqlDatabase db = openThreadDb(m_dbPath);
     QFileInfo fileInfo(filePath);
     QString folderPath = fileInfo.absolutePath();
 
-    QSqlQuery query(m_db);
+    QSqlQuery query(db);
     query.prepare(
         "INSERT OR REPLACE INTO media "
         "(file_path, folder_path, file_hash, file_size, mime_type, creation_date, width, height, latitude, longitude) "
@@ -264,8 +287,8 @@ bool DatabaseManager::addOrUpdateMedia(const QString &filePath, const QString &h
 }
 
 bool DatabaseManager::needsUpdate(const QString &filePath, qint64 size) {
-    checkConnection();
-    QSqlQuery query(m_db);
+    QSqlDatabase db = openThreadDb(m_dbPath);
+    QSqlQuery query(db);
     query.prepare("SELECT file_size, creation_date, width, height FROM media WHERE file_path = :path");
     query.bindValue(":path", filePath);
 
@@ -584,8 +607,8 @@ int DatabaseManager::pruneOrphanedMedia() {
 // ── Scan exclusion patterns ───────────────────────────────────────────────────
 
 QStringList DatabaseManager::getScanExclusions() {
-    checkConnection();
-    QSqlQuery q(m_db);
+    QSqlDatabase db = openThreadDb(m_dbPath);
+    QSqlQuery q(db);
     q.exec("SELECT pattern FROM scan_exclusions ORDER BY pattern");
     QStringList list;
     while (q.next())
