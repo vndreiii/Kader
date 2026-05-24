@@ -53,19 +53,6 @@ int main(int argc, char *argv[]) {
     TimelineModel timelineModel(&dbManager);
     AlbumModel albumModel(&dbManager, &thumbGenerator);
 
-    // Pre-generate thumbnails for all indexed media in the background.
-    // getOrCreateThumbnail is a no-op for files already on disk.
-    auto runThumbPregen = [&]() {
-        QtConcurrent::run([&]() {
-            QVariantList all = dbManager.getAllMedia(true);
-            for (const QVariant &v : all) {
-                QString path = v.toMap().value("file_path").toString();
-                if (!path.isEmpty())
-                    thumbGenerator.getOrCreateThumbnail(path, 512);
-            }
-        });
-    };
-
     // Prune helper: runs off-thread, refreshes models on main thread if anything was removed.
     auto runPrune = [&]() {
         QtConcurrent::run([&]() {
@@ -103,16 +90,12 @@ int main(int argc, char *argv[]) {
     timelineModel.refresh(settingsManager.hideIgnoredInTimeline());
     albumModel.refresh(true);
 
-    // Pre-generate any missing thumbnails immediately.
-    runThumbPregen();
-
     // Context object (&app) ensures the lambda runs on the main thread via a queued connection.
     QObject::connect(&fileScanner, &FileScanner::scanFinished, &app, [&](const QStringList &, int, double, const QString &) {
         mediaModel.refresh(settingsManager.hideIgnoredInTimeline());
         timelineModel.refresh(settingsManager.hideIgnoredInTimeline());
         albumModel.refresh(true);
         storageManager.refresh();
-        runThumbPregen();
     });
 
     // Handle settings changes

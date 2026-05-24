@@ -14,6 +14,7 @@ class FileScanner : public QObject {
     Q_OBJECT
 public:
     explicit FileScanner(DatabaseManager *db, QObject *parent = nullptr);
+    ~FileScanner();
 
     struct ScanResult {
         QStringList mediaPaths;
@@ -34,4 +35,5 @@ private:
 
     std::set<std::string> m_mediaExtensions;
     DatabaseManager *m_db;
+    QFuture<void> m_scanFuture;
 };

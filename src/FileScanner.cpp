@@ -69,6 +69,11 @@ FileScanner::FileScanner(DatabaseManager *db, QObject *parent) : QObject(parent)
     m_mediaExtensions = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".mp4", ".mkv", ".mov", ".avi", ".webm"};
 }
 
+FileScanner::~FileScanner() {
+    if (m_scanFuture.isRunning())
+        m_scanFuture.waitForFinished();
+}
+
 void FileScanner::startScan(const QString &rootPath) {
     qDebug() << "Start scan requested for:" << rootPath;
     emit scanStarted(rootPath);
@@ -76,7 +81,7 @@ void FileScanner::startScan(const QString &rootPath) {
     std::vector<std::string> exclusions;
     for (const QString &p : qExclusions)
         exclusions.push_back(p.toStdString());
-    QtConcurrent::run([this, rootPath, exclusions]() {
+    m_scanFuture = QtConcurrent::run([this, rootPath, exclusions]() {
         runScan(rootPath.toStdString(), exclusions);
     });
 }
