@@ -4,6 +4,7 @@
 #include <QImage>
 #include <QString>
 #include <QByteArray>
+#include <QMutex>
 #include <vips/vips8>
 
 class ThumbnailGenerator : public QObject {
@@ -31,4 +32,5 @@ private:
     static QByteArray deriveKey();
     QString generateHash(const QString &filePath);
     QString m_cacheDir;
+    QMutex m_genMutex;  // serializes vips/ffmpeg calls across threads
 };

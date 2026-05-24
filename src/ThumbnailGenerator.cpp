@@ -41,14 +41,25 @@ QString ThumbnailGenerator::getOrCreateThumbnail(const QString &filePath, int si
     QString hash = generateHash(filePath);
     QString thumbPath = m_cacheDir + "/" + hash + "_" + QString::number(size) + ".jpg";
 
+    // Fast path: thumbnail already on disk — no lock needed.
     if (QFile::exists(thumbPath)) {
         if (QFile(thumbPath).size() > 0)
             return thumbPath;
-        QFile::remove(thumbPath);  // stale empty file — regenerate
+        QFile::remove(thumbPath);
+    }
+
+    // Serialize all vips/ffmpeg generation to prevent heap corruption from
+    // concurrent allocators (glib vs libc malloc) when called from multiple threads.
+    QMutexLocker lock(&m_genMutex);
+
+    // Re-check after acquiring lock — another thread may have finished it.
+    if (QFile::exists(thumbPath)) {
+        if (QFile(thumbPath).size() > 0)
+            return thumbPath;
+        QFile::remove(thumbPath);
     }
 
     if (isVideoFile(filePath)) {
-        // Try ffmpegthumbnailer (execute is blocking and thread-safe)
         if (QProcess::execute("/usr/bin/ffmpegthumbnailer", {
                 "-i", filePath, "-o", thumbPath,
                 "-s", QString::number(size), "-t", "10%", "-c", "jpeg"
@@ -56,7 +67,6 @@ QString ThumbnailGenerator::getOrCreateThumbnail(const QString &filePath, int si
             return thumbPath;
         QFile::remove(thumbPath);
 
-        // Fallback: ffmpeg
         if (QProcess::execute("/usr/bin/ffmpeg", {
                 "-y", "-hide_banner", "-loglevel", "error",
                 "-i", filePath, "-ss", "00:00:02", "-frames:v", "1",
