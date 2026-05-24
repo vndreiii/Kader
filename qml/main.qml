@@ -82,10 +82,10 @@ ApplicationWindow {
     }
 
     background: Rectangle {
-        color: ThemeManager.surface
-        radius: 14
-        border.color: Qt.alpha("black", 0.1)
-        border.width: 1
+        color: window.viewerOnlyMode ? "black" : ThemeManager.surface
+        radius: window.viewerOnlyMode ? 0 : 14
+        border.color: window.viewerOnlyMode ? "transparent" : Qt.alpha("black", 0.1)
+        border.width: window.viewerOnlyMode ? 0 : 1
     }
 
     // Mouse back/forward buttons — navigate stack or viewer
@@ -119,6 +119,7 @@ ApplicationWindow {
         anchors.fill: parent
         anchors.margins: 1 // For border
         spacing: 0
+        visible: !window.viewerOnlyMode
 
         Sidebar {
             id: sidebar
@@ -388,7 +389,7 @@ ApplicationWindow {
     // Timeline FAB — scan directory
     Button {
         id: fab
-        visible: window.currentView === "timeline"
+        visible: !window.viewerOnlyMode && window.currentView === "timeline"
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         anchors.margins: 28
@@ -405,7 +406,7 @@ ApplicationWindow {
     // Albums FAB — new album modal
     Button {
         id: albumFab
-        visible: window.currentView === "albums"
+        visible: !window.viewerOnlyMode && window.currentView === "albums"
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         anchors.margins: 28
