@@ -187,6 +187,7 @@ Rectangle {
 
         function _pulseDevice() {
             var devs = MediaDevices.audioOutputs
+            if (!devs || !devs.length) return MediaDevices.defaultAudioOutput
             for (var i = 0; i < devs.length; i++)
                 if (devs[i].description.toLowerCase().indexOf("pulse") >= 0) return devs[i]
             return MediaDevices.defaultAudioOutput
