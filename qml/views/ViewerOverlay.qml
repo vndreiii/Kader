@@ -45,13 +45,7 @@ Rectangle {
     onMediaDataChanged: {
         resetZoom()
         deleteConfirm.showing = false
-        if (_isVideo) {
-            videoPlayer.stop()
-            videoPlayer.source = root.mediaData ? "file://" + root.mediaData.file_path : ""
-        } else {
-            videoPlayer.stop()
-            videoPlayer.source = ""
-        }
+        videoPlayer.source = (_isVideo && root.mediaData) ? "file://" + root.mediaData.file_path : ""
     }
 
     focus: active
@@ -142,7 +136,8 @@ Rectangle {
             anchors.centerIn: parent
             width:  Math.min(imgArea.width,  implicitWidth  > 0 ? implicitWidth  : imgArea.width)
             height: Math.min(imgArea.height, implicitHeight > 0 ? implicitHeight : imgArea.height)
-            source: root.mediaData ? "file://" + root.mediaData.file_path : ""
+            source: (!root._isVideo && root.mediaData) ? "file://" + root.mediaData.file_path : ""
+            visible: !root._isVideo
             fillMode: Image.PreserveAspectFit
             autoTransform: true
             asynchronous: true

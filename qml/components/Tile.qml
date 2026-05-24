@@ -42,7 +42,8 @@ Item {
             id: img
             anchors.fill: parent
             source: {
-                if (root.width > 600 && root._d.file_path) return "file://" + root._d.file_path
+                var isVid = root._d.mime_type ? root._d.mime_type.toString().startsWith("video/") : false
+                if (!isVid && root.width > 600 && root._d.file_path) return "file://" + root._d.file_path
                 var p = root._d.thumb || root._d.file_path || ""
                 if (p && p.indexOf("://") === -1) return "file://" + p
                 return p
