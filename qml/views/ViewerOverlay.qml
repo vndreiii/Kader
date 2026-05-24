@@ -46,8 +46,8 @@ Rectangle {
         resetZoom()
         deleteConfirm.showing = false
         if (_isVideo) {
+            videoPlayer.stop()
             videoPlayer.source = root.mediaData ? "file://" + root.mediaData.file_path : ""
-            videoPlayer.play()
         } else {
             videoPlayer.stop()
             videoPlayer.source = ""
@@ -171,22 +171,30 @@ Rectangle {
             audioOutput: audioOut
             property bool hasError: false
             onErrorOccurred: (error, errorString) => { console.error("Video error:", errorString); hasError = true }
-            onSourceChanged: hasError = false
+            onSourceChanged: { hasError = false }
+            onStatusChanged: {
+                if (status === MediaPlayer.Loaded || status === MediaPlayer.Buffered)
+                    play()
+            }
         }
 
         AudioOutput {
             id: audioOut
             volume: 0.5
-            device: {
-                if (Settings.usePulseAudio) {
-                    var devs = MediaDevices.audioOutputs
-                    for (var i = 0; i < devs.length; i++) {
-                        var name = devs[i].description.toLowerCase()
-                        if (name.indexOf("pulse") >= 0) return devs[i]
-                    }
-                }
-                return MediaDevices.defaultAudioOutput
-            }
+        }
+
+        // Apply PulseAudio device preference when the setting is toggled
+        Connections {
+            target: Settings
+            function onUsePulseAudioChanged() { audioOut.device = _pulseDevice() }
+        }
+        Component.onCompleted: { if (Settings.usePulseAudio) audioOut.device = _pulseDevice() }
+
+        function _pulseDevice() {
+            var devs = MediaDevices.audioOutputs
+            for (var i = 0; i < devs.length; i++)
+                if (devs[i].description.toLowerCase().indexOf("pulse") >= 0) return devs[i]
+            return MediaDevices.defaultAudioOutput
         }
 
         VideoOutput {

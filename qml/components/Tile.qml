@@ -50,6 +50,7 @@ Item {
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
             autoTransform: true
+            cache: false
 
             scale: mouseArea.containsMouse ? 1.06 : 1.0
             Behavior on scale { NumberAnimation { duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
