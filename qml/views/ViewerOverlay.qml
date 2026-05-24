@@ -17,16 +17,42 @@ Rectangle {
     property int  currentIndex: -1
     property var  allItems: []
     property bool infoPanelOpen: false
-    property bool viewerOnlyMode: false  // launched via argv[1]; close = quit
+    property bool viewerOnlyMode: false
     property bool _isFullscreen: false
     property bool _videoFullscreen: false
+    property bool _controlsVisible: true  // auto-hides in video fullscreen
+
+    // True when the user is in cinema/video fullscreen — drives chrome visibility
+    readonly property bool _vidFs: _videoFullscreen && _isVideo
+
+    function toggleVideoFullscreen() {
+        if (_videoFullscreen) {
+            ApplicationWindow.window.showNormal()
+            _videoFullscreen = false
+            _controlsVisible = true
+            controlsHideTimer.stop()
+        } else {
+            ApplicationWindow.window.showFullScreen()
+            _videoFullscreen = true
+            _controlsVisible = true
+            controlsHideTimer.restart()
+        }
+    }
+
+    // Auto-hide controls after 3 s of no mouse movement in video fullscreen
+    Timer {
+        id: controlsHideTimer
+        interval: 3000
+        onTriggered: root._controlsVisible = false
+    }
 
     onActiveChanged: {
         if (!active) {
             videoPlayer.stop()
             videoPlayer.source = ""
-            _videoFullscreen = false
-            if (_isFullscreen) { ApplicationWindow.window.showNormal(); _isFullscreen = false }
+            if (_videoFullscreen) { ApplicationWindow.window.showNormal(); _videoFullscreen = false }
+            if (_isFullscreen)    { ApplicationWindow.window.showNormal(); _isFullscreen = false }
+            controlsHideTimer.stop()
             if (viewerOnlyMode) Qt.quit()
         }
     }
@@ -51,9 +77,12 @@ Rectangle {
     }
 
     focus: active
-    Keys.onEscapePressed: root.active = false
-    Keys.onLeftPressed:   navigatePrev()
-    Keys.onRightPressed:  navigateNext()
+    Keys.onEscapePressed: {
+        if (root._videoFullscreen) toggleVideoFullscreen()
+        else root.active = false
+    }
+    Keys.onLeftPressed:   { if (!root._vidFs) navigatePrev() }
+    Keys.onRightPressed:  { if (!root._vidFs) navigateNext() }
 
     // ── Navigation ────────────────────────────────────────────────────────
     function navigatePrev() {
@@ -76,7 +105,10 @@ Rectangle {
     function _transition(dir) {
         resetZoom()
         _dir = dir
-        outImg.source = mainImg.source
+        // When leaving a video, snapshot its thumbnail so the slide-out has content
+        outImg.source = root._isVideo
+            ? (root.mediaData && root.mediaData.thumb ? root.mediaData.thumb : "")
+            : mainImg.source
         outImg.opacity = 1
         outImg.x = 0
         outAnim.restart()
@@ -104,11 +136,40 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: root.infoPanelOpen ? infoPanel.left : parent.right
-        anchors.topMargin: (root._isVideo && root._videoFullscreen) ? 0 : 72
-        anchors.leftMargin: (root._isVideo && root._videoFullscreen) ? 0 : 72
-        anchors.rightMargin: (root._isVideo && root._videoFullscreen) ? 0 : 72
-        anchors.bottomMargin: (root._isVideo && root._videoFullscreen) ? 0 : 80
+        anchors.topMargin:    root._vidFs ? 0 : 72
+        anchors.leftMargin:   root._vidFs ? 0 : 72
+        anchors.rightMargin:  root._vidFs ? 0 : 72
+        anchors.bottomMargin: root._vidFs ? 0 : 80
         clip: true
+
+        Behavior on anchors.topMargin    { NumberAnimation { duration: 220; easing.type: Easing.OutQuint } }
+        Behavior on anchors.leftMargin   { NumberAnimation { duration: 220; easing.type: Easing.OutQuint } }
+        Behavior on anchors.rightMargin  { NumberAnimation { duration: 220; easing.type: Easing.OutQuint } }
+        Behavior on anchors.bottomMargin { NumberAnimation { duration: 220; easing.type: Easing.OutQuint } }
+
+        // Mouse tracker for auto-hide + double-click-to-fullscreen in video fullscreen mode
+        MouseArea {
+            id: videoFsTracker
+            anchors.fill: parent
+            visible: root._isVideo
+            acceptedButtons: Qt.NoButton
+            hoverEnabled: true
+            z: 10
+            propagateComposedEvents: true
+            onMouseXChanged: { root._controlsVisible = true; controlsHideTimer.restart() }
+            onMouseYChanged: { root._controlsVisible = true; controlsHideTimer.restart() }
+            cursorShape: (root._vidFs && !root._controlsVisible) ? Qt.BlankCursor : Qt.ArrowCursor
+        }
+        // Double-click toggles video fullscreen
+        MouseArea {
+            anchors.fill: parent
+            visible: root._isVideo
+            acceptedButtons: Qt.LeftButton
+            z: 9
+            propagateComposedEvents: true
+            onDoubleClicked: root.toggleVideoFullscreen()
+            onClicked: (m) => m.accepted = false
+        }
 
         // Outgoing image (slides out during transition)
         Image {
@@ -166,6 +227,7 @@ Rectangle {
             id: videoPlayer
             videoOutput: videoOut
             audioOutput: audioOut
+            loops: videoLoopBtn.looping ? MediaPlayer.Infinite : 1
             property bool hasError: false
             onErrorOccurred: (error, errorString) => { console.error("Video error:", errorString); hasError = true }
             onSourceChanged: { hasError = false }
@@ -203,7 +265,9 @@ Rectangle {
         VideoOutput {
             id: videoOut
             anchors.fill: parent
-            visible: root._isVideo
+            visible: true
+            opacity: root._isVideo ? 1.0 : 0.0
+            Behavior on opacity { NumberAnimation { duration: 280; easing.type: Easing.OutQuint } }
             scale: root._zoom
             transformOrigin: Item.Center
             transform: Translate { x: root._panX; y: root._panY }
@@ -232,7 +296,9 @@ Rectangle {
         Rectangle {
             id: videoControls
             visible: root._isVideo
-            z: 3
+            z: 11
+            opacity: root._vidFs ? (root._controlsVisible ? 1.0 : 0.0) : 1.0
+            Behavior on opacity { NumberAnimation { duration: 300; easing.type: Easing.OutQuint } }
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
             anchors.bottomMargin: 16
@@ -288,11 +354,25 @@ Rectangle {
                         font.family: "JetBrains Mono"
                     }
 
-                    // Right side: volume + video-fullscreen
+                    // Right side: loop + volume + video-fullscreen
                     Row {
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: 4
+
+                        // Loop toggle
+                        Rectangle {
+                            id: videoLoopBtn
+                            property bool looping: true
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 28; height: 28; radius: 14
+                            color: Qt.alpha("white", looping ? 0.25 : (loopMa.containsMouse ? 0.16 : 0.12))
+                            Behavior on color { ColorAnimation { duration: 80 } }
+                            M3Icon { anchors.centerIn: parent; name: "repeat"; size: 15
+                                color: videoLoopBtn.looping ? "white" : Qt.alpha("white", 0.55) }
+                            MouseArea { id: loopMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                onClicked: videoLoopBtn.looping = !videoLoopBtn.looping }
+                        }
 
                         Item {
                             id: volWrapper
@@ -366,7 +446,7 @@ Rectangle {
                             }
                         }
 
-                        // Video-only fullscreen (fills the overlay area)
+                        // Video fullscreen (system-level)
                         Rectangle {
                             anchors.verticalCenter: parent.verticalCenter
                             width: 28; height: 28; radius: 14
@@ -379,7 +459,7 @@ Rectangle {
                             }
                             MouseArea {
                                 id: vfsMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                onClicked: root._videoFullscreen = !root._videoFullscreen
+                                onClicked: root.toggleVideoFullscreen()
                             }
                         }
                     }
@@ -489,7 +569,9 @@ Rectangle {
         width: 52; height: 52; radius: 26
         color: Qt.alpha("white", prevMa.pressed ? 0.28 : prevMa.containsMouse ? 0.20 : 0.14)
         border.color: Qt.alpha("white", 0.08); border.width: 1
-        opacity: root.currentIndex > 0 ? 1.0 : 0.25
+        opacity: root._vidFs ? 0 : (root.currentIndex > 0 ? 1.0 : 0.25)
+        visible: opacity > 0
+        Behavior on opacity { NumberAnimation { duration: 200 } }
         Behavior on color { ColorAnimation { duration: 80 } }
         scale: prevMa.pressed ? 0.92 : 1.0
         Behavior on scale { NumberAnimation { duration: 80 } }
@@ -505,7 +587,9 @@ Rectangle {
         width: 52; height: 52; radius: 26
         color: Qt.alpha("white", nextMa.pressed ? 0.28 : nextMa.containsMouse ? 0.20 : 0.14)
         border.color: Qt.alpha("white", 0.08); border.width: 1
-        opacity: root.currentIndex < root.allItems.length - 1 ? 1.0 : 0.25
+        opacity: root._vidFs ? 0 : (root.currentIndex < root.allItems.length - 1 ? 1.0 : 0.25)
+        visible: opacity > 0
+        Behavior on opacity { NumberAnimation { duration: 200 } }
         Behavior on color { ColorAnimation { duration: 80 } }
         scale: nextMa.pressed ? 0.92 : 1.0
         Behavior on scale { NumberAnimation { duration: 80 } }
@@ -518,6 +602,9 @@ Rectangle {
         anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 24
         width: 48; height: 48; radius: 24
         color: Qt.alpha("white", closeMa.pressed ? 0.28 : closeMa.containsMouse ? 0.20 : 0.14)
+        opacity: root._vidFs ? 0 : 1
+        visible: opacity > 0
+        Behavior on opacity { NumberAnimation { duration: 200 } }
         Behavior on color { ColorAnimation { duration: 80 } }
         scale: closeMa.pressed ? 0.92 : 1.0
         Behavior on scale { NumberAnimation { duration: 80 } }
@@ -529,6 +616,9 @@ Rectangle {
     Column {
         anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.margins: 28
         spacing: 4
+        opacity: root._vidFs ? 0 : 1
+        visible: opacity > 0
+        Behavior on opacity { NumberAnimation { duration: 200 } }
         Label {
             text: root.mediaData ? root.mediaData.file_path.split('/').pop() : "Untitled"
             color: "white"; font.family: "Roboto Flex"; font.pixelSize: 18; font.weight: Font.Medium
@@ -548,6 +638,9 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 24
         spacing: 8
+        opacity: root._vidFs ? 0 : 1
+        visible: opacity > 0
+        Behavior on opacity { NumberAnimation { duration: 200 } }
 
         Rectangle {
             width: 48; height: 48; radius: 24
@@ -587,6 +680,9 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 24
         spacing: 8
+        opacity: root._vidFs ? 0 : 1
+        visible: opacity > 0
+        Behavior on opacity { NumberAnimation { duration: 200 } }
 
         property bool isFav: root.mediaData ? !!root.mediaData.is_favorite : false
 

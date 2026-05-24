@@ -172,23 +172,35 @@ void TimelineModel::refresh(bool hideIgnored) {
     auto flushRow = [&](bool isLastRow) {
         if (rowBuf.isEmpty()) return;
         int  n = rowBuf.size();
-        // Total gaps between n items
         float gaps = gap * (n - 1);
-        // Height that makes items fill cw exactly
         float h = (cw - gaps) / qMax(0.01f, rowArSum);
-        // Clamp: last row shouldn't expand wildly if it has few items
         h = qBound(minH, h, isLastRow ? target : maxH);
-        // Recompute item widths at the chosen h
+
+        // First pass: compute natural widths at clamped h
         QVariantList rowItems;
+        float totalW = 0;
         for (int i = 0; i < n; ++i) {
             QVariantMap m = rowBuf.at(i).toMap();
-            // Use the _flat_index already stored to look up the variety ratio consistently
             int fi = m.value("_flat_index", i).toInt();
             float ar = aspectRatio(m, fi);
-            m["item_width"]  = qRound(ar * h);
+            float w = ar * h;
             m["item_height"] = qRound(h);
+            m["item_width"]  = qRound(w);  // placeholder; corrected below
             rowItems.append(m);
+            totalW += w;
         }
+
+        // Second pass: scale widths so they fill the row exactly.
+        // When h is clamped (e.g. a single wide 16:9 item at a month boundary),
+        // sum(ar*h) < cw-gaps — without this correction there's a gap on the right.
+        float available = cw - gaps;
+        float scale = (totalW > 0.1f) ? available / totalW : 1.0f;
+        for (int i = 0; i < rowItems.size(); ++i) {
+            QVariantMap m = rowItems.at(i).toMap();
+            m["item_width"] = qRound(m["item_width"].toFloat() * scale);
+            rowItems[i] = m;
+        }
+
         m_rows.append({false, {}, rowItems, h});
         rowBuf.clear();
         rowArSum = 0;
