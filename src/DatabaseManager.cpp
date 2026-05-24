@@ -346,25 +346,41 @@ QVariantList DatabaseManager::getGeotaggedLocations() {
 
     QVariantList list;
     // Group photos within ~1km radius (2 decimal places ≈ 1.1 km).
+    // JOIN back to media to get full sample-photo fields for viewer + date display.
     QSqlQuery query(db);
     if (!query.exec(
-            "SELECT ROUND(latitude,2) AS lat, ROUND(longitude,2) AS lon, "
-            "COUNT(*) AS cnt, MIN(file_path) AS sample "
-            "FROM media "
-            "WHERE latitude IS NOT NULL AND longitude IS NOT NULL "
-            "  AND latitude != 0 AND longitude != 0 "
-            "GROUP BY lat, lon "
-            "ORDER BY cnt DESC "
-            "LIMIT 500")) {
+            "SELECT g.lat, g.lon, g.cnt, "
+            "m.id, m.file_path, m.mime_type, m.creation_date, "
+            "m.is_favorite, m.is_trashed, m.is_hidden "
+            "FROM ("
+            "  SELECT ROUND(latitude,2) AS lat, ROUND(longitude,2) AS lon, "
+            "         COUNT(*) AS cnt, MIN(file_path) AS sample_path "
+            "  FROM media "
+            "  WHERE latitude IS NOT NULL AND longitude IS NOT NULL "
+            "    AND latitude != 0 AND longitude != 0 "
+            "    AND is_trashed = 0 "
+            "  GROUP BY lat, lon "
+            "  ORDER BY cnt DESC "
+            "  LIMIT 500"
+            ") g JOIN media m ON m.file_path = g.sample_path")) {
         qWarning() << "getGeotaggedLocations failed:" << query.lastError().text();
         return list;
     }
     while (query.next()) {
         QVariantMap m;
-        m["lat"]   = query.value(0).toDouble();
-        m["lon"]   = query.value(1).toDouble();
-        m["count"] = query.value(2).toInt();
-        m["thumb"] = ThumbnailGenerator::thumbnailUrl(query.value(3).toString());
+        QString fp = query.value("file_path").toString();
+        m["lat"]           = query.value("lat").toDouble();
+        m["lon"]           = query.value("lon").toDouble();
+        m["count"]         = query.value("cnt").toInt();
+        m["id"]            = query.value("id").toInt();
+        m["file_path"]     = fp;
+        m["mime_type"]     = query.value("mime_type").toString();
+        m["creation_date"] = query.value("creation_date").toLongLong();
+        m["is_favorite"]   = query.value("is_favorite").toBool();
+        m["is_trashed"]    = query.value("is_trashed").toBool();
+        m["is_hidden"]     = query.value("is_hidden").toBool();
+        m["path"]          = "file://" + fp;
+        m["thumb"]         = ThumbnailGenerator::thumbnailUrl(fp);
         list.append(m);
     }
     return list;

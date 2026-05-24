@@ -443,7 +443,14 @@ ApplicationWindow {
 
     Component {
         id: mapView
-        MapView {}
+        MapView {
+            onOpenViewer: (data) => {
+                viewerOverlay.mediaData = data
+                viewerOverlay.currentIndex = 0
+                viewerOverlay.allItems = [data]
+                viewerOverlay.active = true
+            }
+        }
     }
 
     Component {
