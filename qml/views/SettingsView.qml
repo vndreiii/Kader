@@ -508,6 +508,61 @@ Item {
             }
 
             SettingsSection {
+                title: "RAW files"
+
+                Column {
+                    width: parent.width
+                    spacing: 0
+
+                    SettingsRow {
+                        label: "Show RAW files"
+                        sub: "Include RAW camera formats (.NEF, .CR2, .ARW, .DNG…) in your library"
+                        action: M3Switch {
+                            checked: Settings.rawFilter !== 1
+                            onCheckedChanged: {
+                                if (!checked && Settings.rawFilter !== 1)
+                                    Settings.rawFilter = 1
+                                else if (checked && Settings.rawFilter === 1)
+                                    Settings.rawFilter = 0
+                            }
+                        }
+                    }
+
+                    SettingsRow {
+                        label: "File filter"
+                        sub: "Choose which formats appear in Timeline and Albums"
+                        last: true
+                        action: Row {
+                            spacing: 4
+                            Repeater {
+                                model: [["All", 0], ["JPEG only", 1], ["RAW only", 2]]
+                                delegate: Button {
+                                    required property var modelData
+                                    text: modelData[0]
+                                    checkable: true
+                                    checked: Settings.rawFilter === modelData[1]
+                                    onClicked: Settings.rawFilter = modelData[1]
+                                    implicitWidth: text === "JPEG only" ? 88 : 72
+                                    implicitHeight: 34
+                                    background: Rectangle {
+                                        radius: 17
+                                        color: parent.checked ? ThemeManager.secondaryContainer : ThemeManager.surfaceContainerHighest
+                                        border.color: ThemeManager.outline; border.width: 1
+                                    }
+                                    contentItem: Label {
+                                        text: parent.text; font.pixelSize: 12
+                                        color: parent.checked ? ThemeManager.onSecondaryContainer : ThemeManager.onSurface
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            SettingsSection {
                 title: "Privacy"
                 SettingsRow {
                     label: "Strip EXIF data"

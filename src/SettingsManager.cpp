@@ -46,6 +46,16 @@ void SettingsManager::setUsePulseAudio(bool use) {
     }
 }
 
+int SettingsManager::rawFilter() const {
+    return m_settings.value("rawFilter", 0).toInt();
+}
+void SettingsManager::setRawFilter(int f) {
+    if (rawFilter() != f) {
+        m_settings.setValue("rawFilter", f);
+        emit rawFilterChanged();
+    }
+}
+
 QString SettingsManager::homePath() const {
     return QDir::homePath();
 }

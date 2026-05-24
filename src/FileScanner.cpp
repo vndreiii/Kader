@@ -68,7 +68,15 @@ public:
 };
 
 FileScanner::FileScanner(DatabaseManager *db, QObject *parent) : QObject(parent), m_db(db) {
-    m_mediaExtensions = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".mp4", ".mkv", ".mov", ".avi", ".webm"};
+    m_mediaExtensions = {
+        // Standard images
+        ".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tiff", ".tif", ".heic", ".heif",
+        // Video
+        ".mp4", ".mkv", ".mov", ".avi", ".webm",
+        // RAW camera formats
+        ".nef", ".cr2", ".cr3", ".arw", ".dng", ".raf", ".orf",
+        ".rw2", ".pef", ".srw", ".3fr", ".raw", ".rw1", ".mrw", ".x3f", ".dcr"
+    };
 }
 
 FileScanner::~FileScanner() {

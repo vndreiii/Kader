@@ -18,8 +18,13 @@ public:
     // Generate thumbnail as raw JPEG bytes (not encrypted).
     QByteArray generateThumbnailBytes(const QString &filePath, int size = 256);
 
+    // Generate thumbnail from a RAW camera file using LibRaw.
+    QByteArray generateRawThumbnailBytes(const QString &filePath, int size = 256);
+
     // Generate video thumbnail via ffmpegthumbnailer.
     QByteArray generateVideoThumbnailBytes(const QString &filePath, int size = 256);
+
+    static bool isRawFile(const QString &filePath);
 
     // Encrypt / decrypt using AES-256-CBC with a machine-derived key.
     static QByteArray encrypt(const QByteArray &plaintext);

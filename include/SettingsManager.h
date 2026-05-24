@@ -8,6 +8,7 @@ class SettingsManager : public QObject {
     Q_PROPERTY(bool hideIgnoredInTimeline READ hideIgnoredInTimeline WRITE setHideIgnoredInTimeline NOTIFY hideIgnoredInTimelineChanged)
     Q_PROPERTY(bool usePulseAudio READ usePulseAudio WRITE setUsePulseAudio NOTIFY usePulseAudioChanged)
     Q_PROPERTY(int  mosaicDensity READ mosaicDensity WRITE setMosaicDensity NOTIFY mosaicDensityChanged)
+    Q_PROPERTY(int  rawFilter READ rawFilter WRITE setRawFilter NOTIFY rawFilterChanged)
     Q_PROPERTY(QString homePath READ homePath CONSTANT)
 
 public:
@@ -22,6 +23,10 @@ public:
     int  mosaicDensity() const;
     void setMosaicDensity(int d);
 
+    // 0 = all, 1 = JPEG-only (hide RAW), 2 = RAW-only (hide JPEG)
+    int  rawFilter() const;
+    void setRawFilter(int f);
+
     Q_INVOKABLE bool copyImageToClipboard(const QString &filePath);
     Q_INVOKABLE void openImageFilePicker(const QString &title = QString());
 
@@ -31,6 +36,7 @@ signals:
     void hideIgnoredInTimelineChanged();
     void usePulseAudioChanged();
     void mosaicDensityChanged();
+    void rawFilterChanged();
     void imageFilePicked(const QString &path);
 
 private:

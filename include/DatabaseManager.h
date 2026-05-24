@@ -34,8 +34,10 @@ public:
     // Returns [{file_path, latitude, longitude, photo_count, thumb_path}] grouped ~1km.
     Q_INVOKABLE QVariantList getGeotaggedLocations();
 
-    // Get all media for the models
+    // Get all media for the models.
+    // rawFilter: 0=all, 1=JPEG-only (exclude RAW), 2=RAW-only
     QVariantList getAllMedia(bool hideIgnored = true);
+    Q_INVOKABLE void setRawFilter(int filter);
 
     // Get automatically grouped albums (by folder)
     QVariantList getAlbums(bool hideIgnored = true);
@@ -108,6 +110,7 @@ private:
     void checkConnection();
     QSqlDatabase m_db;
     QString m_dbPath;
+    int m_rawFilter = 0;
     std::unique_ptr<MediaRepository> m_media;
     std::unique_ptr<AlbumRepository> m_album;
 };

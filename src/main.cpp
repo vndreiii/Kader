@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
     app.setOrganizationName("Kader");
     app.setOrganizationDomain("kader.app");
     app.setApplicationName("Kader");
-    app.setWindowIcon(QIcon(":/Kader/assets/icon.svg"));
+    app.setWindowIcon(QIcon(":/Kader/assets/KaderPNGicon.png"));
 
     DatabaseManager dbManager;
     SettingsManager settingsManager;
@@ -97,6 +97,9 @@ int main(int argc, char *argv[]) {
         timelineModel.setNumColumns(d == 1 ? 5 : d == 3 ? 3 : 4);
     }
 
+    // Apply saved RAW filter
+    dbManager.setRawFilter(settingsManager.rawFilter());
+
     // Context object (&app) ensures the lambda runs on the main thread via a queued connection.
     QObject::connect(&fileScanner, &FileScanner::scanFinished, &app, [&](const QStringList &, int, double, const QString &) {
         mediaModel.refresh(settingsManager.hideIgnoredInTimeline());
@@ -113,6 +116,11 @@ int main(int argc, char *argv[]) {
     QObject::connect(&settingsManager, &SettingsManager::mosaicDensityChanged, &app, [&]() {
         int d = settingsManager.mosaicDensity();
         timelineModel.setNumColumns(d == 1 ? 5 : d == 3 ? 3 : 4);
+    });
+    QObject::connect(&settingsManager, &SettingsManager::rawFilterChanged, &app, [&]() {
+        dbManager.setRawFilter(settingsManager.rawFilter());
+        mediaModel.refresh(settingsManager.hideIgnoredInTimeline());
+        timelineModel.refresh(settingsManager.hideIgnoredInTimeline());
     });
 
     QQmlApplicationEngine engine;

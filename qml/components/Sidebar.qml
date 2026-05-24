@@ -60,18 +60,15 @@ Rectangle {
             width: parent.width
             height: 80
 
-            Rectangle {
+            Image {
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.left: parent.left
                 anchors.leftMargin: 28
-                width: 32; height: 32; radius: 8
-                color: ThemeManager.surfaceContainerHighest
-
-                M3Icon {
-                    anchors.centerIn: parent
-                    name: "app_icon"; size: 24
-                    color: ThemeManager.isColorDark(parent.color) ? "white" : "black"
-                }
+                width: 32; height: 32
+                source: "qrc:/Kader/assets/Kader Logoicon.svg"
+                fillMode: Image.PreserveAspectFit
+                smooth: true
+                mipmap: true
             }
 
             Column {

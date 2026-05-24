@@ -14,6 +14,7 @@ find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(VIPS REQUIRED vips-cpp)
 pkg_check_modules(EXIV2 REQUIRED exiv2)
+pkg_check_modules(LIBRAW REQUIRED libraw_r)
 
 enable_testing()
 
@@ -23,7 +24,7 @@ set(INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(QML_DIR ${CMAKE_CURRENT_SOURCE_DIR}/qml)
 
 # Include directories
-include_directories(${INCLUDE_DIR} ${VIPS_INCLUDE_DIRS} ${EXIV2_INCLUDE_DIRS})
+include_directories(${INCLUDE_DIR} ${VIPS_INCLUDE_DIRS} ${EXIV2_INCLUDE_DIRS} ${LIBRAW_INCLUDE_DIRS})
 
 # QmlMaterial Subdirectory
 add_subdirectory(lib/QmlMaterial)
@@ -80,6 +81,7 @@ target_link_libraries(KaderLib PUBLIC
     OpenSSL::Crypto
     ${VIPS_LIBRARIES}
     ${EXIV2_LIBRARIES}
+    ${LIBRAW_LIBRARIES}
     qml_material
 )
 
@@ -102,6 +104,7 @@ qt_add_qml_module(KaderApp
         qml/components/SettingsSection.qml
         qml/components/Sidebar.qml
         qml/components/Tile.qml
+        qml/components/AlbumEditModal.qml
         qml/components/AlbumGrid.qml
         qml/components/PasswordPrompt.qml
         qml/views/AlbumListView.qml
@@ -110,7 +113,8 @@ qt_add_qml_module(KaderApp
         qml/views/SettingsView.qml
         qml/views/MapView.qml
     RESOURCES
-        assets/icon.svg
+        "assets/Kader Logoicon.svg"
+        assets/KaderPNGicon.png
 )
 
 add_executable(kader

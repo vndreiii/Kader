@@ -569,6 +569,23 @@ qint64 DatabaseManager::getVideoSizeBytes() {
     return q.next() ? q.value(0).toLongLong() : 0;
 }
 
+void DatabaseManager::setRawFilter(int filter) {
+    m_rawFilter = filter;
+}
+
+// Extensions considered "RAW camera format" for rawFilter logic.
+static QString rawGlobClause(bool invert) {
+    static const QStringList exts = {
+        "%.nef", "%.cr2", "%.cr3", "%.arw", "%.dng", "%.raf", "%.orf",
+        "%.rw2", "%.pef", "%.srw", "%.3fr", "%.raw", "%.rw1", "%.mrw", "%.x3f", "%.dcr"
+    };
+    QStringList parts;
+    for (const QString &e : exts)
+        parts << QString("LOWER(file_path) LIKE '%1'").arg(e);
+    QString combined = "(" + parts.join(" OR ") + ")";
+    return invert ? ("NOT " + combined) : combined;
+}
+
 QVariantList DatabaseManager::getAllMedia(bool hideIgnored) {
     checkConnection();
 
@@ -579,12 +596,19 @@ QVariantList DatabaseManager::getAllMedia(bool hideIgnored) {
     QSqlDatabase db = QSqlDatabase::database(connName);
 
     QVariantList list;
-    QString sql = "SELECT * FROM media ";
-    if (hideIgnored) {
-        sql += "WHERE COALESCE(folder_path,'') NOT IN "
-               "(SELECT COALESCE(path_prefix,'') FROM albums WHERE is_ignored = 1) ";
-    }
-    sql += "ORDER BY creation_date DESC";
+    QStringList conditions;
+    if (hideIgnored)
+        conditions << "COALESCE(folder_path,'') NOT IN "
+                      "(SELECT COALESCE(path_prefix,'') FROM albums WHERE is_ignored = 1)";
+    if (m_rawFilter == 1)
+        conditions << rawGlobClause(true);   // JPEG-only: exclude RAW
+    else if (m_rawFilter == 2)
+        conditions << rawGlobClause(false);  // RAW-only: include only RAW
+
+    QString sql = "SELECT * FROM media";
+    if (!conditions.isEmpty())
+        sql += " WHERE " + conditions.join(" AND ");
+    sql += " ORDER BY creation_date DESC";
 
     QSqlQuery query(db);
     if (!query.exec(sql)) {

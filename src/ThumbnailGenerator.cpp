@@ -8,9 +8,20 @@
 #include <QDebug>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
+#include <libraw/libraw.h>
 
 static bool isVideoFile(const QString &filePath) {
     static const QSet<QString> exts = {".mp4", ".mkv", ".mov", ".avi", ".webm"};
+    int dot = filePath.lastIndexOf('.');
+    return dot >= 0 && exts.contains(filePath.mid(dot).toLower());
+}
+
+bool ThumbnailGenerator::isRawFile(const QString &filePath) {
+    static const QSet<QString> exts = {
+        ".nef", ".cr2", ".cr3", ".arw", ".dng", ".raf", ".orf",
+        ".rw2", ".pef", ".srw", ".3fr", ".raw", ".rw1", ".mrw",
+        ".x3f", ".dcr"
+    };
     int dot = filePath.lastIndexOf('.');
     return dot >= 0 && exts.contains(filePath.mid(dot).toLower());
 }
@@ -125,10 +136,90 @@ QByteArray ThumbnailGenerator::generateVideoThumbnailBytes(const QString &filePa
     return {};
 }
 
+QByteArray ThumbnailGenerator::generateRawThumbnailBytes(const QString &filePath, int size) {
+    // One LibRaw instance per call — not thread-safe to share across threads.
+    LibRaw raw;
+    raw.set_progress_handler(nullptr, nullptr);
+
+    if (raw.open_file(filePath.toLocal8Bit().constData()) != LIBRAW_SUCCESS) {
+        qWarning() << "LibRaw: cannot open" << filePath;
+        return {};
+    }
+
+    // Primary path: extract embedded JPEG thumbnail (fast, avoids full decode).
+    if (raw.unpack_thumb() == LIBRAW_SUCCESS) {
+        int ret = 0;
+        libraw_processed_image_t *thumb = raw.dcraw_make_mem_thumb(&ret);
+        if (thumb && ret == LIBRAW_SUCCESS) {
+            QByteArray result;
+            try {
+                if (thumb->type == LIBRAW_IMAGE_JPEG) {
+                    // Pass JPEG bytes directly to vips — libjpeg-turbo shrink-on-load.
+                    vips::VImage img = vips::VImage::thumbnail_buffer(
+                        thumb->data, thumb->data_size, size,
+                        vips::VImage::option()->set("height", size));
+                    void *buf = nullptr; size_t len = 0;
+                    img.write_to_buffer(".jpg", &buf, &len);
+                    result = QByteArray(static_cast<const char *>(buf), static_cast<int>(len));
+                    g_free(buf);
+                } else {
+                    // Bitmap thumbnail — wrap as raw pixels and resize.
+                    vips::VImage img = vips::VImage::new_from_memory(
+                        thumb->data, thumb->data_size,
+                        thumb->width, thumb->height, thumb->colors, VIPS_FORMAT_UCHAR);
+                    vips::VImage resized = img.thumbnail_image(size,
+                        vips::VImage::option()->set("height", size));
+                    void *buf = nullptr; size_t len = 0;
+                    resized.write_to_buffer(".jpg", &buf, &len);
+                    result = QByteArray(static_cast<const char *>(buf), static_cast<int>(len));
+                    g_free(buf);
+                }
+            } catch (vips::VError &e) {
+                qWarning() << "LibRaw+vips resize error for" << filePath << ":" << e.what();
+            }
+            LibRaw::dcraw_clear_mem(thumb);
+            if (!result.isEmpty()) return result;
+        }
+    }
+
+    // Fallback: half-size decode (fast; avoids full demosaic).
+    raw.imgdata.params.half_size      = 1;
+    raw.imgdata.params.use_camera_wb  = 1;
+    raw.imgdata.params.no_auto_bright = 1;
+    raw.imgdata.params.output_color   = 1; // sRGB
+    if (raw.dcraw_process() != LIBRAW_SUCCESS) {
+        qWarning() << "LibRaw: dcraw_process failed for" << filePath;
+        return {};
+    }
+    int ret = 0;
+    libraw_processed_image_t *img = raw.dcraw_make_mem_image(&ret);
+    if (!img || ret != LIBRAW_SUCCESS) return {};
+
+    QByteArray result;
+    try {
+        vips::VImage vimg = vips::VImage::new_from_memory(
+            img->data, img->data_size,
+            img->width, img->height, img->colors,
+            img->bits == 16 ? VIPS_FORMAT_USHORT : VIPS_FORMAT_UCHAR);
+        vips::VImage resized = vimg.thumbnail_image(size,
+            vips::VImage::option()->set("height", size));
+        void *buf = nullptr; size_t len = 0;
+        resized.write_to_buffer(".jpg", &buf, &len);
+        result = QByteArray(static_cast<const char *>(buf), static_cast<int>(len));
+        g_free(buf);
+    } catch (vips::VError &e) {
+        qWarning() << "LibRaw fallback vips error for" << filePath << ":" << e.what();
+    }
+    LibRaw::dcraw_clear_mem(img);
+    return result;
+}
+
 // Generate thumbnail and return raw JPEG bytes.
 QByteArray ThumbnailGenerator::generateThumbnailBytes(const QString &filePath, int size) {
     if (isVideoFile(filePath))
         return generateVideoThumbnailBytes(filePath, size);
+    if (isRawFile(filePath))
+        return generateRawThumbnailBytes(filePath, size);
     try {
         vips::VImage thumb = vips::VImage::thumbnail(filePath.toLocal8Bit().constData(), size);
         void *buf = nullptr;
