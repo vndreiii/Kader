@@ -2,7 +2,7 @@
 #include <QDir>
 
 StorageManager::StorageManager(DatabaseManager *db, QObject *parent)
-    : QObject(parent), m_db(db), m_storage(QDir::root()) {
+    : QObject(parent), m_db(db), m_storage(QDir::homePath()) {
     refresh();
 }
 

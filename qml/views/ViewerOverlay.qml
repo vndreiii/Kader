@@ -599,13 +599,16 @@ Rectangle {
     // ── Filename + date ───────────────────────────────────────────────────
     Column {
         anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.margins: 28
+        anchors.right: zoomRow.left; anchors.rightMargin: 16
         spacing: 4
         opacity: root._vidFs ? 0 : 1
         visible: opacity > 0
         Behavior on opacity { NumberAnimation { duration: 200 } }
         Label {
+            width: parent.width
             text: root.mediaData ? root.mediaData.file_path.split('/').pop() : "Untitled"
             color: "white"; font.family: "Roboto Flex"; font.pixelSize: 18; font.weight: Font.Medium
+            elide: Text.ElideRight
         }
         Label {
             text: root.mediaData && root.mediaData.creation_date

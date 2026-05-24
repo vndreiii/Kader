@@ -144,13 +144,17 @@ Rectangle {
         Rectangle {
             anchors.left: parent.left; anchors.right: parent.right
             anchors.leftMargin: 12; anchors.rightMargin: 12
-            height: root.collapsed ? 160 : 120
+            height: root.collapsed ? 160 : 140
             radius: root.collapsed ? 22 : 16
             color: ThemeManager.surfaceContainerLow
             clip: true
 
+            readonly property double _otherGb: Math.max(0,
+                StorageManager.totalGb - StorageManager.freeGb
+                - StorageManager.photoGb - StorageManager.videoGb)
+
             Column {
-                anchors.fill: parent; anchors.margins: 16; spacing: 12
+                anchors.fill: parent; anchors.margins: 16; spacing: 10
                 visible: !root.collapsed
 
                 Row {
@@ -171,6 +175,10 @@ Rectangle {
                             width: parent.parent.width * (StorageManager.videoGb / Math.max(0.001, StorageManager.totalGb))
                             height: parent.height; color: ThemeManager.tertiary
                         }
+                        Rectangle {
+                            width: parent.parent.width * (parent.parent.parent._otherGb / Math.max(0.001, StorageManager.totalGb))
+                            height: parent.height; color: ThemeManager.secondary; opacity: 0.7
+                        }
                     }
                 }
                 Row {
@@ -179,6 +187,11 @@ Rectangle {
                     Label { text: StorageManager.photoGb.toFixed(1) + " GB photos"; font.pixelSize: 11; color: ThemeManager.onSurfaceVariant }
                     Rectangle { width: 8; height: 8; radius: 4; color: ThemeManager.tertiary; anchors.verticalCenter: parent.verticalCenter }
                     Label { text: StorageManager.videoGb.toFixed(1) + " GB video"; font.pixelSize: 11; color: ThemeManager.onSurfaceVariant }
+                }
+                Row {
+                    width: parent.width; spacing: 8
+                    Rectangle { width: 8; height: 8; radius: 4; color: ThemeManager.secondary; opacity: 0.7; anchors.verticalCenter: parent.verticalCenter }
+                    Label { text: parent._otherGb.toFixed(1) + " GB other"; font.pixelSize: 11; color: ThemeManager.onSurfaceVariant }
                 }
                 Label {
                     width: parent.width
@@ -200,6 +213,11 @@ Rectangle {
                     color: ThemeManager.surfaceContainerHighest
                     Column {
                         anchors.bottom: parent.bottom; width: parent.width; spacing: 0
+                        Rectangle {
+                            width: parent.width
+                            height: Math.max(0, parent.parent.height * (parent.parent.parent.parent._otherGb / Math.max(0.001, StorageManager.totalGb)))
+                            color: ThemeManager.secondary; opacity: 0.7
+                        }
                         Rectangle {
                             width: parent.width
                             height: Math.max(0, parent.parent.height * (StorageManager.videoGb / Math.max(0.001, StorageManager.totalGb)))
