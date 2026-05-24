@@ -45,7 +45,9 @@ Rectangle {
     onMediaDataChanged: {
         resetZoom()
         deleteConfirm.showing = false
-        videoPlayer.source = (_isVideo && root.mediaData) ? "file://" + root.mediaData.file_path : ""
+        // Compute isVid directly — _isVideo binding may not be recomputed yet at this point
+        var isVid = root.mediaData ? (root.mediaData.mime_type || "").indexOf("video/") === 0 : false
+        videoPlayer.source = (isVid && root.mediaData) ? "file://" + root.mediaData.file_path : ""
     }
 
     focus: active
@@ -183,7 +185,12 @@ Rectangle {
             target: Settings
             function onUsePulseAudioChanged() { audioOut.device = _pulseDevice() }
         }
-        Component.onCompleted: { if (Settings.usePulseAudio) audioOut.device = _pulseDevice() }
+        Component.onCompleted: {
+            if (Settings.usePulseAudio) {
+                var d = _pulseDevice()
+                if (d) audioOut.device = d
+            }
+        }
 
         function _pulseDevice() {
             var devs = MediaDevices.audioOutputs
