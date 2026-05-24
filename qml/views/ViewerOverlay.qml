@@ -172,8 +172,8 @@ Rectangle {
             property bool hasError: false
             onErrorOccurred: (error, errorString) => { console.error("Video error:", errorString); hasError = true }
             onSourceChanged: { hasError = false }
-            onStatusChanged: {
-                if (status === MediaPlayer.Loaded || status === MediaPlayer.Buffered)
+            onMediaStatusChanged: {
+                if (mediaStatus === MediaPlayer.LoadedMedia || mediaStatus === MediaPlayer.BufferedMedia)
                     play()
             }
         }
