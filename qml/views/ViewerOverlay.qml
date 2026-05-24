@@ -19,11 +19,13 @@ Rectangle {
     property bool infoPanelOpen: false
     property bool viewerOnlyMode: false  // launched via argv[1]; close = quit
     property bool _isFullscreen: false
+    property bool _videoFullscreen: false
 
     onActiveChanged: {
         if (!active) {
             videoPlayer.stop()
             videoPlayer.source = ""
+            _videoFullscreen = false
             if (_isFullscreen) { ApplicationWindow.window.showNormal(); _isFullscreen = false }
             if (viewerOnlyMode) Qt.quit()
         }
@@ -42,6 +44,7 @@ Rectangle {
     function resetZoom() { _zoom = 1.0; _panX = 0; _panY = 0 }
     onMediaDataChanged: {
         resetZoom()
+        deleteConfirm.showing = false
         if (_isVideo) {
             videoPlayer.source = root.mediaData ? "file://" + root.mediaData.file_path : ""
             videoPlayer.play()
@@ -105,8 +108,10 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: root.infoPanelOpen ? infoPanel.left : parent.right
-        anchors.margins: 72
-        anchors.bottomMargin: 80
+        anchors.topMargin: (root._isVideo && root._videoFullscreen) ? 0 : 72
+        anchors.leftMargin: (root._isVideo && root._videoFullscreen) ? 0 : 72
+        anchors.rightMargin: (root._isVideo && root._videoFullscreen) ? 0 : 72
+        anchors.bottomMargin: (root._isVideo && root._videoFullscreen) ? 0 : 80
         clip: true
 
         // Outgoing image (slides out during transition)
@@ -164,17 +169,55 @@ Rectangle {
             id: videoPlayer
             videoOutput: videoOut
             audioOutput: audioOut
+            property bool hasError: false
+            onErrorOccurred: (error, errorString) => { console.error("Video error:", errorString); hasError = true }
+            onSourceChanged: hasError = false
         }
 
-        AudioOutput { id: audioOut }
+        AudioOutput {
+            id: audioOut
+            volume: 0.5
+            device: {
+                if (Settings.usePulseAudio) {
+                    var devs = MediaDevices.audioOutputs
+                    for (var i = 0; i < devs.length; i++) {
+                        var name = devs[i].description.toLowerCase()
+                        if (name.indexOf("pulse") >= 0) return devs[i]
+                    }
+                }
+                return MediaDevices.defaultAudioOutput
+            }
+        }
 
         VideoOutput {
             id: videoOut
             anchors.fill: parent
             visible: root._isVideo
+            scale: root._zoom
+            transformOrigin: Item.Center
+            transform: Translate { x: root._panX; y: root._panY }
         }
 
-        // Video controls overlay — two rows: scrubber + controls
+        // Error overlay for videos that fail to load
+        Rectangle {
+            visible: root._isVideo && videoPlayer.hasError
+            anchors.centerIn: parent
+            width: errLbl.implicitWidth + 48; height: 56; radius: 12
+            color: Qt.alpha("black", 0.65)
+            Column {
+                anchors.centerIn: parent; spacing: 4
+                Label { id: errLbl; anchors.horizontalCenter: parent.horizontalCenter; text: "Failed to play video"; color: "white"; font.pixelSize: 14 }
+                Label {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "Open externally"
+                    color: Qt.alpha("white", 0.65); font.pixelSize: 12
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                        onClicked: if (root.mediaData) Qt.openUrlExternally("file://" + root.mediaData.file_path) }
+                }
+            }
+        }
+
+        // Video controls overlay — controls row (top) + scrubber (bottom)
         Rectangle {
             id: videoControls
             visible: root._isVideo
@@ -183,19 +226,155 @@ Rectangle {
             anchors.bottom: parent.bottom
             anchors.bottomMargin: 16
             width: Math.min(Math.max(400, parent.width * 0.65), 640)
-            height: 76
+            height: 80
             radius: 20
             color: Qt.alpha("black", 0.70)
 
             Column {
                 anchors.fill: parent
-                anchors.topMargin: 14
-                anchors.bottomMargin: 10
+                anchors.topMargin: 10
+                anchors.bottomMargin: 14
                 anchors.leftMargin: 16
                 anchors.rightMargin: 16
-                spacing: 6
+                spacing: 8
 
-                // ── Scrubber track with M3-style stadium thumb ────────────
+                // ── Controls row (TOP) ────────────────────────────────────
+                Item {
+                    width: parent.width
+                    height: 28
+
+                    Rectangle {
+                        id: ppBtn
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 28; height: 28; radius: 14
+                        color: Qt.alpha("white", ppMa.containsMouse ? 0.20 : 0.12)
+                        Behavior on color { ColorAnimation { duration: 80 } }
+                        M3Icon {
+                            anchors.centerIn: parent
+                            name: videoPlayer.playbackState === MediaPlayer.PlayingState ? "pause" : "play"
+                            size: 16; color: "white"
+                        }
+                        MouseArea {
+                            id: ppMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onClicked: videoPlayer.playbackState === MediaPlayer.PlayingState
+                                       ? videoPlayer.pause() : videoPlayer.play()
+                        }
+                    }
+
+                    Label {
+                        anchors.left: ppBtn.right; anchors.leftMargin: 8
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: {
+                            function fmt(ms) {
+                                var s = Math.floor(ms / 1000)
+                                var m = Math.floor(s / 60); s = s % 60
+                                return m + ":" + (s < 10 ? "0" : "") + s
+                            }
+                            return fmt(videoPlayer.position) + " / " + fmt(videoPlayer.duration)
+                        }
+                        color: Qt.alpha("white", 0.75)
+                        font.pixelSize: 12; font.weight: Font.Medium
+                        font.family: "JetBrains Mono"
+                    }
+
+                    // Right side: volume + video-fullscreen
+                    Row {
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 4
+
+                        Item {
+                            id: volWrapper
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: 28
+                            width: volHoverMa.containsMouse ? (30 + 6 + 80) : 30
+                            clip: true
+                            Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutQuint } }
+
+                            MouseArea {
+                                id: volHoverMa
+                                anchors.fill: parent; hoverEnabled: true
+                                acceptedButtons: Qt.NoButton
+                            }
+
+                            Row {
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: 6
+
+                                Item {
+                                    width: 80; height: 12
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    opacity: volHoverMa.containsMouse ? (audioOut.muted ? 0.35 : 1.0) : 0
+                                    Behavior on opacity { NumberAnimation { duration: 150 } }
+
+                                    Rectangle {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: parent.width; height: 4; radius: 2
+                                        color: Qt.alpha("white", 0.25)
+                                    }
+                                    Rectangle {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: audioOut.muted ? 0 : audioOut.volume * parent.width
+                                        height: 4; radius: 2; color: "white"
+                                    }
+                                    Rectangle {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        x: (audioOut.muted ? 0 : audioOut.volume) * (parent.width - 12)
+                                        width: 12; height: 12; radius: 6; color: "white"
+                                    }
+                                    MouseArea {
+                                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                        onClicked: (m) => {
+                                            audioOut.muted = false
+                                            audioOut.volume = Math.max(0, Math.min(1, m.x / width))
+                                        }
+                                        onPositionChanged: (m) => {
+                                            if (pressed) {
+                                                audioOut.muted = false
+                                                audioOut.volume = Math.max(0, Math.min(1, m.x / width))
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Rectangle {
+                                    width: 28; height: 28; radius: 14
+                                    color: Qt.alpha("white", muteMa.containsMouse ? 0.20 : 0.12)
+                                    Behavior on color { ColorAnimation { duration: 80 } }
+                                    M3Icon {
+                                        anchors.centerIn: parent
+                                        name: audioOut.muted ? "volume_off" : "volume_up"
+                                        size: 15; color: "white"
+                                    }
+                                    MouseArea {
+                                        id: muteMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                        onClicked: audioOut.muted = !audioOut.muted
+                                    }
+                                }
+                            }
+                        }
+
+                        // Video-only fullscreen (fills the overlay area)
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 28; height: 28; radius: 14
+                            color: Qt.alpha("white", vfsMa.containsMouse ? 0.20 : 0.12)
+                            Behavior on color { ColorAnimation { duration: 80 } }
+                            M3Icon {
+                                anchors.centerIn: parent
+                                name: root._videoFullscreen ? "fullscreen_exit" : "fullscreen"
+                                size: 15; color: "white"
+                            }
+                            MouseArea {
+                                id: vfsMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                onClicked: root._videoFullscreen = !root._videoFullscreen
+                            }
+                        }
+                    }
+                }
+
+                // ── Scrubber track with M3-style stadium thumb (BOTTOM) ───
                 Item {
                     id: seekTrack
                     width: parent.width
@@ -207,19 +386,16 @@ Rectangle {
                     readonly property real _ratio:
                         seekDrag.pressed ? seekDrag._seekRatio : _playRatio
 
-                    // Track background
                     Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
                         width: parent.width; height: 4; radius: 2
                         color: Qt.alpha("white", 0.20)
                     }
-                    // Filled portion
                     Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
                         width: seekTrack._ratio * parent.width
                         height: 4; radius: 2; color: "white"
                     }
-                    // Stadium thumb
                     Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
                         x: seekTrack._ratio * (seekTrack.width - width)
@@ -248,125 +424,6 @@ Rectangle {
                         }
                     }
                 }
-
-                // ── Controls row ──────────────────────────────────────────
-                Item {
-                    width: parent.width
-                    height: 28
-
-                    // Play / Pause
-                    Rectangle {
-                        id: ppBtn
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 28; height: 28; radius: 14
-                        color: Qt.alpha("white", ppMa.containsMouse ? 0.20 : 0.12)
-                        Behavior on color { ColorAnimation { duration: 80 } }
-                        M3Icon {
-                            anchors.centerIn: parent
-                            name: videoPlayer.playbackState === MediaPlayer.PlayingState ? "pause" : "play"
-                            size: 16; color: "white"
-                        }
-                        MouseArea {
-                            id: ppMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                            onClicked: videoPlayer.playbackState === MediaPlayer.PlayingState
-                                       ? videoPlayer.pause() : videoPlayer.play()
-                        }
-                    }
-
-                    // Position / Duration label
-                    Label {
-                        anchors.left: ppBtn.right; anchors.leftMargin: 8
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: {
-                            function fmt(ms) {
-                                var s = Math.floor(ms / 1000)
-                                var m = Math.floor(s / 60); s = s % 60
-                                return m + ":" + (s < 10 ? "0" : "") + s
-                            }
-                            return fmt(videoPlayer.position) + " / " + fmt(videoPlayer.duration)
-                        }
-                        color: Qt.alpha("white", 0.75)
-                        font.pixelSize: 12; font.weight: Font.Medium
-                        font.family: "JetBrains Mono"
-                    }
-
-                    // Volume section (compact → expands on hover)
-                    Item {
-                        id: volWrapper
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        height: 28
-                        width: volHoverMa.containsMouse ? (30 + 6 + 80) : 30
-                        clip: true
-                        Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutQuint } }
-
-                        // Hover catcher (passes clicks through)
-                        MouseArea {
-                            id: volHoverMa
-                            anchors.fill: parent; hoverEnabled: true
-                            acceptedButtons: Qt.NoButton
-                        }
-
-                        Row {
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: 6
-
-                            // Volume track (only visible when expanded)
-                            Item {
-                                width: 80; height: 12
-                                anchors.verticalCenter: parent.verticalCenter
-                                opacity: volHoverMa.containsMouse ? (audioOut.muted ? 0.35 : 1.0) : 0
-                                Behavior on opacity { NumberAnimation { duration: 150 } }
-
-                                Rectangle {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: parent.width; height: 4; radius: 2
-                                    color: Qt.alpha("white", 0.25)
-                                }
-                                Rectangle {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: audioOut.muted ? 0 : audioOut.volume * parent.width
-                                    height: 4; radius: 2; color: "white"
-                                }
-                                Rectangle {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    x: (audioOut.muted ? 0 : audioOut.volume) * (parent.width - 12)
-                                    width: 12; height: 12; radius: 6; color: "white"
-                                }
-                                MouseArea {
-                                    anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                                    onClicked: (m) => {
-                                        audioOut.muted = false
-                                        audioOut.volume = Math.max(0, Math.min(1, m.x / width))
-                                    }
-                                    onPositionChanged: (m) => {
-                                        if (pressed) {
-                                            audioOut.muted = false
-                                            audioOut.volume = Math.max(0, Math.min(1, m.x / width))
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Mute button
-                            Rectangle {
-                                width: 28; height: 28; radius: 14
-                                color: Qt.alpha("white", muteMa.containsMouse ? 0.20 : 0.12)
-                                Behavior on color { ColorAnimation { duration: 80 } }
-                                M3Icon {
-                                    anchors.centerIn: parent
-                                    name: audioOut.muted ? "volume_off" : "volume_up"
-                                    size: 15; color: "white"
-                                }
-                                MouseArea {
-                                    id: muteMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                    onClicked: audioOut.muted = !audioOut.muted
-                                }
-                            }
-                        }
-                    }
-                }
             }
         }
 
@@ -385,21 +442,20 @@ Rectangle {
             property bool _wasDrag:       false
 
             onDoubleClicked: {
-                if (root._isVideo) return
                 if (root._zoom > 1.05) root.resetZoom()
                 else root._zoom = 2.5
             }
 
             onPressed: {
                 _wasDrag = false
-                if (!root._isVideo && root._zoom > 1.05) {
+                if (root._zoom > 1.05) {
                     _dragStartX    = mouseX; _dragStartY    = mouseY
                     _dragStartPanX = root._panX; _dragStartPanY = root._panY
                 }
             }
 
             onPositionChanged: {
-                if (pressed && !root._isVideo && root._zoom > 1.05) {
+                if (pressed && root._zoom > 1.05) {
                     _wasDrag = true
                     root._panX = _dragStartPanX + (mouseX - _dragStartX)
                     root._panY = _dragStartPanY + (mouseY - _dragStartY)
@@ -407,11 +463,11 @@ Rectangle {
             }
 
             onClicked: {
-                if (root._isVideo) return
+                if (root._isVideo) return  // never dismiss viewer by clicking video area
                 if (!_wasDrag && root._zoom <= 1.05) root.active = false
             }
 
-            cursorShape: (!root._isVideo && root._zoom > 1.05) ? Qt.OpenHandCursor : Qt.ArrowCursor
+            cursorShape: root._zoom > 1.05 ? Qt.OpenHandCursor : Qt.ArrowCursor
         }
     }
 
@@ -583,34 +639,52 @@ Rectangle {
             scale: delMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: 80 } }
             M3Icon { anchors.centerIn: parent; name: "delete_forever"; size: 22; color: "#ffd8e4" }
             MouseArea { id: delMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                onClicked: deleteConfirm.visible = true }
+                onClicked: deleteConfirm.showing = !deleteConfirm.showing }
         }
     }
 
     // ── Delete confirmation ───────────────────────────────────────────────
     Rectangle {
         id: deleteConfirm
-        visible: false
-        anchors.horizontalCenter: actionRow.horizontalCenter
-        anchors.bottom: actionRow.top; anchors.bottomMargin: 8
-        radius: 14; color: ThemeManager.errorContainer
-        width: confirmRow.implicitWidth + 24; height: 52
+        property bool showing: false
+        anchors.left: actionRow.left
+        anchors.right: actionRow.right
+        anchors.bottom: actionRow.top
+        anchors.bottomMargin: showing ? 10 : 4
+        height: 52; radius: 14
+        color: ThemeManager.errorContainer
+        opacity: showing ? 1 : 0
+        visible: opacity > 0
+        Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutQuint } }
+        Behavior on anchors.bottomMargin { NumberAnimation { duration: 180; easing.type: Easing.OutQuint } }
 
         RowLayout {
-            id: confirmRow; anchors.centerIn: parent; spacing: 8
-            Label { text: "Delete permanently?"; color: ThemeManager.onErrorContainer; font.pixelSize: 13 }
-            Button {
-                flat: true
-                contentItem: Label { text: "Cancel"; color: ThemeManager.onErrorContainer; font.pixelSize: 13; padding: 4 }
-                onClicked: deleteConfirm.visible = false
+            anchors.fill: parent; anchors.leftMargin: 16; anchors.rightMargin: 8; spacing: 8
+            Label {
+                Layout.fillWidth: true; text: "Delete permanently?"
+                color: ThemeManager.onErrorContainer; font.pixelSize: 13
             }
-            Button {
-                background: Rectangle { radius: 10; color: ThemeManager.error }
-                contentItem: Label { text: "Delete"; color: "white"; font.pixelSize: 13; padding: 6; horizontalAlignment: Text.AlignHCenter }
-                onClicked: {
-                    if (root.mediaData) { DB.deleteMediaPermanently(root.mediaData.id); root.active = false; TimelineModel.refresh() }
+            Rectangle {
+                height: 36; radius: 18; implicitWidth: cancelConfLbl.implicitWidth + 24
+                color: cancelConfMa.containsMouse ? Qt.alpha(ThemeManager.onErrorContainer, 0.12) : "transparent"
+                Behavior on color { ColorAnimation { duration: 80 } }
+                Label { id: cancelConfLbl; anchors.centerIn: parent; text: "Cancel"; color: ThemeManager.onErrorContainer; font.pixelSize: 13 }
+                MouseArea { id: cancelConfMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: deleteConfirm.showing = false }
+            }
+            Rectangle {
+                height: 36; radius: 18; implicitWidth: deleteConfLbl.implicitWidth + 24
+                color: deleteConfMa.containsMouse ? Qt.darker(ThemeManager.error, 1.1) : ThemeManager.error
+                Behavior on color { ColorAnimation { duration: 80 } }
+                Label { id: deleteConfLbl; anchors.centerIn: parent; text: "Delete"; color: "white"; font.pixelSize: 13; font.weight: Font.Medium }
+                MouseArea {
+                    id: deleteConfMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        if (root.mediaData) { DB.deleteMediaPermanently(root.mediaData.id); root.active = false; TimelineModel.refresh() }
+                        deleteConfirm.showing = false
+                    }
                 }
             }
+            Item { width: 4 }
         }
     }
 

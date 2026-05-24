@@ -495,6 +495,19 @@ Item {
             }
 
             SettingsSection {
+                title: "Playback"
+                SettingsRow {
+                    label: "Use PulseAudio output"
+                    sub: "Enables Discord to capture audio; switch off to use PipeWire directly"
+                    last: true
+                    action: M3Switch {
+                        checked: Settings.usePulseAudio
+                        onCheckedChanged: Settings.usePulseAudio = checked
+                    }
+                }
+            }
+
+            SettingsSection {
                 title: "Privacy"
                 SettingsRow {
                     label: "Strip EXIF data"

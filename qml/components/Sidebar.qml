@@ -161,16 +161,24 @@ Rectangle {
                 Rectangle {
                     width: parent.width; height: 6; radius: 3
                     color: ThemeManager.surfaceContainerHighest
-                    Rectangle {
-                        width: parent.width * (StorageManager.mediaGb / Math.max(1, StorageManager.totalGb))
-                        height: parent.height; radius: 3; color: ThemeManager.primary
+                    Row {
+                        height: parent.height; spacing: 0
+                        Rectangle {
+                            width: parent.parent.width * (StorageManager.photoGb / Math.max(0.001, StorageManager.totalGb))
+                            height: parent.height; radius: 3; color: ThemeManager.primary
+                        }
+                        Rectangle {
+                            width: parent.parent.width * (StorageManager.videoGb / Math.max(0.001, StorageManager.totalGb))
+                            height: parent.height; color: ThemeManager.tertiary
+                        }
                     }
                 }
                 Row {
-                    width: parent.width; spacing: 0
-                    Label { text: StorageManager.mediaGb.toFixed(1) + " GB media"; font.pixelSize: 11; color: ThemeManager.onSurfaceVariant }
-                    Item { width: Math.max(0, parent.width - 24 - 180); height: 1 }
-                    Label { text: (StorageManager.totalGb / 1024).toFixed(1) + " TB total"; font.pixelSize: 11; color: ThemeManager.onSurfaceVariant }
+                    width: parent.width; spacing: 8
+                    Rectangle { width: 8; height: 8; radius: 4; color: ThemeManager.primary; anchors.verticalCenter: parent.verticalCenter }
+                    Label { text: StorageManager.photoGb.toFixed(1) + " GB photos"; font.pixelSize: 11; color: ThemeManager.onSurfaceVariant }
+                    Rectangle { width: 8; height: 8; radius: 4; color: ThemeManager.tertiary; anchors.verticalCenter: parent.verticalCenter }
+                    Label { text: StorageManager.videoGb.toFixed(1) + " GB video"; font.pixelSize: 11; color: ThemeManager.onSurfaceVariant }
                 }
             }
 
@@ -183,10 +191,18 @@ Rectangle {
                     anchors.horizontalCenter: parent.horizontalCenter
                     width: 8; height: 80; radius: 4
                     color: ThemeManager.surfaceContainerHighest
-                    Rectangle {
-                        anchors.bottom: parent.bottom; width: parent.width
-                        height: Math.max(8, parent.height * (StorageManager.mediaPercent / 100))
-                        radius: 4; color: ThemeManager.primary
+                    Column {
+                        anchors.bottom: parent.bottom; width: parent.width; spacing: 0
+                        Rectangle {
+                            width: parent.width
+                            height: Math.max(0, parent.parent.height * (StorageManager.videoGb / Math.max(0.001, StorageManager.totalGb)))
+                            color: ThemeManager.tertiary
+                        }
+                        Rectangle {
+                            width: parent.width
+                            height: Math.max(0, parent.parent.height * (StorageManager.photoGb / Math.max(0.001, StorageManager.totalGb)))
+                            radius: 4; color: ThemeManager.primary
+                        }
                     }
                 }
                 Label {

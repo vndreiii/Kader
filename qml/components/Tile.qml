@@ -169,6 +169,12 @@ Item {
                 }
             }
         }
+        MD.MenuItem {
+            text: "Delete permanently"
+            onTriggered: {
+                if (root._mediaId) { DB.deleteMediaPermanently(root._mediaId); TimelineModel.refresh() }
+            }
+        }
     }
 
     // ── Mouse area ────────────────────────────────────────────────────────

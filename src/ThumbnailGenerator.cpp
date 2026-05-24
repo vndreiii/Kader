@@ -42,20 +42,28 @@ QString ThumbnailGenerator::getOrCreateThumbnail(const QString &filePath, int si
     QString thumbPath = m_cacheDir + "/" + hash + "_" + QString::number(size) + ".jpg";
 
     if (QFile::exists(thumbPath)) {
-        return thumbPath;
+        if (QFile(thumbPath).size() > 0)
+            return thumbPath;
+        QFile::remove(thumbPath);  // stale empty file — regenerate
     }
 
     if (isVideoFile(filePath)) {
-        QProcess proc;
-        proc.start("/usr/bin/ffmpegthumbnailer", {
-            "-i", filePath,
-            "-o", thumbPath,
-            "-s", QString::number(size),
-            "-t", "10%",
-            "-c", "jpeg"
-        });
-        if (proc.waitForFinished(10000) && QFile::exists(thumbPath))
+        // Try ffmpegthumbnailer (execute is blocking and thread-safe)
+        if (QProcess::execute("/usr/bin/ffmpegthumbnailer", {
+                "-i", filePath, "-o", thumbPath,
+                "-s", QString::number(size), "-t", "10%", "-c", "jpeg"
+            }) == 0 && QFile::exists(thumbPath) && QFile(thumbPath).size() > 0)
             return thumbPath;
+        QFile::remove(thumbPath);
+
+        // Fallback: ffmpeg
+        if (QProcess::execute("/usr/bin/ffmpeg", {
+                "-y", "-hide_banner", "-loglevel", "error",
+                "-i", filePath, "-ss", "00:00:02", "-frames:v", "1",
+                "-vf", QString("scale=%1:-1").arg(size), "-q:v", "2", thumbPath
+            }) == 0 && QFile::exists(thumbPath) && QFile(thumbPath).size() > 0)
+            return thumbPath;
+        QFile::remove(thumbPath);
         return "";
     }
 
@@ -71,31 +79,40 @@ QString ThumbnailGenerator::getOrCreateThumbnail(const QString &filePath, int si
     return "";
 }
 
-QByteArray ThumbnailGenerator::generateVideoThumbnailBytes(const QString &filePath, int size) {
-    QString tmpPath = m_cacheDir + "/_vtmp_" + generateHash(filePath) + ".jpg";
-    QProcess proc;
-    proc.start("/usr/bin/ffmpegthumbnailer", {
-        "-i", filePath,
-        "-o", tmpPath,
-        "-s", QString::number(size),
-        "-t", "10%",
-        "-c", "jpeg"
-    });
-    if (!proc.waitForFinished(10000)) {
-        proc.kill();
-        qWarning() << "ffmpegthumbnailer timed out for" << filePath;
-        return {};
-    }
-    if (proc.exitCode() != 0) {
-        qWarning() << "ffmpegthumbnailer failed for" << filePath << ":" << proc.readAllStandardError();
-        return {};
-    }
-    QFile f(tmpPath);
-    if (!f.open(QIODevice::ReadOnly)) return {};
+static QByteArray readAndRemove(const QString &path) {
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly)) { QFile::remove(path); return {}; }
     QByteArray data = f.readAll();
     f.close();
+    QFile::remove(path);
+    return data.size() > 0 ? data : QByteArray{};
+}
+
+QByteArray ThumbnailGenerator::generateVideoThumbnailBytes(const QString &filePath, int size) {
+    QString tmpPath = m_cacheDir + "/_vtmp_" + generateHash(filePath) + ".jpg";
+
+    // Try ffmpegthumbnailer first (QProcess::execute is thread-safe / blocking)
+    if (QProcess::execute("/usr/bin/ffmpegthumbnailer", {
+            "-i", filePath, "-o", tmpPath,
+            "-s", QString::number(size), "-t", "10%", "-c", "jpeg"
+        }) == 0) {
+        auto data = readAndRemove(tmpPath);
+        if (!data.isEmpty()) return data;
+    }
     QFile::remove(tmpPath);
-    return data;
+
+    // Fallback: ffmpeg
+    if (QProcess::execute("/usr/bin/ffmpeg", {
+            "-y", "-hide_banner", "-loglevel", "error",
+            "-i", filePath, "-ss", "00:00:02", "-frames:v", "1",
+            "-vf", QString("scale=%1:-1").arg(size), "-q:v", "2", tmpPath
+        }) == 0) {
+        auto data = readAndRemove(tmpPath);
+        if (!data.isEmpty()) return data;
+    }
+    QFile::remove(tmpPath);
+    qWarning() << "All video thumbnail methods failed for" << filePath;
+    return {};
 }
 
 // Generate thumbnail and return raw JPEG bytes.

@@ -463,6 +463,20 @@ qint64 DatabaseManager::getTotalMediaSizeBytes() {
     return q.next() ? q.value(0).toLongLong() : 0;
 }
 
+qint64 DatabaseManager::getPhotoSizeBytes() {
+    checkConnection();
+    QSqlQuery q(m_db);
+    q.exec("SELECT COALESCE(SUM(file_size), 0) FROM media WHERE is_trashed = 0 AND mime_type NOT LIKE 'video/%'");
+    return q.next() ? q.value(0).toLongLong() : 0;
+}
+
+qint64 DatabaseManager::getVideoSizeBytes() {
+    checkConnection();
+    QSqlQuery q(m_db);
+    q.exec("SELECT COALESCE(SUM(file_size), 0) FROM media WHERE is_trashed = 0 AND mime_type LIKE 'video/%'");
+    return q.next() ? q.value(0).toLongLong() : 0;
+}
+
 QVariantList DatabaseManager::getAllMedia(bool hideIgnored) {
     checkConnection();
 

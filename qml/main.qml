@@ -189,6 +189,37 @@ ApplicationWindow {
 
                     Item { Layout.fillWidth: true }
 
+                    // Refresh/Rescan button
+                    Rectangle {
+                        width: 40; height: 40; radius: 20
+                        color: refreshHover.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
+                        Behavior on color { ColorAnimation { duration: 80 } }
+                        M3Icon {
+                            id: refreshIcon
+                            anchors.centerIn: parent
+                            name: "sync"; size: 22
+                            color: window.isScanning ? ThemeManager.primary : ThemeManager.onSurfaceVariant
+                            RotationAnimator on rotation {
+                                running: window.isScanning
+                                from: 0; to: 360; duration: 1000
+                                loops: Animation.Infinite
+                            }
+                        }
+                        MouseArea {
+                            id: refreshHover
+                            anchors.fill: parent; hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            enabled: !window.isScanning
+                            onClicked: {
+                                var dirs = DB.getIndexedDirectories()
+                                for (var i = 0; i < dirs.length; i++) {
+                                    var p = dirs[i].path || ""
+                                    if (p) FileScanner.startScan(p)
+                                }
+                            }
+                        }
+                    }
+
                     // Empty Trash button — only shown in trash view
                     Rectangle {
                         visible: window.currentView === "trash"

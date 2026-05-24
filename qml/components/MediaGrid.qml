@@ -25,6 +25,7 @@ Item {
     function toggleSelect(id) {
         var s = Object.assign({}, _selSet); var k = String(id)
         if (s[k]) delete s[k]; else s[k] = true; _selSet = s
+        if (Object.keys(_selSet).length === 0) selectionMode = false
     }
     function clearSelection() { _selSet = {}; selectionMode = false }
     function selectedIds() { return Object.keys(_selSet).map(Number) }
@@ -267,7 +268,11 @@ Item {
         anchors.bottomMargin: 16
         z: 200
         height: 56
-        width: selBarRow.contentWidth + 8
+        width: {
+            var r = selBarRow; var w = 0
+            for (var i = 0; i < r.children.length; i++) { w += r.children[i].width; if (i < r.children.length - 1) w += r.spacing }
+            return w + 8
+        }
         radius: 28
         color: ThemeManager.inverseSurface
         opacity: root.selectionMode ? 1 : 0
@@ -331,6 +336,22 @@ Item {
                     onClicked: {
                         var ids = root.selectedIds()
                         for (var i = 0; i < ids.length; i++) DB.setTrashed(ids[i], true)
+                        TimelineModel.refresh(); root.clearSelection()
+                    }
+                }
+            }
+
+            // Delete permanently
+            Rectangle {
+                width: 44; height: 44; radius: 22
+                color: selPermDelMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
+                Behavior on color { ColorAnimation { duration: 80 } }
+                M3Icon { anchors.centerIn: parent; name: "delete_forever"; size: 20; color: "#ffd8e4" }
+                MouseArea {
+                    id: selPermDelMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        var ids = root.selectedIds()
+                        for (var i = 0; i < ids.length; i++) DB.deleteMediaPermanently(ids[i])
                         TimelineModel.refresh(); root.clearSelection()
                     }
                 }

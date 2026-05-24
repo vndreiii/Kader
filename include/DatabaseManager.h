@@ -68,6 +68,8 @@ public:
 
     // Storage stats
     Q_INVOKABLE qint64 getTotalMediaSizeBytes();
+    Q_INVOKABLE qint64 getPhotoSizeBytes();
+    Q_INVOKABLE qint64 getVideoSizeBytes();
 
     // Scan exclusion patterns (substring match against full dir path)
     Q_INVOKABLE QStringList getScanExclusions();

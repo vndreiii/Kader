@@ -18,6 +18,11 @@
 #include "StorageManager.h"
 
 int main(int argc, char *argv[]) {
+    // Prefer Qt's FFmpeg multimedia backend over GStreamer for better codec
+    // compatibility and stability (avoids GStreamer plugin crashes on VAAPI/VDPAU).
+    if (qgetenv("QT_MEDIA_BACKEND").isEmpty())
+        qputenv("QT_MEDIA_BACKEND", "ffmpeg");
+
     QGuiApplication app(argc, argv);
 
     // File passed on the command line (e.g. "kader /path/to/photo.jpg" or via .desktop %U)
@@ -62,6 +67,16 @@ int main(int argc, char *argv[]) {
             }
         });
     };
+
+    // Auto-scan indexed directories on startup (delayed so UI loads first).
+    QTimer::singleShot(800, &app, [&]() {
+        QVariantList dirs = dbManager.getIndexedDirectories();
+        for (const QVariant &dir : dirs) {
+            QString path = dir.toMap().value("path").toString();
+            if (!path.isEmpty())
+                fileScanner.startScan(path);
+        }
+    });
 
     // Run once at startup, then every 3 minutes to catch external file deletions.
     runPrune();

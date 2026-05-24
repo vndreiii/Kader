@@ -25,6 +25,7 @@ Item {
         var s = Object.assign({}, _selSet)
         if (s[path]) delete s[path]; else s[path] = true
         _selSet = s
+        if (Object.keys(_selSet).length === 0) selectionMode = false
     }
     function clearSelection() { _selSet = {}; selectionMode = false }
     function selectedPaths() { return Object.keys(_selSet) }
@@ -77,33 +78,6 @@ Item {
                 }
             }
 
-            // Selection ring — wraps thumbnail only (not text labels below)
-            Rectangle {
-                x: 8; y: 8
-                width: albumItem.width - 16
-                height: albumItem.width - 16
-                radius: mouseArea.containsMouse ? 28 : 24
-                color: "transparent"
-                border.width: root.isAlbumSelected(albumItem._path) ? 3 : 0
-                border.color: ThemeManager.primary
-                z: 5
-                Behavior on border.width { NumberAnimation { duration: 80 } }
-            }
-
-            // Selection checkmark — inside thumbnail area
-            Rectangle {
-                visible: root.selectionMode
-                x: 20; y: 20; z: 6
-                width: 28; height: 28; radius: 14
-                color: root.isAlbumSelected(albumItem._path) ? ThemeManager.primary : Qt.alpha("white", 0.5)
-                Behavior on color { ColorAnimation { duration: 100 } }
-                M3Icon {
-                    anchors.centerIn: parent
-                    name: "check"; size: 16; color: "white"
-                    opacity: root.isAlbumSelected(albumItem._path) ? 1 : 0
-                    Behavior on opacity { NumberAnimation { duration: 80 } }
-                }
-            }
 
             MouseArea {
                 id: mouseArea
@@ -129,7 +103,10 @@ Item {
                     Layout.fillWidth: true; Layout.preferredHeight: width
                     radius: mouseArea.containsMouse ? 28 : 24
                     color: ThemeManager.surfaceContainerHigh
+                    border.width: root.isAlbumSelected(albumItem._path) ? 3 : 0
+                    border.color: ThemeManager.primary
                     Behavior on radius { NumberAnimation { duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
+                    Behavior on border.width { NumberAnimation { duration: 80 } }
 
                     Rectangle {
                         id: coverMask
@@ -174,6 +151,20 @@ Item {
                             maskThresholdMin: 0.5
                             maskSpreadAtMin: 1.0
                             maskSource: coverMask
+                        }
+                    }
+
+                    // Selection checkmark — child of coverRect so anchors are exact
+                    Rectangle {
+                        visible: root.selectionMode
+                        anchors.top: parent.top; anchors.left: parent.left; anchors.margins: 8
+                        width: 28; height: 28; radius: 14; z: 6
+                        color: root.isAlbumSelected(albumItem._path) ? ThemeManager.primary : Qt.alpha("white", 0.5)
+                        Behavior on color { ColorAnimation { duration: 100 } }
+                        M3Icon {
+                            anchors.centerIn: parent; name: "check"; size: 16; color: "white"
+                            opacity: root.isAlbumSelected(albumItem._path) ? 1 : 0
+                            Behavior on opacity { NumberAnimation { duration: 80 } }
                         }
                     }
                 }
@@ -236,7 +227,11 @@ Item {
         anchors.bottomMargin: 16
         z: 200
         height: 56
-        width: selAlbumRow.contentWidth + 8
+        width: {
+            var r = selAlbumRow; var w = 0
+            for (var i = 0; i < r.children.length; i++) { w += r.children[i].width; if (i < r.children.length - 1) w += r.spacing }
+            return w + 8
+        }
         radius: 28
         color: ThemeManager.inverseSurface
         opacity: root.selectionMode ? 1 : 0

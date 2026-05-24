@@ -14,6 +14,17 @@ void SettingsManager::setHideIgnoredInTimeline(bool hide) {
         emit hideIgnoredInTimelineChanged();
     }
 }
+bool SettingsManager::usePulseAudio() const {
+    return m_settings.value("usePulseAudio", false).toBool();
+}
+
+void SettingsManager::setUsePulseAudio(bool use) {
+    if (usePulseAudio() != use) {
+        m_settings.setValue("usePulseAudio", use);
+        emit usePulseAudioChanged();
+    }
+}
+
 #include <QDir>
 
 QString SettingsManager::homePath() const {
