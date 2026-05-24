@@ -165,7 +165,25 @@ ApplicationWindow {
                         color: backHover.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
                         Behavior on color { ColorAnimation { duration: 80 } }
                         M3Icon { anchors.centerIn: parent; name: "arrow_back"; size: 24; color: ThemeManager.onSurfaceVariant }
-                        MouseArea { id: backHover; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: mainStack.pop() }
+                        MouseArea {
+                            id: backHover
+                            anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                mainStack.pop()
+                                // If we were in a filtered view and there's nothing left to go back to,
+                                // the stack top is now the real previous view — infer currentView from it.
+                                if (window.currentView === "hidden" || window.currentView === "trash" ||
+                                    window.currentView === "favorites") {
+                                    // These views replace the whole stack; back here means we ended up
+                                    // on a stale page — reset to a clean state.
+                                    window.currentView = "timeline"
+                                    window.detailTitle = ""
+                                    TimelineModel.setFolderFilter("")
+                                    TimelineModel.setMimeFilter("")
+                                    TimelineModel.filterMode = 0
+                                }
+                            }
+                        }
                     }
 
                     Column {
@@ -520,9 +538,13 @@ ApplicationWindow {
         anchors.fill: parent
         onAccepted: {
             window.currentView = "hidden"
+            window.detailTitle = ""
             TimelineModel.setFolderFilter("")
             TimelineModel.setMimeFilter("")
             TimelineModel.filterMode = 3
+            // Clear any sub-pages so back button never appears inside Hidden
+            while (mainStack.depth > 1)
+                mainStack.pop(null, StackView.Immediate)
             mainStack.replace(timelineView)
         }
         onRejected: { /* stay on current view */ }
