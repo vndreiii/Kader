@@ -1,6 +1,6 @@
 # Maintainer: Alex <alex@milfs.party>
 pkgname=kader
-pkgver=0.1.0.r54.df4e2c9
+pkgver=0.1.0.r55.cf4964b
 pkgrel=1
 pkgdesc="Modern photo gallery"
 arch=('x86_64')
@@ -23,7 +23,6 @@ makedepends=(
     'ninja'
     'qt6-tools'
     'pkgconfig'
-    'imagemagick'
 )
 source=(
     "$pkgname::git+ssh://git@code.milfs.party:2222/alex/Kader.git"
@@ -80,12 +79,6 @@ EOF
     # Desktop entry
     install -Dm644 "$pkgname/kader.desktop" "$pkgdir/usr/share/applications/kader.desktop"
 
-    # Icons — scalable SVG + correctly-sized PNGs at all standard sizes
+    # Icons — scalable SVG only (avoids upgrade conflicts with fixed-size PNGs)
     install -Dm644 "$pkgname/assets/Kader Logoicon.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/kader.svg"
-    for _size in 16 22 32 48 64 128 256 512; do
-        install -dm755 "$pkgdir/usr/share/icons/hicolor/${_size}x${_size}/apps"
-        magick "$pkgname/assets/KaderPNGicon.png" \
-            -resize "${_size}x${_size}" \
-            "$pkgdir/usr/share/icons/hicolor/${_size}x${_size}/apps/kader.png"
-    done
 }
