@@ -261,21 +261,27 @@ void FileScanner::runScan(const std::string &rootPath, const std::vector<std::st
     if (!newEntries.isEmpty())
         m_db->addOrUpdateMediaBatch(newEntries);
 
-    // Pre-generate thumbnails so the timeline shows them without a placeholder flash.
-    if (m_thumbGen && !newEntries.isEmpty()) {
-        for (const MediaEntry &e : newEntries) {
-            QByteArray bytes = e.mimeType.startsWith("video/")
-                ? m_thumbGen->generateVideoThumbnailBytes(e.filePath)
-                : m_thumbGen->generateThumbnailBytes(e.filePath);
-            if (!bytes.isEmpty())
-                m_db->storeThumbnailBlob(e.filePath, 256, ThumbnailGenerator::encrypt(bytes));
-        }
-    }
-
     m_db->updateDirectoryStats(QString::fromStdString(rootPath), finalPaths.size());
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> diff = end - start;
 
+    // Emit first so the UI refreshes immediately with the new items.
     emit scanFinished(finalPaths, (int)dirsScanned.load(), diff.count(), QString::fromStdString(rootPath));
+
+    // Pre-generate thumbnails after the UI has already updated.
+    // Runs in a separate detached task so it never blocks the main thread.
+    if (m_thumbGen && !newEntries.isEmpty()) {
+        ThumbnailGenerator *gen = m_thumbGen;
+        DatabaseManager    *db  = m_db;
+        QtConcurrent::run([gen, db, entries = std::move(newEntries)]() {
+            for (const MediaEntry &e : entries) {
+                QByteArray bytes = e.mimeType.startsWith("video/")
+                    ? gen->generateVideoThumbnailBytes(e.filePath)
+                    : gen->generateThumbnailBytes(e.filePath);
+                if (!bytes.isEmpty())
+                    db->storeThumbnailBlob(e.filePath, 256, ThumbnailGenerator::encrypt(bytes));
+            }
+        });
+    }
 }

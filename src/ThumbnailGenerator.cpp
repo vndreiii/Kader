@@ -88,6 +88,15 @@ QString ThumbnailGenerator::getOrCreateThumbnail(const QString &filePath, int si
         return "";
     }
 
+    if (isRawFile(filePath)) {
+        QByteArray bytes = generateRawThumbnailBytes(filePath, size);
+        if (!bytes.isEmpty()) {
+            QFile f(thumbPath);
+            if (f.open(QIODevice::WriteOnly)) { f.write(bytes); f.close(); return thumbPath; }
+        }
+        return "";
+    }
+
     try {
         vips::VImage thumb = vips::VImage::thumbnail(filePath.toLocal8Bit().constData(), size);
         thumb.write_to_file(thumbPath.toLocal8Bit().constData());

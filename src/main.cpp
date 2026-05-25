@@ -54,6 +54,9 @@ int main(int argc, char *argv[]) {
     TimelineModel timelineModel(&dbManager);
     AlbumModel albumModel(&dbManager, &thumbGenerator);
 
+    // In vieweronly mode we only display a single file — skip all heavy startup work.
+    const bool viewerOnly = !startupFile.isEmpty();
+
     // Prune helper: runs off-thread, refreshes models on main thread if anything was removed.
     auto runPrune = [&]() {
         QtConcurrent::run([&]() {
@@ -69,27 +72,29 @@ int main(int argc, char *argv[]) {
         });
     };
 
-    // Auto-scan indexed directories on startup (delayed so UI loads first).
-    QTimer::singleShot(800, &app, [&]() {
-        QVariantList dirs = dbManager.getIndexedDirectories();
-        for (const QVariant &dir : dirs) {
-            QString path = dir.toMap().value("path").toString();
-            if (!path.isEmpty())
-                fileScanner.startScan(path);
-        }
-    });
+    if (!viewerOnly) {
+        // Auto-scan indexed directories on startup (delayed so UI loads first).
+        QTimer::singleShot(800, &app, [&]() {
+            QVariantList dirs = dbManager.getIndexedDirectories();
+            for (const QVariant &dir : dirs) {
+                QString path = dir.toMap().value("path").toString();
+                if (!path.isEmpty())
+                    fileScanner.startScan(path);
+            }
+        });
 
-    // Run once at startup, then every 3 minutes to catch external file deletions.
-    runPrune();
-    QTimer *pruneTimer = new QTimer(&app);
-    pruneTimer->setInterval(3 * 60 * 1000);
-    QObject::connect(pruneTimer, &QTimer::timeout, &app, runPrune);
-    pruneTimer->start();
+        // Run once at startup, then every 3 minutes to catch external file deletions.
+        runPrune();
+        QTimer *pruneTimer = new QTimer(&app);
+        pruneTimer->setInterval(3 * 60 * 1000);
+        QObject::connect(pruneTimer, &QTimer::timeout, &app, runPrune);
+        pruneTimer->start();
 
-    // Initial refresh with settings
-    mediaModel.refresh(settingsManager.hideIgnoredInTimeline());
-    timelineModel.refresh(settingsManager.hideIgnoredInTimeline());
-    albumModel.refresh(true);
+        // Initial refresh with settings
+        mediaModel.refresh(settingsManager.hideIgnoredInTimeline());
+        timelineModel.refresh(settingsManager.hideIgnoredInTimeline());
+        albumModel.refresh(true);
+    }
 
     // Apply saved mosaic density
     {

@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Qcm.Material as MD
 import "../components"
+import "../I18n.js" as I18n
 
 Item {
     id: root
@@ -231,7 +232,7 @@ Item {
 
             // Library Section
             SettingsSection {
-                title: "Library"
+                title: I18n.t(Settings.language, "section_library")
                 
                 Column {
                     width: parent.width
@@ -439,7 +440,7 @@ Item {
             }
 
             SettingsSection {
-                title: "Appearance"
+                title: I18n.t(Settings.language, "section_appearance")
                 SettingsRow {
                     label: "Theme"
                     sub: ["System", "Light", "Dark"][ThemeManager.themeMode]
@@ -482,20 +483,75 @@ Item {
                         var names = ["Compact", "Comfortable", "Spacious"]
                         return names[Math.max(0, Math.min(Math.round(densitySlider.value) - 1, 2))]
                     }
-                    last: true
                     action: MD.Slider {
                         id: densitySlider
                         from: 1; to: 3; stepSize: 1
                         snapMode: Slider.SnapAlways
                         value: Settings.mosaicDensity
                         width: 120
-                        onMoved: Settings.mosaicDensity = Math.round(value)
+                        onMoved: {
+                            var d = Math.round(value)
+                            Settings.mosaicDensity = d
+                            TimelineModel.numColumns = (d === 1 ? 5 : d === 3 ? 3 : 4)
+                        }
+                    }
+                }
+
+                SettingsRow {
+                    label: I18n.t(Settings.language, "language_label")
+                    sub: I18n.t(Settings.language, "language_sub")
+                    last: true
+                    action: ComboBox {
+                        id: langCombo
+                        property var langs: [
+                            {code:"en",  name:"English"},
+                            {code:"es",  name:"Español"},
+                            {code:"ro",  name:"Română"},
+                            {code:"fr",  name:"Français"},
+                            {code:"pt",  name:"Português"},
+                            {code:"ja",  name:"日本語"},
+                            {code:"zh",  name:"中文"},
+                            {code:"tr",  name:"Türkçe"},
+                            {code:"ca",  name:"Català"},
+                            {code:"gl",  name:"Galego"},
+                            {code:"an",  name:"Andalú"},
+                            {code:"nl",  name:"Nederlands"},
+                            {code:"de",  name:"Deutsch"},
+                            {code:"vi",  name:"Tiếng Việt"},
+                            {code:"ru",  name:"Русский"},
+                            {code:"hr",  name:"Hrvatski"},
+                            {code:"sr",  name:"Српски"},
+                            {code:"it",  name:"Italiano"},
+                            {code:"fil", name:"Filipino"}
+                        ]
+                        model: langs.map(function(l) { return l.name })
+                        implicitWidth: 150
+                        currentIndex: {
+                            var l = Settings.language
+                            for (var i = 0; i < langs.length; i++)
+                                if (langs[i].code === l) return i
+                            return 0
+                        }
+                        onActivated: Settings.language = langs[currentIndex].code
+                        background: Rectangle {
+                            radius: 10
+                            color: ThemeManager.surfaceContainerHighest
+                            border.color: ThemeManager.outline; border.width: 1
+                        }
+                        contentItem: Label {
+                            leftPadding: 12; rightPadding: 8
+                            text: langCombo.displayText
+                            font.pixelSize: 13
+                            color: ThemeManager.onSurface
+                            verticalAlignment: Text.AlignVCenter
+                            elide: Text.ElideRight
+                        }
                     }
                 }
             }
 
             SettingsSection {
-                title: "Playback"
+                title: I18n.t(Settings.language, "section_playback")
                 SettingsRow {
                     label: "Use PulseAudio output"
                     sub: "Enables Discord to capture audio; switch off to use PipeWire directly"
@@ -508,7 +564,7 @@ Item {
             }
 
             SettingsSection {
-                title: "RAW files"
+                title: I18n.t(Settings.language, "section_raw")
 
                 Column {
                     width: parent.width
@@ -563,7 +619,7 @@ Item {
             }
 
             SettingsSection {
-                title: "Privacy"
+                title: I18n.t(Settings.language, "section_privacy")
                 SettingsRow {
                     label: "Strip EXIF data"
                     sub: "Remove location and camera metadata"
@@ -576,7 +632,7 @@ Item {
             }
 
             SettingsSection {
-                title: "AI"
+                title: I18n.t(Settings.language, "section_ai")
                 SettingsRow {
                     label: "Face groups"
                     sub: "Automatic face detection groups similar faces across your library. Processed on-device."

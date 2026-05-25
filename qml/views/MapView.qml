@@ -8,15 +8,70 @@ import "../components"
 
 Item {
     id: root
-    property var locations: []
+    property var    locations:    []
+    property var    activePin:    null
+    property string activePinAddr: ""
+    property point  _pinScreenPos: Qt.point(0, 0)
+
+    function _updatePinPos() {
+        if (!activePin) return
+        _pinScreenPos = mapView.map.fromCoordinate(
+            QtPositioning.coordinate(activePin.lat, activePin.lon), false)
+    }
 
     signal openViewer(var data)
 
-    Component.onCompleted: locations = DB.getGeotaggedLocations()
+    property bool _loaded: false
+
+    onVisibleChanged: {
+        if (visible && !_loaded) {
+            _loaded = true
+            locations = DB.getGeotaggedLocations()
+        }
+    }
+    Component.onCompleted: {
+        if (visible) {
+            _loaded = true
+            locations = DB.getGeotaggedLocations()
+        }
+    }
+
+    function fetchAddress(lat, lon) {
+        activePinAddr = ""
+        var xhr = new XMLHttpRequest()
+        xhr.open("GET", "https://nominatim.openstreetmap.org/reverse?format=json&lat="
+                 + lat + "&lon=" + lon + "&zoom=18&addressdetails=1")
+        xhr.setRequestHeader("User-Agent", "KaderGallery/1.0")
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === XMLHttpRequest.DONE) {
+                if (xhr.status === 200) {
+                    try {
+                        var d = JSON.parse(xhr.responseText)
+                        var a = d.address || {}
+                        var parts = []
+                        if (a.road) parts.push(a.road)
+                        var locality = a.city_district || a.suburb || a.town || a.city || a.county || ""
+                        if (locality) parts.push(locality)
+                        activePinAddr = parts.length > 0 ? parts.join(", ") : (d.display_name || "")
+                    } catch(e) { activePinAddr = lat.toFixed(4) + "°, " + lon.toFixed(4) + "°" }
+                } else {
+                    activePinAddr = lat.toFixed(4) + "°, " + lon.toFixed(4) + "°"
+                }
+            }
+        }
+        xhr.send()
+    }
 
     Connections {
         target: FileScanner
-        function onScanFinished() { root.locations = DB.getGeotaggedLocations() }
+        function onScanFinished() { if (root._loaded) root.locations = DB.getGeotaggedLocations() }
+    }
+
+    // Keep popup anchored to the pin as the map pans/zooms
+    Connections {
+        target: mapView.map
+        function onCenterChanged()    { if (root.activePin) root._updatePinPos() }
+        function onZoomLevelChanged() { if (root.activePin) root._updatePinPos() }
     }
 
     Plugin {
@@ -64,8 +119,8 @@ Item {
                     anchors.fill: parent
 
                     map.plugin: mapPlugin
-                    map.center: QtPositioning.coordinate(20, 0)
-                    map.zoomLevel: 2
+                    map.center: QtPositioning.coordinate(51, 10)
+                    map.zoomLevel: 4
 
                     map.Component.onCompleted: {
                         for (var i = 0; i < map.supportedMapTypes.length; i++) {
@@ -167,12 +222,105 @@ Item {
                                     anchors.fill: pinBody
                                     cursorShape: Qt.PointingHandCursor
                                     onClicked: {
-                                        mapView.map.center = QtPositioning.coordinate(modelData.lat, modelData.lon)
-                                        mapView.map.zoomLevel = 14
+                                        root.activePin = modelData
+                                        root._updatePinPos()
+                                        root.fetchAddress(modelData.lat, modelData.lon)
                                     }
                                 }
                             }
                         }
+                    }
+                }
+
+                // ── Pin popup card ────────────────────────────────────────
+                Rectangle {
+                    id: pinPopup
+                    visible: root.activePin !== null
+                    z: 60
+                    width: 210
+                    height: 220
+                    radius: 14
+                    color: Qt.rgba(0.07, 0.07, 0.09, 0.95)
+
+                    // Position above the pin bubble; clamp to map bounds
+                    x: Math.min(Math.max(8, root._pinScreenPos.x - width / 2),
+                                parent.width - width - 8)
+                    y: Math.max(8, root._pinScreenPos.y - height - 54)
+
+                    // Drop shadow
+                    layer.enabled: true
+                    layer.effect: MultiEffect {
+                        shadowEnabled: true
+                        shadowBlur: 0.6
+                        shadowColor: Qt.rgba(0, 0, 0, 0.5)
+                        shadowVerticalOffset: 4
+                    }
+
+                    Column {
+                        id: popupCol
+                        anchors { top: parent.top; left: parent.left; right: parent.right; margins: 12 }
+                        spacing: 8
+
+                        // Thumbnail
+                        Rectangle {
+                            width: parent.width; height: 110; radius: 8; clip: true
+                            color: Qt.rgba(1,1,1,0.06)
+                            Image {
+                                anchors.fill: parent
+                                source: root.activePin ? (root.activePin.thumb || "") : ""
+                                fillMode: Image.PreserveAspectCrop
+                                asynchronous: true
+                            }
+                        }
+
+                        // Address / coordinates
+                        Label {
+                            width: parent.width
+                            text: root.activePinAddr !== ""
+                                  ? root.activePinAddr
+                                  : (root.activePin
+                                     ? root.activePin.lat.toFixed(4) + "°,  " + root.activePin.lon.toFixed(4) + "°"
+                                     : "")
+                            color: "white"; font.pixelSize: 12
+                            wrapMode: Text.WordWrap; maximumLineCount: 2; elide: Text.ElideRight
+                        }
+
+                        // Count row + Open button
+                        Row {
+                            width: parent.width; spacing: 8
+
+                            Label {
+                                text: root.activePin
+                                      ? root.activePin.count + (root.activePin.count === 1 ? " photo" : " photos")
+                                      : ""
+                                color: Qt.rgba(1,1,1,0.55); font.pixelSize: 11
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: parent.width - openBtn.width - 8
+                            }
+
+                            Rectangle {
+                                id: openBtn
+                                width: 60; height: 28; radius: 14
+                                color: ThemeManager.primary
+                                Label {
+                                    anchors.centerIn: parent
+                                    text: "Open"; color: ThemeManager.onPrimary
+                                    font.pixelSize: 12; font.weight: Font.Medium
+                                }
+                                MouseArea {
+                                    anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                    onClicked: { if (root.activePin) root.openViewer(root.activePin); root.activePin = null }
+                                }
+                            }
+                        }
+                    }
+
+                    // Close ×
+                    Rectangle {
+                        anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 7
+                        width: 22; height: 22; radius: 11; color: Qt.rgba(1,1,1,0.13)
+                        Label { anchors.centerIn: parent; text: "×"; color: "white"; font.pixelSize: 14 }
+                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.activePin = null }
                     }
                 }
 

@@ -123,6 +123,12 @@ Rectangle {
                 if (root._zoom <= 1.02) root.resetZoom()
                 wheel.accepted = true
             }
+            // Horizontal scroll navigates prev/next when not zoomed in
+            if (wheel.angleDelta.x !== 0 && root._zoom <= 1.0 && !root._vidFs) {
+                if (wheel.angleDelta.x > 0) root.navigateNext()
+                else root.navigatePrev()
+                wheel.accepted = true
+            }
         }
     }
 

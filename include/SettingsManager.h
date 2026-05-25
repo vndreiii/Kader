@@ -1,7 +1,7 @@
 #pragma once
 
 #include <QObject>
-#include <QSettings>
+#include <QJsonObject>
 
 class SettingsManager : public QObject {
     Q_OBJECT
@@ -9,6 +9,7 @@ class SettingsManager : public QObject {
     Q_PROPERTY(bool usePulseAudio READ usePulseAudio WRITE setUsePulseAudio NOTIFY usePulseAudioChanged)
     Q_PROPERTY(int  mosaicDensity READ mosaicDensity WRITE setMosaicDensity NOTIFY mosaicDensityChanged)
     Q_PROPERTY(int  rawFilter READ rawFilter WRITE setRawFilter NOTIFY rawFilterChanged)
+    Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY languageChanged)
     Q_PROPERTY(QString homePath READ homePath CONSTANT)
 
 public:
@@ -27,6 +28,9 @@ public:
     int  rawFilter() const;
     void setRawFilter(int f);
 
+    QString language() const;
+    void setLanguage(const QString &lang);
+
     Q_INVOKABLE bool copyImageToClipboard(const QString &filePath);
     Q_INVOKABLE void openImageFilePicker(const QString &title = QString());
 
@@ -37,8 +41,13 @@ signals:
     void usePulseAudioChanged();
     void mosaicDensityChanged();
     void rawFilterChanged();
+    void languageChanged();
     void imageFilePicked(const QString &path);
 
 private:
-    QSettings m_settings;
+    void load();
+    void save() const;
+
+    QString m_path;
+    QJsonObject m_data;
 };

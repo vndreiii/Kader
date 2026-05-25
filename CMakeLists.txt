@@ -92,6 +92,7 @@ qt_add_qml_module(KaderApp
     VERSION 1.0
     RESOURCE_PREFIX /
     QML_FILES
+        qml/I18n.js
         qml/main.qml
         qml/components/MediaGrid.qml
         qml/components/MediaInfoPanel.qml

@@ -163,26 +163,17 @@ bool DatabaseManager::createTables() {
         ")"
     );
 
-    // Migrate albums table so path_prefix has UNIQUE constraint (older DBs had name UNIQUE instead).
+    // Ensure path_prefix has a UNIQUE index. Adding an index is safe under WAL
+    // and avoids the DDL-heavy table-recreation that would deadlock with open readers.
     {
-        QSqlQuery check(m_db);
-        check.exec("SELECT sql FROM sqlite_master WHERE type='table' AND name='albums'");
-        if (check.next() && !check.value(0).toString().contains("path_prefix TEXT UNIQUE")) {
-            QSqlQuery mq(m_db);
-            mq.exec("CREATE TABLE IF NOT EXISTS albums_v2 ("
-                    "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                    "name TEXT,"
-                    "path_prefix TEXT UNIQUE,"
-                    "cover_media_id INTEGER,"
-                    "is_pinned BOOLEAN DEFAULT 0,"
-                    "is_ignored BOOLEAN DEFAULT 0"
-                    ")");
-            mq.exec("INSERT OR IGNORE INTO albums_v2 (id, name, path_prefix, "
-                    "is_pinned, is_ignored) "
-                    "SELECT id, name, path_prefix, is_pinned, is_ignored FROM albums");
-            mq.exec("DROP TABLE albums");
-            mq.exec("ALTER TABLE albums_v2 RENAME TO albums");
-        }
+        QSqlQuery mq(m_db);
+        // Remove any duplicate path_prefix rows; keep the latest (highest id).
+        mq.exec("DELETE FROM albums WHERE id NOT IN ("
+                "SELECT MAX(id) FROM albums WHERE path_prefix IS NOT NULL GROUP BY path_prefix"
+                ")");
+        mq.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_albums_path_prefix ON albums(path_prefix)");
+        // Clean up leftover albums_v2 from a failed earlier migration attempt.
+        mq.exec("DROP TABLE IF EXISTS albums_v2");
     }
 
     return success;
@@ -240,14 +231,20 @@ bool DatabaseManager::ignoreAlbum(const QString &folderPath, bool ignore) {
         q.exec();
         if (q.numRowsAffected() > 0) return true;
     }
-    // No existing row — insert; use full path as name so it never conflicts on name UNIQUE
+    // No existing row — insert, or update if path_prefix already exists (unique index handles it).
     QSqlQuery q(m_db);
     q.prepare("INSERT INTO albums (name, path_prefix, is_ignored) VALUES (:n, :p, :v) "
-              "ON CONFLICT(path_prefix) DO UPDATE SET is_ignored = excluded.is_ignored");
+              "ON CONFLICT(path_prefix) DO UPDATE SET is_ignored = excluded.is_ignored "
+              "ON CONFLICT(name)        DO UPDATE SET path_prefix = excluded.path_prefix, "
+              "                                       is_ignored  = excluded.is_ignored");
     q.bindValue(":n", folderPath);
     q.bindValue(":p", folderPath);
     q.bindValue(":v", ignore ? 1 : 0);
-    return q.exec();
+    if (!q.exec()) {
+        qWarning() << "ignoreAlbum INSERT failed:" << q.lastError().text() << "path:" << folderPath;
+        return false;
+    }
+    return true;
 }
 
 QVariantList DatabaseManager::getIgnoredFolders() {
@@ -533,11 +530,17 @@ bool DatabaseManager::pinAlbum(const QString &folderPath, bool pinned) {
     }
     QSqlQuery q(m_db);
     q.prepare("INSERT INTO albums (name, path_prefix, is_pinned) VALUES (:n, :p, :v) "
-              "ON CONFLICT(path_prefix) DO UPDATE SET is_pinned = excluded.is_pinned");
+              "ON CONFLICT(path_prefix) DO UPDATE SET is_pinned = excluded.is_pinned "
+              "ON CONFLICT(name)        DO UPDATE SET path_prefix = excluded.path_prefix, "
+              "                                       is_pinned  = excluded.is_pinned");
     q.bindValue(":n", folderPath);
     q.bindValue(":p", folderPath);
     q.bindValue(":v", pinned ? 1 : 0);
-    return q.exec();
+    if (!q.exec()) {
+        qWarning() << "pinAlbum INSERT failed:" << q.lastError().text() << "path:" << folderPath;
+        return false;
+    }
+    return true;
 }
 
 bool DatabaseManager::trashAlbum(const QString &folderPath) {

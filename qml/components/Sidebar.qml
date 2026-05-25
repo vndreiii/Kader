@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import ".."
+import "../I18n.js" as I18n
 
 Rectangle {
     id: root
@@ -83,10 +84,10 @@ Rectangle {
 
         Item { width: 1; height: 8 }
 
-        SidebarItem { id: itTimeline;  icon: "schedule";      label: "Timeline";  active: root.currentView === "timeline";   collapsed: root.collapsed; onClicked: root.viewChanged("timeline")  }
-        SidebarItem { id: itAlbums;    icon: "folder";        label: "Albums";    active: root.currentView === "albums";     collapsed: root.collapsed; onClicked: root.viewChanged("albums")   }
-        SidebarItem { id: itVideos;    icon: "video_library"; label: "Videos";    active: root.currentView === "videos";     collapsed: root.collapsed; onClicked: root.viewChanged("videos")   }
-        SidebarItem { id: itMap;       icon: "map";           label: "Map";       active: root.currentView === "map";        collapsed: root.collapsed; onClicked: root.viewChanged("map")      }
+        SidebarItem { id: itTimeline;  icon: "schedule";      label: I18n.t(Settings.language, "timeline");  active: root.currentView === "timeline";   collapsed: root.collapsed; onClicked: root.viewChanged("timeline")  }
+        SidebarItem { id: itAlbums;    icon: "folder";        label: I18n.t(Settings.language, "albums");    active: root.currentView === "albums";     collapsed: root.collapsed; onClicked: root.viewChanged("albums")   }
+        SidebarItem { id: itVideos;    icon: "video_library"; label: I18n.t(Settings.language, "videos");    active: root.currentView === "videos";     collapsed: root.collapsed; onClicked: root.viewChanged("videos")   }
+        SidebarItem { id: itMap;       icon: "explore";       label: I18n.t(Settings.language, "map");       active: root.currentView === "map";        collapsed: root.collapsed; onClicked: root.viewChanged("map")      }
 
         Rectangle {
             width: parent.width - 48; height: 1
@@ -95,9 +96,9 @@ Rectangle {
         }
         Item { width: 1; height: 8 }
 
-        SidebarItem { id: itFavorites; icon: "favorite";  label: "Favorites"; active: root.currentView === "favorites"; collapsed: root.collapsed; onClicked: root.viewChanged("favorites") }
-        SidebarItem { id: itHidden;    icon: "lock";      label: "Hidden";    active: root.currentView === "hidden";    collapsed: root.collapsed; onClicked: root.viewChanged("hidden")    }
-        SidebarItem { id: itTrash;     icon: "delete";    label: "Trash";     active: root.currentView === "trash";     collapsed: root.collapsed; onClicked: root.viewChanged("trash")     }
+        SidebarItem { id: itFavorites; icon: "favorite";  label: I18n.t(Settings.language, "favorites"); active: root.currentView === "favorites"; collapsed: root.collapsed; onClicked: root.viewChanged("favorites") }
+        SidebarItem { id: itHidden;    icon: "lock";      label: I18n.t(Settings.language, "hidden");    active: root.currentView === "hidden";    collapsed: root.collapsed; onClicked: root.viewChanged("hidden")    }
+        SidebarItem { id: itTrash;     icon: "delete";    label: I18n.t(Settings.language, "trash");     active: root.currentView === "trash";     collapsed: root.collapsed; onClicked: root.viewChanged("trash")     }
     }
 
     // ── Pill y tracker ────────────────────────────────────────────────────
@@ -139,9 +140,10 @@ Rectangle {
 
         // Storage card
         Rectangle {
+            id: storageCard
             anchors.left: parent.left; anchors.right: parent.right
             anchors.leftMargin: 12; anchors.rightMargin: 12
-            height: root.collapsed ? 160 : 140
+            height: root.collapsed ? 160 : expandedCol.implicitHeight + 28
             radius: root.collapsed ? 22 : 16
             color: ThemeManager.surfaceContainerLow
             clip: true
@@ -151,7 +153,10 @@ Rectangle {
                 - StorageManager.photoGb - StorageManager.videoGb)
 
             Column {
-                anchors.fill: parent; anchors.margins: 16; spacing: 10
+                id: expandedCol
+                anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right
+                anchors.topMargin: 14; anchors.leftMargin: 14; anchors.rightMargin: 14
+                spacing: 9
                 visible: !root.collapsed
 
                 Row {
@@ -178,6 +183,7 @@ Rectangle {
                         }
                     }
                 }
+                // Legend: photos + video on one line
                 Row {
                     width: parent.width; spacing: 8
                     Rectangle { width: 8; height: 8; radius: 4; color: ThemeManager.primary; anchors.verticalCenter: parent.verticalCenter }
@@ -185,17 +191,18 @@ Rectangle {
                     Rectangle { width: 8; height: 8; radius: 4; color: ThemeManager.tertiary; anchors.verticalCenter: parent.verticalCenter }
                     Label { text: StorageManager.videoGb.toFixed(1) + " GB video"; font.pixelSize: 11; color: ThemeManager.onSurfaceVariant }
                 }
+                // Other + free/total on one line
                 Row {
-                    width: parent.width; spacing: 8
+                    width: parent.width; spacing: 6
                     Rectangle { width: 8; height: 8; radius: 4; color: ThemeManager.secondary; opacity: 0.7; anchors.verticalCenter: parent.verticalCenter }
-                    Label { text: parent._otherGb.toFixed(1) + " GB other"; font.pixelSize: 11; color: ThemeManager.onSurfaceVariant }
-                }
-                Label {
-                    width: parent.width
-                    text: StorageManager.freeGb.toFixed(1) + " GB free · " + StorageManager.totalGb.toFixed(0) + " GB total"
-                    font.pixelSize: 10
-                    color: Qt.alpha(ThemeManager.onSurfaceVariant, 0.6)
-                    elide: Text.ElideRight
+                    Label { text: parent._otherGb.toFixed(1) + " GB other"; font.pixelSize: 10; color: Qt.alpha(ThemeManager.onSurfaceVariant, 0.7) }
+                    Label { text: "·"; font.pixelSize: 10; color: Qt.alpha(ThemeManager.onSurfaceVariant, 0.4) }
+                    Label {
+                        text: StorageManager.freeGb.toFixed(1) + " GB free · " + StorageManager.totalGb.toFixed(0) + " GB total"
+                        font.pixelSize: 10; color: Qt.alpha(ThemeManager.onSurfaceVariant, 0.5)
+                        elide: Text.ElideRight
+                        width: parent.width - parent.children[0].width - parent.children[1].width - parent.children[2].width - 18
+                    }
                 }
             }
 
@@ -237,7 +244,7 @@ Rectangle {
         }
 
         SidebarItem {
-            icon: "settings"; label: "Settings"
+            icon: "settings"; label: I18n.t(Settings.language, "settings")
             active: root.currentView === "settings"
             collapsed: root.collapsed
             onClicked: root.viewChanged("settings")

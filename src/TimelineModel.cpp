@@ -191,14 +191,17 @@ void TimelineModel::refresh(bool hideIgnored) {
             totalW += w;
         }
 
-        // Second pass: scale widths so they fill the row exactly.
-        // When h is clamped (e.g. a single wide 16:9 item at a month boundary),
-        // sum(ar*h) < cw-gaps — without this correction there's a gap on the right.
+        // Second pass: scale widths to fill the row.
+        // Portrait images (ar < 1) are capped at 1.2× their natural size so a lone
+        // portrait never gets stretched to a grotesquely wide strip.
         float available = cw - gaps;
         float scale = (totalW > 0.1f) ? available / totalW : 1.0f;
         for (int i = 0; i < rowItems.size(); ++i) {
             QVariantMap m = rowItems.at(i).toMap();
-            m["item_width"] = qRound(m["item_width"].toFloat() * scale);
+            float natW = m["item_width"].toFloat();
+            float ar   = (h > 0.01f) ? natW / h : 1.0f;
+            float s    = (ar < 1.0f && scale > 1.2f) ? 1.2f : scale;
+            m["item_width"] = qRound(natW * s);
             rowItems[i] = m;
         }
 
@@ -232,28 +235,13 @@ void TimelineModel::refresh(bool hideIgnored) {
         map["thumb"]       = ThumbnailGenerator::thumbnailUrl(fp);
         map["path"]        = "file://" + fp;
         map["_flat_index"] = flatIdx++;
-        // Every 9th photo: hero — flush current row, emit a prominent full-width row.
-        const bool isHero = (flatIdx % 9 == 4 && flatIdx > 0); // offset by 4 so it's mid-sequence
-        if (isHero && !rowBuf.isEmpty()) {
-            // Flush what's pending before the hero
+        const float itemAr = aspectRatio(map, flatIdx - 1);
+        rowBuf.append(map);
+        rowArSum += itemAr;
+        // Flush when projected row width reaches content width
+        float projectedWidth = rowArSum * target + gap * (rowBuf.size() - 1);
+        if (projectedWidth >= cw)
             flushRow(false);
-        }
-        if (isHero) {
-            // Hero row: single photo at full content width, 2× target height.
-            float heroH = target * 1.5f;
-            map["item_width"]  = qRound(cw);
-            map["item_height"] = qRound(heroH);
-            QVariantList heroItems;
-            heroItems.append(map);
-            m_rows.append({false, {}, heroItems, heroH});
-        } else {
-            rowBuf.append(map);
-            rowArSum += aspectRatio(map, flatIdx - 1);
-            // Flush when projected row width reaches content width
-            float projectedWidth = rowArSum * target + gap * (rowBuf.size() - 1);
-            if (projectedWidth >= cw)
-                flushRow(false);
-        }
     }
     flushRow(true); // last partial row
 
