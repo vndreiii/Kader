@@ -258,37 +258,6 @@ ApplicationWindow {
 
                     Item { Layout.fillWidth: true }
 
-                    // Refresh/Rescan button
-                    Rectangle {
-                        width: 40; height: 40; radius: 20
-                        color: refreshHover.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
-                        Behavior on color { ColorAnimation { duration: 80 } }
-                        M3Icon {
-                            id: refreshIcon
-                            anchors.centerIn: parent
-                            name: "sync"; size: 22
-                            color: window.isScanning ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                            RotationAnimator on rotation {
-                                running: window.isScanning
-                                from: 0; to: 360; duration: 1000
-                                loops: Animation.Infinite
-                            }
-                        }
-                        MouseArea {
-                            id: refreshHover
-                            anchors.fill: parent; hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            enabled: !window.isScanning
-                            onClicked: {
-                                var dirs = DB.getIndexedDirectories()
-                                for (var i = 0; i < dirs.length; i++) {
-                                    var p = dirs[i].path || ""
-                                    if (p) FileScanner.startScan(p)
-                                }
-                            }
-                        }
-                    }
-
                     // Empty Trash button — only shown in trash view
                     Rectangle {
                         visible: window.currentView === "trash"
@@ -494,21 +463,77 @@ ApplicationWindow {
         }
     }
 
-    // Albums FAB — new album modal
-    Button {
-        id: albumFab
+    // Albums FAB — refresh left, new album right
+    Row {
+        id: albumFabRow
         visible: !window.viewerOnlyMode && window.currentView === "albums"
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         anchors.margins: 28
-        height: 56; padding: 16; z: 10
-        background: Rectangle { radius: 16; color: ThemeManager.primaryContainer }
-        contentItem: RowLayout {
-            spacing: 8
-            M3Icon { name: "add"; size: 24; color: ThemeManager.onPrimaryContainer }
-            Label { text: I18n.t(Settings.language, "new_album"); font.weight: Font.Medium; font.pixelSize: 14; color: ThemeManager.onPrimaryContainer }
+        z: 10
+        spacing: 8
+
+        Rectangle {
+            id: fabAlbumRefresh
+            property bool hovered: fabAlbumRefreshMa.containsMouse
+            height: 56
+            width: hovered ? 16 + 24 + 10 + albumRefreshLabel.implicitWidth + 16 : 56
+            radius: 16
+            color: ThemeManager.primaryContainer
+            clip: true
+            Behavior on width { NumberAnimation { duration: 180; easing.type: Easing.OutQuint } }
+
+            M3Icon {
+                name: "sync"; size: 24; color: ThemeManager.onPrimaryContainer
+                anchors.left: parent.left; anchors.leftMargin: 16
+                anchors.verticalCenter: parent.verticalCenter
+            }
+            Label {
+                id: albumRefreshLabel
+                anchors.left: parent.left; anchors.leftMargin: 16 + 24 + 10
+                anchors.verticalCenter: parent.verticalCenter
+                text: I18n.t(Settings.language, "refresh_library")
+                font.weight: Font.Medium; font.pixelSize: 14; color: ThemeManager.onPrimaryContainer
+                opacity: fabAlbumRefresh.hovered ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 140 } }
+            }
+            MouseArea {
+                id: fabAlbumRefreshMa
+                anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                onClicked: AlbumModel.refresh()
+            }
         }
-        onClicked: newAlbumModal.open()
+
+        Rectangle {
+            id: fabAlbumNew
+            property bool hovered: fabAlbumNewMa.containsMouse
+            height: 56
+            width: hovered ? 16 + 24 + 10 + albumNewLabel.implicitWidth + 16 : 56
+            radius: 16
+            color: ThemeManager.primaryContainer
+            clip: true
+            Behavior on width { NumberAnimation { duration: 180; easing.type: Easing.OutQuint } }
+
+            M3Icon {
+                name: "add"; size: 24; color: ThemeManager.onPrimaryContainer
+                anchors.left: parent.left; anchors.leftMargin: 16
+                anchors.verticalCenter: parent.verticalCenter
+            }
+            Label {
+                id: albumNewLabel
+                anchors.left: parent.left; anchors.leftMargin: 16 + 24 + 10
+                anchors.verticalCenter: parent.verticalCenter
+                text: I18n.t(Settings.language, "new_album")
+                font.weight: Font.Medium; font.pixelSize: 14; color: ThemeManager.onPrimaryContainer
+                opacity: fabAlbumNew.hovered ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 140 } }
+            }
+            MouseArea {
+                id: fabAlbumNewMa
+                anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                onClicked: newAlbumModal.open()
+            }
+        }
     }
 
     AlbumEditModal {

@@ -68,14 +68,14 @@ Item {
                 spacing: 0
 
                 Label {
-                    text: "Ignored folders"
+                    text: I18n.t(Settings.language, "ignored_folders_title")
                     font.pixelSize: 22
                     font.weight: Font.Medium
                     color: ThemeManager.onSurface
                     bottomPadding: 4
                 }
                 Label {
-                    text: "These folders are hidden from your timeline and albums."
+                    text: I18n.t(Settings.language, "ignored_folders_sub")
                     font.pixelSize: 13
                     color: ThemeManager.onSurfaceVariant
                     wrapMode: Text.Wrap
@@ -148,7 +148,7 @@ Item {
                                             color: parent.hovered ? Qt.alpha(ThemeManager.primary, 0.12) : Qt.alpha(ThemeManager.primary, 0.06)
                                         }
                                         contentItem: Label {
-                                            text: "Unignore"
+                                            text: I18n.t(Settings.language, "unignore")
                                             font.pixelSize: 12
                                             font.weight: Font.Medium
                                             color: ThemeManager.primary
@@ -181,7 +181,7 @@ Item {
                             visible: root.ignoredFolders.length === 0
                             Label {
                                 anchors.centerIn: parent
-                                text: "No ignored folders"
+                                text: I18n.t(Settings.language, "no_ignored_folders")
                                 font.pixelSize: 14
                                 color: ThemeManager.onSurfaceVariant
                             }
@@ -199,7 +199,7 @@ Item {
 
                 Button {
                     Layout.alignment: Qt.AlignRight
-                    text: "Done"
+                    text: I18n.t(Settings.language, "done")
                     onClicked: ignoredModal.open = false
                     background: Rectangle { radius: 20; color: ThemeManager.primaryContainer }
                     contentItem: Label {
@@ -239,7 +239,7 @@ Item {
                     spacing: 0
 
                     Label {
-                        text: "Indexed directories"
+                        text: I18n.t(Settings.language, "indexed_dirs")
                         font.pixelSize: 13
                         font.weight: Font.Medium
                         color: ThemeManager.onSurfaceVariant
@@ -314,7 +314,7 @@ Item {
                             leftPadding: 20
                             anchors.verticalCenter: parent.verticalCenter
                             M3Icon { anchors.verticalCenter: parent.verticalCenter; name: "add"; size: 20; color: ThemeManager.primary }
-                            Label { anchors.verticalCenter: parent.verticalCenter; text: "Add directory & Scan"; font.pixelSize: 14; font.weight: Font.Medium; color: ThemeManager.primary }
+                            Label { anchors.verticalCenter: parent.verticalCenter; text: I18n.t(Settings.language, "add_dir_scan"); font.pixelSize: 14; font.weight: Font.Medium; color: ThemeManager.primary }
                         }
                         onClicked: ApplicationWindow.window.openFolderPickerForSettings()
                     }
@@ -329,14 +329,14 @@ Item {
                             leftPadding: 20
                             anchors.verticalCenter: parent.verticalCenter
                             M3Icon { anchors.verticalCenter: parent.verticalCenter; name: "close"; size: 20; color: ThemeManager.onSurfaceVariant }
-                            Label { anchors.verticalCenter: parent.verticalCenter; text: "Manage ignored folders"; font.pixelSize: 14; font.weight: Font.Medium; color: ThemeManager.onSurfaceVariant }
+                            Label { anchors.verticalCenter: parent.verticalCenter; text: I18n.t(Settings.language, "manage_ignored"); font.pixelSize: 14; font.weight: Font.Medium; color: ThemeManager.onSurfaceVariant }
                         }
                         onClicked: { root.refreshIgnored(); ignoredModal.open = true }
                     }
 
                     // Scan exclusion patterns
                     Label {
-                        text: "Scan exclusion filters"
+                        text: I18n.t(Settings.language, "scan_exclusions")
                         font.pixelSize: 13
                         font.weight: Font.Medium
                         color: ThemeManager.onSurfaceVariant
@@ -345,7 +345,7 @@ Item {
                         leftPadding: 20
                     }
                     Label {
-                        text: "Directories whose path contains any of these substrings will be skipped during scan."
+                        text: I18n.t(Settings.language, "scan_exclusions_sub")
                         font.pixelSize: 12
                         color: ThemeManager.onSurfaceVariant
                         wrapMode: Text.Wrap
@@ -422,13 +422,13 @@ Item {
                     }
 
                     SettingsRow {
-                        label: "Auto-scan"
-                        sub: "Watch indexed folders for new photos and videos"
+                        label: I18n.t(Settings.language, "auto_scan")
+                        sub: I18n.t(Settings.language, "auto_scan_sub")
                         action: M3Switch { checked: true }
                     }
                     SettingsRow {
-                        label: "Trash retention"
-                        sub: "Items are permanently deleted after this period"
+                        label: I18n.t(Settings.language, "trash_retention")
+                        sub: I18n.t(Settings.language, "trash_retention_sub")
                         action: ComboBox {
                             model: ["7 days", "30 days", "90 days", "Never"]
                             currentIndex: 1
@@ -442,12 +442,12 @@ Item {
             SettingsSection {
                 title: I18n.t(Settings.language, "section_appearance")
                 SettingsRow {
-                    label: "Theme"
-                    sub: ["System", "Light", "Dark"][ThemeManager.themeMode]
+                    label: I18n.t(Settings.language, "theme")
+                    sub: [I18n.t(Settings.language, "theme_system"), I18n.t(Settings.language, "theme_light"), I18n.t(Settings.language, "theme_dark")][ThemeManager.themeMode]
                     action: Row {
                         spacing: 4
                         Repeater {
-                            model: ["System", "Light", "Dark"]
+                            model: [I18n.t(Settings.language, "theme_system"), I18n.t(Settings.language, "theme_light"), I18n.t(Settings.language, "theme_dark")]
                             delegate: Button {
                                 required property int index
                                 required property string modelData
@@ -472,15 +472,15 @@ Item {
                     }
                 }
                 SettingsRow {
-                    label: "Dynamic color"
-                    sub: "From current cover photo"
+                    label: I18n.t(Settings.language, "dynamic_color")
+                    sub: I18n.t(Settings.language, "dynamic_color_sub")
                     action: M3Switch { checked: true }
                 }
                 SettingsRow {
                     id: densityRow
-                    label: "Mosaic density"
+                    label: I18n.t(Settings.language, "mosaic_density")
                     sub: {
-                        var names = ["Compact", "Comfortable", "Spacious"]
+                        var names = [I18n.t(Settings.language, "density_compact"), I18n.t(Settings.language, "density_comfortable"), I18n.t(Settings.language, "density_spacious")]
                         return names[Math.max(0, Math.min(Math.round(densitySlider.value) - 1, 2))]
                     }
                     action: MD.Slider {
@@ -504,28 +504,29 @@ Item {
                     action: ComboBox {
                         id: langCombo
                         property var langs: [
+                            {code:"an",  name:"Andalú"},
+                            {code:"ca",  name:"Català"},
+                            {code:"de",  name:"Deutsch"},
                             {code:"en",  name:"English"},
                             {code:"es",  name:"Español"},
-                            {code:"ro",  name:"Română"},
+                            {code:"fil", name:"Filipino"},
                             {code:"fr",  name:"Français"},
-                            {code:"pt",  name:"Português"},
-                            {code:"ja",  name:"日本語"},
-                            {code:"zh",  name:"中文"},
-                            {code:"tr",  name:"Türkçe"},
-                            {code:"ca",  name:"Català"},
                             {code:"gl",  name:"Galego"},
-                            {code:"an",  name:"Andalú"},
-                            {code:"nl",  name:"Nederlands"},
-                            {code:"de",  name:"Deutsch"},
-                            {code:"vi",  name:"Tiếng Việt"},
-                            {code:"ru",  name:"Русский"},
                             {code:"hr",  name:"Hrvatski"},
-                            {code:"sr",  name:"Српски"},
                             {code:"it",  name:"Italiano"},
-                            {code:"fil", name:"Filipino"}
+                            {code:"ja",  name:"日本語"},
+                            {code:"nl",  name:"Nederlands"},
+                            {code:"pt",  name:"Português"},
+                            {code:"ro",  name:"Română"},
+                            {code:"ru",  name:"Русский"},
+                            {code:"sr",  name:"Српски"},
+                            {code:"tr",  name:"Türkçe"},
+                            {code:"vi",  name:"Tiếng Việt"},
+                            {code:"zh",  name:"中文"}
                         ]
                         model: langs.map(function(l) { return l.name })
-                        implicitWidth: 150
+                        implicitWidth: 200
+                        implicitHeight: 44
                         currentIndex: {
                             var l = Settings.language
                             for (var i = 0; i < langs.length; i++)
@@ -534,17 +535,30 @@ Item {
                         }
                         onActivated: Settings.language = langs[currentIndex].code
                         background: Rectangle {
-                            radius: 10
-                            color: ThemeManager.surfaceContainerHighest
-                            border.color: ThemeManager.outline; border.width: 1
+                            radius: 12
+                            color: langCombo.pressed
+                                   ? Qt.alpha(ThemeManager.primary, 0.12)
+                                   : (langCombo.hovered ? Qt.alpha(ThemeManager.onSurface, 0.06) : ThemeManager.surfaceContainerHighest)
+                            border.color: langCombo.pressed ? ThemeManager.primary : ThemeManager.outline
+                            border.width: 1
+                            Behavior on color { ColorAnimation { duration: 80 } }
                         }
                         contentItem: Label {
-                            leftPadding: 12; rightPadding: 8
+                            leftPadding: 14; rightPadding: 36
                             text: langCombo.displayText
-                            font.pixelSize: 13
+                            font.pixelSize: 14
+                            font.weight: Font.Medium
                             color: ThemeManager.onSurface
                             verticalAlignment: Text.AlignVCenter
                             elide: Text.ElideRight
+                        }
+                        indicator: M3Icon {
+                            name: langCombo.popup.visible ? "expand_less" : "expand_more"
+                            size: 20
+                            color: ThemeManager.onSurfaceVariant
+                            anchors.right: parent.right
+                            anchors.rightMargin: 10
+                            anchors.verticalCenter: parent.verticalCenter
                         }
                     }
                 }
@@ -553,8 +567,8 @@ Item {
             SettingsSection {
                 title: I18n.t(Settings.language, "section_playback")
                 SettingsRow {
-                    label: "Use PulseAudio output"
-                    sub: "Enables Discord to capture audio; switch off to use PipeWire directly"
+                    label: I18n.t(Settings.language, "use_pulse_audio")
+                    sub: I18n.t(Settings.language, "use_pulse_audio_sub")
                     last: true
                     action: M3Switch {
                         checked: Settings.usePulseAudio
@@ -571,8 +585,8 @@ Item {
                     spacing: 0
 
                     SettingsRow {
-                        label: "Show RAW files"
-                        sub: "Include RAW camera formats (.NEF, .CR2, .ARW, .DNG…) in your library"
+                        label: I18n.t(Settings.language, "show_raw")
+                        sub: I18n.t(Settings.language, "show_raw_sub")
                         action: M3Switch {
                             checked: Settings.rawFilter !== 1
                             onCheckedChanged: {
@@ -585,13 +599,13 @@ Item {
                     }
 
                     SettingsRow {
-                        label: "File filter"
-                        sub: "Choose which formats appear in Timeline and Albums"
+                        label: I18n.t(Settings.language, "file_filter")
+                        sub: I18n.t(Settings.language, "file_filter_sub")
                         last: true
                         action: Row {
                             spacing: 4
                             Repeater {
-                                model: [["All", 0], ["JPEG only", 1], ["RAW only", 2]]
+                                model: [[I18n.t(Settings.language, "filter_all"), 0], [I18n.t(Settings.language, "filter_jpeg_only"), 1], [I18n.t(Settings.language, "filter_raw_only"), 2]]
                                 delegate: Button {
                                     required property var modelData
                                     text: modelData[0]
@@ -621,11 +635,11 @@ Item {
             SettingsSection {
                 title: I18n.t(Settings.language, "section_privacy")
                 SettingsRow {
-                    label: "Strip EXIF data"
-                    sub: "Remove location and camera metadata"
+                    label: I18n.t(Settings.language, "strip_exif")
+                    sub: I18n.t(Settings.language, "strip_exif_sub")
                     last: true
                     action: Button {
-                        text: "Strip metadata…"
+                        text: I18n.t(Settings.language, "strip_metadata_btn")
                         onClicked: console.log("Strip EXIF")
                     }
                 }
@@ -634,8 +648,8 @@ Item {
             SettingsSection {
                 title: I18n.t(Settings.language, "section_ai")
                 SettingsRow {
-                    label: "Face groups"
-                    sub: "Automatic face detection groups similar faces across your library. Processed on-device."
+                    label: I18n.t(Settings.language, "face_groups")
+                    sub: I18n.t(Settings.language, "face_groups_sub")
                     action: M3Switch { checked: true }
                     last: true
                 }

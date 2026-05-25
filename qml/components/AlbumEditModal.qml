@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import ".."
+import "../I18n.js" as I18n
 
 Popup {
     id: root
@@ -52,7 +53,7 @@ Popup {
         RowLayout {
             width: parent.width - parent.padding * 2
             Label {
-                text: root.isNew ? "New album" : "Edit album"
+                text: root.isNew ? I18n.t(Settings.language, "new_album") : I18n.t(Settings.language, "edit_album")
                 font.family: "Roboto Flex"; font.pixelSize: 20; font.weight: Font.Medium
                 color: ThemeManager.onSurface
             }
@@ -70,7 +71,7 @@ Popup {
         Column {
             width: parent.width - parent.padding * 2
             spacing: 4
-            Label { text: "Name"; font.pixelSize: 12; color: ThemeManager.onSurfaceVariant }
+            Label { text: I18n.t(Settings.language, "field_name"); font.pixelSize: 12; color: ThemeManager.onSurfaceVariant }
             Rectangle {
                 width: parent.width; height: 48; radius: 12
                 color: ThemeManager.surfaceContainerHighest
@@ -90,7 +91,7 @@ Popup {
         Column {
             width: parent.width - parent.padding * 2
             spacing: 4
-            Label { text: "Description (optional)"; font.pixelSize: 12; color: ThemeManager.onSurfaceVariant }
+            Label { text: I18n.t(Settings.language, "field_desc_optional"); font.pixelSize: 12; color: ThemeManager.onSurfaceVariant }
             Rectangle {
                 width: parent.width; height: 88; radius: 12
                 color: ThemeManager.surfaceContainerHighest
@@ -110,7 +111,7 @@ Popup {
         Column {
             width: parent.width - parent.padding * 2
             spacing: 8
-            Label { text: "Cover photo"; font.pixelSize: 12; color: ThemeManager.onSurfaceVariant }
+            Label { text: I18n.t(Settings.language, "cover_photo"); font.pixelSize: 12; color: ThemeManager.onSurfaceVariant }
             Row {
                 spacing: 14
                 Rectangle {
@@ -139,7 +140,7 @@ Popup {
                         id: changeRow
                         anchors.centerIn: parent; spacing: 6
                         M3Icon { name: "image"; size: 18; color: ThemeManager.primary; anchors.verticalCenter: parent.verticalCenter }
-                        Label { text: "Change photo"; font.pixelSize: 13; color: ThemeManager.primary }
+                        Label { text: I18n.t(Settings.language, "change_photo"); font.pixelSize: 13; color: ThemeManager.primary }
                     }
                     MouseArea {
                         id: addPhotoMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -157,7 +158,7 @@ Popup {
                 width: cancelLbl.implicitWidth + 32; height: 40; radius: 20
                 color: cancelMa.containsMouse ? Qt.alpha(ThemeManager.primary, 0.08) : "transparent"
                 Behavior on color { ColorAnimation { duration: 80 } }
-                Label { id: cancelLbl; anchors.centerIn: parent; text: "Cancel"; color: ThemeManager.primary; font.pixelSize: 14 }
+                Label { id: cancelLbl; anchors.centerIn: parent; text: I18n.t(Settings.language, "cancel"); color: ThemeManager.primary; font.pixelSize: 14 }
                 MouseArea { id: cancelMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.close() }
             }
             Rectangle {
@@ -165,7 +166,7 @@ Popup {
                 color: saveMa.containsMouse ? Qt.alpha(ThemeManager.primary, 0.85) : ThemeManager.primary
                 opacity: nameField.text.trim().length > 0 ? 1 : 0.4
                 Behavior on color { ColorAnimation { duration: 80 } }
-                Label { id: saveLbl; anchors.centerIn: parent; text: root.isNew ? "Create album" : "Save"; color: ThemeManager.onPrimary; font.pixelSize: 14; font.weight: Font.Medium }
+                Label { id: saveLbl; anchors.centerIn: parent; text: root.isNew ? I18n.t(Settings.language, "create_album") : I18n.t(Settings.language, "save"); color: ThemeManager.onPrimary; font.pixelSize: 14; font.weight: Font.Medium }
                 MouseArea {
                     id: saveMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                     enabled: nameField.text.trim().length > 0

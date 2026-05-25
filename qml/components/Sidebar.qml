@@ -162,7 +162,7 @@ Rectangle {
                 Row {
                     spacing: 8
                     M3Icon { name: "computer"; size: 18; color: ThemeManager.primary }
-                    Label { text: "This PC"; font.pixelSize: 12; font.weight: Font.Medium; color: ThemeManager.onSurface }
+                    Label { text: I18n.t(Settings.language, "this_pc"); font.pixelSize: 12; font.weight: Font.Medium; color: ThemeManager.onSurface }
                 }
                 Rectangle {
                     width: parent.width; height: 6; radius: 3
@@ -196,12 +196,11 @@ Rectangle {
                     width: parent.width; spacing: 6
                     Rectangle { width: 8; height: 8; radius: 4; color: ThemeManager.secondary; opacity: 0.7; anchors.verticalCenter: parent.verticalCenter }
                     Label { text: parent._otherGb.toFixed(1) + " GB other"; font.pixelSize: 10; color: Qt.alpha(ThemeManager.onSurfaceVariant, 0.7) }
-                    Label { text: "·"; font.pixelSize: 10; color: Qt.alpha(ThemeManager.onSurfaceVariant, 0.4) }
                     Label {
-                        text: StorageManager.freeGb.toFixed(1) + " GB free · " + StorageManager.totalGb.toFixed(0) + " GB total"
+                        text: StorageManager.freeGb.toFixed(1) + " GB free  " + StorageManager.totalGb.toFixed(0) + " GB total"
                         font.pixelSize: 10; color: Qt.alpha(ThemeManager.onSurfaceVariant, 0.5)
                         elide: Text.ElideRight
-                        width: parent.width - parent.children[0].width - parent.children[1].width - parent.children[2].width - 18
+                        width: parent.width - parent.children[0].width - parent.children[1].implicitWidth - parent.spacing * 2
                     }
                 }
             }
