@@ -139,8 +139,6 @@ Item {
     }
 
     // ── Fast-scroll date scrubber ────────────────────────────────────────
-    // A draggable handle on the right edge that shows the current month/year
-    // and lets the user scrub through date ranges by dragging.
     Rectangle {
         id: scrubber
         visible: listView.count > 0 && listView.contentHeight > listView.height * 1.5
@@ -148,65 +146,89 @@ Item {
         anchors.rightMargin: 4
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        width: 6
+        width: 44
         color: "transparent"
 
-        // The draggable handle
+        property bool   _dragging:   false
+        property string _startMonth: ""
+
+        // Current month at the visible scroll position — only computed while dragging
+        readonly property string _currentMonth: {
+            if (!_dragging) return ""
+            var idx = Math.floor(listView.visibleArea.yPosition * listView.count)
+            idx = Math.max(0, Math.min(listView.count - 1, idx))
+            return TimelineModel.data(TimelineModel.index(idx, 0), 258) || ""
+        }
+
+        // Bubble appears once user has scrolled past the starting month
+        readonly property bool _showBubble: _dragging
+            && _currentMonth !== "" && _currentMonth !== _startMonth
+
+        // Handle — y is purely driven by list scroll (no drag.target, no binding conflict)
         Rectangle {
             id: scrubHandle
             width: 32; height: 56
             radius: 16
             anchors.right: parent.right
-            color: scrubDrag.pressed ? ThemeManager.primary : Qt.alpha(ThemeManager.onSurface, 0.2)
+            color: scrubber._dragging ? ThemeManager.primary : Qt.alpha(ThemeManager.onSurface, 0.2)
             Behavior on color { ColorAnimation { duration: 100 } }
 
-            // Position based on scroll ratio
             y: Math.max(0, Math.min(scrubber.height - height,
-                listView.visibleArea.yPosition * scrubber.height))
+                   listView.visibleArea.yPosition * scrubber.height))
 
-            // Month label (shown while dragging)
+            // Month bubble — fades + scales in after crossing a month boundary
             Rectangle {
-                visible: scrubDrag.pressed
+                visible: scrubber._dragging
+                opacity: scrubber._showBubble ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutQuart } }
+                scale: scrubber._showBubble ? 1.0 : 0.85
+                Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack } }
+                transformOrigin: Item.Right
+
                 anchors.right: parent.left
                 anchors.rightMargin: 8
                 anchors.verticalCenter: parent.verticalCenter
                 color: ThemeManager.inverseSurface
                 radius: 10
-                width: monthLabel.implicitWidth + 20; height: 36
+                width: monthLabel.implicitWidth + 20
+                height: 36
 
                 Label {
                     id: monthLabel
                     anchors.centerIn: parent
-                    text: {
-                        if (!scrubDrag.pressed) return ""
-                        var idx = Math.floor(listView.count * (scrubHandle.y / scrubber.height))
-                        idx = Math.max(0, Math.min(listView.count - 1, idx))
-                        var item = TimelineModel.data(TimelineModel.index(idx, 0), 258) // MonthNameRole
-                        return item || ""
-                    }
+                    text: scrubber._currentMonth
                     color: ThemeManager.inverseOnSurface
                     font.pixelSize: 13; font.weight: Font.Medium
                 }
             }
+        }
 
-            MouseArea {
-                id: scrubDrag
-                anchors.fill: parent
-                drag.target: scrubHandle
-                drag.axis: Drag.YAxis
-                drag.minimumY: 0
-                drag.maximumY: scrubber.height - scrubHandle.height
+        // Full-height drag area — sets contentY directly, avoids positionViewAtIndex
+        // index-mapping issues and eliminates the drag.target / y-binding conflict.
+        MouseArea {
+            id: scrubDrag
+            anchors.fill: parent
+            preventStealing: true
+            cursorShape: Qt.SizeVerCursor
 
-                onPositionChanged: {
-                    if (pressed) {
-                        var ratio = scrubHandle.y / Math.max(1, scrubber.height - scrubHandle.height)
-                        var targetIdx = Math.floor(ratio * listView.count)
-                        listView.positionViewAtIndex(
-                            Math.max(0, Math.min(listView.count - 1, targetIdx)),
-                            ListView.Beginning)
-                    }
-                }
+            function _applyScroll(my) {
+                var ratio  = Math.max(0, Math.min(1.0, my / Math.max(1, scrubber.height)))
+                var maxY   = Math.max(0, listView.contentHeight - listView.height)
+                listView.contentY = ratio * maxY
             }
+
+            onPressed: (mouse) => {
+                // Record the month we're starting from before any scroll
+                var idx = Math.round(listView.visibleArea.yPosition * listView.count)
+                idx = Math.max(0, Math.min(listView.count - 1, idx))
+                scrubber._startMonth = TimelineModel.data(TimelineModel.index(idx, 0), 258) || ""
+                scrubber._dragging = true
+                _applyScroll(mouse.y)
+            }
+            onPositionChanged: (mouse) => {
+                if (pressed) _applyScroll(mouse.y)
+            }
+            onReleased: scrubber._dragging = false
         }
     }
 

@@ -47,7 +47,7 @@ Item {
 
     Row {
         anchors.fill: parent
-        anchors.leftMargin: 28
+        anchors.leftMargin: root.collapsed ? Math.floor((root.width - 24) / 2) : 28
         spacing: 12
 
         // ── Icon ─────────────────────────────────────────────────────────
