@@ -10,6 +10,7 @@ Item {
     signal openViewer(var mediaData, int index)
 
     Component.onCompleted: {
+        TimelineModel.filterMode = 0
         TimelineModel.setMimeFilter("")
         TimelineModel.setFolderFilter(folderPath)
     }
