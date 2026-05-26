@@ -201,9 +201,10 @@ void SemanticWorker::indexPendingMedia()
 {
     QSqlDatabase db = m_db->threadDb();
     QSqlQuery q(db);
-    q.prepare("SELECT id, file_path FROM media "
-              "WHERE is_trashed=0 AND is_ignored=0 "
-              "AND id NOT IN (SELECT media_id FROM ai_embeddings)");
+    q.prepare("SELECT m.id, m.file_path FROM media m "
+              "WHERE m.is_trashed=0 AND m.is_hidden=0 "
+              "AND m.id NOT IN (SELECT media_id FROM ai_embeddings) "
+              "ORDER BY m.creation_date DESC");
     q.exec();
 
     QList<QPair<int,QString>> pending;
@@ -307,6 +308,10 @@ void SemanticSearchEngine::unloadModel()
 void SemanticSearchEngine::indexAllMedia()
 {
     if (!m_ready) { emit engineError("Model not loaded"); return; }
+    if (m_indexing) return;
+    m_indexing = true; emit indexingChanged();
+    m_indexedCount = 0; emit indexedCountChanged();
+    m_indexTotal   = 0; emit indexTotalChanged();
     QMetaObject::invokeMethod(m_worker, &SemanticWorker::indexPendingMedia,
                               Qt::QueuedConnection);
 }
@@ -419,7 +424,14 @@ void SemanticSearchEngine::onTextEmbeddingReady(int queryId, QByteArray blob)
 
 void SemanticSearchEngine::onIndexProgress(int cur, int total)
 {
-    m_indexedCount = cur; emit indexedCountChanged(); Q_UNUSED(total)
+    m_indexedCount = cur;
+    if (m_indexTotal != total) { m_indexTotal = total; emit indexTotalChanged(); }
+    emit indexedCountChanged();
+    if (cur >= total && total > 0) {
+        m_indexing = false;
+        emit indexingChanged();
+        qDebug() << "[AI] Indexing complete:" << cur << "embeddings stored";
+    }
 }
 
 void SemanticSearchEngine::onWorkerError(QString msg)

@@ -58,6 +58,8 @@ class SemanticSearchEngine : public QObject {
     Q_PROPERTY(QString dlStatus    READ dlStatus       NOTIFY dlStatusChanged)
     Q_PROPERTY(double  dlProgress  READ dlProgress     NOTIFY dlProgressChanged)
     Q_PROPERTY(int indexedCount    READ indexedCount   NOTIFY indexedCountChanged)
+    Q_PROPERTY(int indexTotal      READ indexTotal     NOTIFY indexTotalChanged)
+    Q_PROPERTY(bool indexing       READ indexing       NOTIFY indexingChanged)
 
 public:
     explicit SemanticSearchEngine(DatabaseManager *db, QObject *parent = nullptr);
@@ -70,6 +72,8 @@ public:
     QString dlStatus()   const { return m_dlStatus; }
     double  dlProgress() const { return m_dlProgress; }
     int indexedCount()   const { return m_indexedCount; }
+    int indexTotal()     const { return m_indexTotal; }
+    bool indexing()      const { return m_indexing; }
 
     // Models are stored here
     static QString modelsDir();
@@ -93,6 +97,8 @@ signals:
     void dlStatusChanged();
     void dlProgressChanged();
     void indexedCountChanged();
+    void indexTotalChanged();
+    void indexingChanged();
     void searchFinished(QVariantList results);
     void engineError(QString message);
 
@@ -113,13 +119,15 @@ private:
     QNetworkReply           *m_reply   = nullptr;
     QFile                   *m_dlFile  = nullptr;
 
-    bool    m_ready       = false;
-    bool    m_loading     = false;
-    bool    m_downloading = false;
-    bool    m_dlCancel    = false;
+    bool    m_ready        = false;
+    bool    m_loading      = false;
+    bool    m_downloading  = false;
+    bool    m_dlCancel     = false;
+    bool    m_indexing     = false;
     QString m_dlStatus;
-    double  m_dlProgress  = 0.0;
+    double  m_dlProgress   = 0.0;
     int     m_indexedCount = 0;
+    int     m_indexTotal   = 0;
 
     // Download queue: pairs of (url, local-path)
     QList<QPair<QString,QString>> m_dlQueue;

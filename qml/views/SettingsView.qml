@@ -739,27 +739,58 @@ Item {
                     }
                 }
 
-                // Index library button
+                // Index library
                 SettingsRow {
                     visible: AI.ready
                     label: qsTr("Index Library")
-                    sub: AI.indexedCount > 0
-                         ? qsTr("Indexing… %1 photos embedded").arg(AI.indexedCount)
-                         : qsTr("Generate embeddings for all photos (runs in background)")
+                    sub: {
+                        if (AI.indexing)
+                            return qsTr("%1 / %2 photos embedded…").arg(AI.indexedCount).arg(AI.indexTotal)
+                        if (AI.indexedCount > 0 && AI.indexTotal > 0)
+                            return qsTr("Done — %1 photos indexed").arg(AI.indexedCount)
+                        return qsTr("Generate embeddings so you can search by description (GPU accelerated)")
+                    }
                     last: true
-                    action: Rectangle {
-                        width: idxLabel.implicitWidth + 24; height: 36; radius: 18
-                        color: ThemeManager.secondaryContainer
-                        Label {
-                            id: idxLabel
-                            anchors.centerIn: parent
-                            text: qsTr("Start Indexing")
-                            font.pixelSize: 13; font.weight: Font.Medium
-                            color: ThemeManager.onSecondaryContainer
+                    action: ColumnLayout {
+                        spacing: 6
+
+                        // Progress bar shown while indexing
+                        Rectangle {
+                            visible: AI.indexing
+                            width: 160; height: 6; radius: 3
+                            color: ThemeManager.surfaceContainerHighest
+                            Rectangle {
+                                width: AI.indexTotal > 0
+                                    ? Math.max(4, parent.width * AI.indexedCount / AI.indexTotal)
+                                    : 0
+                                height: parent.height; radius: parent.radius
+                                color: ThemeManager.primary
+                                Behavior on width { NumberAnimation { duration: 300 } }
+                            }
                         }
-                        MouseArea {
-                            anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                            onClicked: AI.indexAllMedia()
+
+                        Rectangle {
+                            width: idxLabel.implicitWidth + 24; height: 36; radius: 18
+                            color: AI.indexing
+                                ? ThemeManager.surfaceContainerHighest
+                                : ThemeManager.secondaryContainer
+                            Behavior on color { ColorAnimation { duration: 120 } }
+                            Label {
+                                id: idxLabel
+                                anchors.centerIn: parent
+                                text: AI.indexing ? qsTr("Indexing…") : qsTr("Start Indexing")
+                                font.pixelSize: 13; font.weight: Font.Medium
+                                color: AI.indexing
+                                    ? ThemeManager.onSurfaceVariant
+                                    : ThemeManager.onSecondaryContainer
+                                Behavior on color { ColorAnimation { duration: 120 } }
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: AI.indexing ? Qt.ArrowCursor : Qt.PointingHandCursor
+                                enabled: !AI.indexing
+                                onClicked: AI.indexAllMedia()
+                            }
                         }
                     }
                 }
