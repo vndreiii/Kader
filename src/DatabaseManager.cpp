@@ -163,6 +163,15 @@ bool DatabaseManager::createTables() {
         ")"
     );
 
+    query.exec(
+        "CREATE TABLE IF NOT EXISTS ai_embeddings ("
+        "media_id  INTEGER PRIMARY KEY REFERENCES media(id) ON DELETE CASCADE,"
+        "embedding BLOB NOT NULL,"
+        "model_ver TEXT NOT NULL,"
+        "created_at INTEGER DEFAULT (strftime('%s','now'))"
+        ")"
+    );
+
     // Ensure path_prefix has a UNIQUE index. Adding an index is safe under WAL
     // and avoids the DDL-heavy table-recreation that would deadlock with open readers.
     {

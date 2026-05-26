@@ -43,6 +43,7 @@ set(SOURCES
     ${SOURCE_DIR}/AlbumModel.cpp
     ${SOURCE_DIR}/SettingsManager.cpp
     ${SOURCE_DIR}/StorageManager.cpp
+    ${SOURCE_DIR}/SemanticSearchEngine.cpp
 )
 
 # Headers
@@ -59,6 +60,7 @@ set(HEADERS
     ${INCLUDE_DIR}/AlbumModel.h
     ${INCLUDE_DIR}/SettingsManager.h
     ${INCLUDE_DIR}/StorageManager.h
+    ${INCLUDE_DIR}/SemanticSearchEngine.h
 )
 
 add_library(KaderLib STATIC
@@ -82,6 +84,9 @@ target_link_libraries(KaderLib PUBLIC
     ${VIPS_LIBRARIES}
     ${EXIV2_LIBRARIES}
     ${LIBRAW_LIBRARIES}
+    Qt6::Network
+    llama
+    mtmd
     qml_material
 )
 

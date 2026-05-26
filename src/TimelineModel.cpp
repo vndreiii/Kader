@@ -3,6 +3,7 @@
 #include "ThumbnailGenerator.h"
 #include <QDateTime>
 #include <QDebug>
+#include <algorithm>
 
 TimelineModel::TimelineModel(DatabaseManager *db, QObject *parent)
     : QAbstractListModel(parent), m_db(db) {
@@ -75,6 +76,22 @@ void TimelineModel::setMimeFilter(const QString &prefix) {
     }
 }
 
+void TimelineModel::setAiFilter(const QVariantList &ids) {
+    m_aiFilterIds.clear();
+    for (const QVariant &v : ids)
+        m_aiFilterIds.append(v.toInt());
+    emit aiFilterActiveChanged();
+    refresh();
+}
+
+void TimelineModel::clearAiFilter() {
+    if (!m_aiFilterIds.isEmpty()) {
+        m_aiFilterIds.clear();
+        emit aiFilterActiveChanged();
+        refresh();
+    }
+}
+
 void TimelineModel::setContentWidth(int px) {
     if (px > 0 && qAbs(px - m_contentWidth) > 8) {
         m_contentWidth = px;
@@ -122,6 +139,23 @@ void TimelineModel::refresh(bool hideIgnored) {
         for (const QVariant &v : allMedia)
             if (v.toMap().value("mime_type").toString().startsWith(m_mimeFilter))
                 filtered.append(v);
+        allMedia = filtered;
+    }
+
+    // AI semantic search filter — keep only matching IDs in relevance order
+    const bool aiMode = !m_aiFilterIds.isEmpty();
+    if (aiMode) {
+        QHash<int, int> rank;
+        for (int i = 0; i < m_aiFilterIds.size(); ++i)
+            rank[m_aiFilterIds[i]] = i;
+        QVariantList filtered;
+        for (const QVariant &v : allMedia)
+            if (rank.contains(v.toMap().value("id").toInt()))
+                filtered.append(v);
+        std::sort(filtered.begin(), filtered.end(), [&rank](const QVariant &a, const QVariant &b) {
+            return rank.value(a.toMap().value("id").toInt(), 9999) <
+                   rank.value(b.toMap().value("id").toInt(), 9999);
+        });
         allMedia = filtered;
     }
 
@@ -229,7 +263,7 @@ void TimelineModel::refresh(bool hideIgnored) {
         if (month != currentMonth) {
             flushRow(false);
             currentMonth = month;
-            m_rows.append({true, month, {}, 0});
+            if (!aiMode) m_rows.append({true, month, {}, 0});
         }
 
         map["thumb"]       = ThumbnailGenerator::thumbnailUrl(fp);

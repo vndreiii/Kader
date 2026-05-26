@@ -16,6 +16,7 @@
 #include "AlbumModel.h"
 #include "SettingsManager.h"
 #include "StorageManager.h"
+#include "SemanticSearchEngine.h"
 
 int main(int argc, char *argv[]) {
     // Prefer Qt's FFmpeg multimedia backend over GStreamer for better codec
@@ -47,6 +48,7 @@ int main(int argc, char *argv[]) {
     SettingsManager settingsManager;
     ThemeManager themeManager;
     StorageManager storageManager(&dbManager);
+    SemanticSearchEngine semanticSearch(&dbManager);
     ThumbnailGenerator thumbGenerator;
     FileScanner fileScanner(&dbManager);
     fileScanner.setThumbnailGenerator(&thumbGenerator);
@@ -148,6 +150,7 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("ThumbGen", &thumbGenerator);
     engine.rootContext()->setContextProperty("CMAKE_SOURCE_DIR", CMAKE_SOURCE_DIR);
     engine.rootContext()->setContextProperty("STARTUP_FILE", startupFile);
+    engine.rootContext()->setContextProperty("AI", &semanticSearch);
 
     const QUrl url(u"qrc:/Kader/qml/main.qml"_qs);
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,

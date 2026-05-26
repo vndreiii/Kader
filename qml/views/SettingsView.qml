@@ -647,11 +647,121 @@ Item {
 
             SettingsSection {
                 title: I18n.t(Settings.language, "section_ai")
+
+                // Model status + download
                 SettingsRow {
-                    label: I18n.t(Settings.language, "face_groups")
-                    sub: I18n.t(Settings.language, "face_groups_sub")
-                    action: M3Switch { checked: true }
+                    label: qsTr("Semantic Search")
+                    sub: AI.modelsPresent
+                         ? (AI.ready ? qsTr("Model loaded — ready to search") : qsTr("Models available — click to load"))
+                         : qsTr("Download Qwen3-VL-Embedding-2B (~1.9 GB) to enable AI-powered search")
+
+                    action: RowLayout {
+                        spacing: 8
+
+                        // Load / unload
+                        Rectangle {
+                            visible: AI.modelsPresent && !AI.loading && !AI.downloading
+                            width: btn.implicitWidth + 24; height: 36; radius: 18
+                            color: AI.ready ? Qt.alpha(ThemeManager.error, 0.1) : ThemeManager.primaryContainer
+                            Behavior on color { ColorAnimation { duration: 120 } }
+                            Label {
+                                id: btn
+                                anchors.centerIn: parent
+                                text: AI.ready ? qsTr("Unload") : qsTr("Load")
+                                font.pixelSize: 13; font.weight: Font.Medium
+                                color: AI.ready ? ThemeManager.error : ThemeManager.onPrimaryContainer
+                            }
+                            MouseArea {
+                                anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                onClicked: AI.ready ? AI.unloadModel() : AI.loadModel()
+                            }
+                        }
+
+                        // Spinner while loading
+                        BusyIndicator {
+                            visible: AI.loading
+                            width: 28; height: 28
+                            running: AI.loading
+                        }
+
+                        // Download button
+                        Rectangle {
+                            visible: !AI.modelsPresent && !AI.downloading
+                            width: dlLabel.implicitWidth + 24; height: 36; radius: 18
+                            color: ThemeManager.primaryContainer
+                            Label {
+                                id: dlLabel
+                                anchors.centerIn: parent
+                                text: qsTr("Download")
+                                font.pixelSize: 13; font.weight: Font.Medium
+                                color: ThemeManager.onPrimaryContainer
+                            }
+                            MouseArea {
+                                anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                onClicked: AI.downloadModels()
+                            }
+                        }
+
+                        // Cancel download
+                        Rectangle {
+                            visible: AI.downloading
+                            width: cancelLabel.implicitWidth + 24; height: 36; radius: 18
+                            color: Qt.alpha(ThemeManager.error, 0.1)
+                            Label {
+                                id: cancelLabel
+                                anchors.centerIn: parent
+                                text: qsTr("Cancel")
+                                font.pixelSize: 13; font.weight: Font.Medium
+                                color: ThemeManager.error
+                            }
+                            MouseArea {
+                                anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                onClicked: AI.cancelDownload()
+                            }
+                        }
+                    }
+                }
+
+                // Download progress bar
+                SettingsRow {
+                    visible: AI.downloading
+                    label: AI.dlStatus
+                    sub: Math.round(AI.dlProgress * 100) + "% complete"
+                    action: Rectangle {
+                        width: 120; height: 6; radius: 3
+                        color: ThemeManager.surfaceContainerHighest
+                        Rectangle {
+                            width: parent.width * AI.dlProgress
+                            height: parent.height; radius: parent.radius
+                            color: ThemeManager.primary
+                            Behavior on width { NumberAnimation { duration: 200 } }
+                        }
+                    }
+                }
+
+                // Index library button
+                SettingsRow {
+                    visible: AI.ready
+                    label: qsTr("Index Library")
+                    sub: AI.indexedCount > 0
+                         ? qsTr("Indexing… %1 photos embedded").arg(AI.indexedCount)
+                         : qsTr("Generate embeddings for all photos (runs in background)")
                     last: true
+                    action: Rectangle {
+                        width: idxLabel.implicitWidth + 24; height: 36; radius: 18
+                        color: ThemeManager.secondaryContainer
+                        Label {
+                            id: idxLabel
+                            anchors.centerIn: parent
+                            text: qsTr("Start Indexing")
+                            font.pixelSize: 13; font.weight: Font.Medium
+                            color: ThemeManager.onSecondaryContainer
+                        }
+                        MouseArea {
+                            anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                            onClicked: AI.indexAllMedia()
+                        }
+                    }
                 }
             }
         }

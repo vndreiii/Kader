@@ -22,6 +22,24 @@ ApplicationWindow {
 
     property real timelineScrollY: 0
 
+    onCurrentViewChanged: {
+        if (searchPill._aiMode) {
+            searchPill._aiMode = false
+            TimelineModel.clearAiFilter()
+        }
+    }
+
+    Connections {
+        target: AI
+        function onSearchFinished(results) {
+            var ids = results.map(function(r) { return r.id })
+            TimelineModel.setAiFilter(ids)
+            var tl = window._tlViewInst
+            if (tl && mainStack.currentItem !== tl) mainStack.replace(tl)
+            window.currentView = "timeline"
+        }
+    }
+
     // Cached view instances — created once, reused across switches
     property Item _tlViewInst:       null
     property Item _albumsViewInst:   null
@@ -300,6 +318,7 @@ ApplicationWindow {
 
                     Rectangle {
                         id: searchPill
+                        property bool _aiMode: false
                         MouseArea {
                             anchors.fill: parent
                             z: -1
@@ -308,8 +327,11 @@ ApplicationWindow {
                         width: 360
                         height: 48
                         radius: 24
-                        color: ThemeManager.surfaceContainer
-                        
+                        color: searchPill._aiMode
+                            ? Qt.alpha(ThemeManager.primary, 0.08)
+                            : ThemeManager.surfaceContainer
+                        Behavior on color { ColorAnimation { duration: 150 } }
+
                         RowLayout {
                             anchors.fill: parent
                             anchors.leftMargin: 16
@@ -317,9 +339,10 @@ ApplicationWindow {
                             spacing: 12
 
                             M3Icon {
-                                name: "search"
+                                name: searchPill._aiMode ? "auto_awesome" : "search"
                                 size: 20
-                                color: ThemeManager.onSurfaceVariant
+                                color: searchPill._aiMode ? ThemeManager.primary : ThemeManager.onSurfaceVariant
+                                Behavior on color { ColorAnimation { duration: 150 } }
                             }
 
                             Item {
@@ -328,7 +351,9 @@ ApplicationWindow {
 
                                 Text {
                                     anchors.fill: parent
-                                    text: I18n.t(Settings.language, "search_placeholder")
+                                    text: searchPill._aiMode
+                                        ? I18n.t(Settings.language, "ai_search_placeholder")
+                                        : I18n.t(Settings.language, "search_placeholder")
                                     color: ThemeManager.onSurfaceVariant
                                     font.pixelSize: 16
                                     verticalAlignment: Text.AlignVCenter
@@ -344,8 +369,14 @@ ApplicationWindow {
                                     verticalAlignment: TextInput.AlignVCenter
                                     clip: true
                                     onTextChanged: {
-                                        TimelineModel.setSearchFilter(text)
-                                        AlbumModel.setSearchFilter(text)
+                                        if (!searchPill._aiMode) {
+                                            TimelineModel.setSearchFilter(text)
+                                            AlbumModel.setSearchFilter(text)
+                                        }
+                                    }
+                                    Keys.onReturnPressed: {
+                                        if (searchPill._aiMode && text.length > 0)
+                                            AI.searchByText(text)
                                     }
                                 }
                             }
@@ -356,7 +387,50 @@ ApplicationWindow {
                                 color: clearHover.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
                                 Behavior on color { ColorAnimation { duration: 80 } }
                                 M3Icon { anchors.centerIn: parent; name: "close"; size: 18; color: ThemeManager.onSurfaceVariant }
-                                MouseArea { id: clearHover; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: searchField.text = "" }
+                                MouseArea {
+                                    id: clearHover
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        searchField.text = ""
+                                        if (searchPill._aiMode) TimelineModel.clearAiFilter()
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                id: aiToggleBtn
+                                width: 32; height: 32; radius: 16
+                                color: searchPill._aiMode
+                                    ? Qt.alpha(ThemeManager.primary, 0.18)
+                                    : (aiToggleHover.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent")
+                                Behavior on color { ColorAnimation { duration: 120 } }
+                                M3Icon {
+                                    anchors.centerIn: parent
+                                    name: "auto_awesome"
+                                    size: 18
+                                    color: searchPill._aiMode ? ThemeManager.primary : ThemeManager.onSurfaceVariant
+                                    Behavior on color { ColorAnimation { duration: 120 } }
+                                }
+                                MouseArea {
+                                    id: aiToggleHover
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        searchPill._aiMode = !searchPill._aiMode
+                                        if (!searchPill._aiMode) {
+                                            TimelineModel.clearAiFilter()
+                                            TimelineModel.setSearchFilter(searchField.text)
+                                            AlbumModel.setSearchFilter(searchField.text)
+                                        } else {
+                                            TimelineModel.setSearchFilter("")
+                                            AlbumModel.setSearchFilter("")
+                                        }
+                                        searchField.forceActiveFocus()
+                                    }
+                                }
                             }
                         }
                     }

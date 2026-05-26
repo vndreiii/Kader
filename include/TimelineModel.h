@@ -13,6 +13,7 @@ class TimelineModel : public QAbstractListModel {
     Q_PROPERTY(QString searchFilter READ searchFilter WRITE setSearchFilter NOTIFY searchFilterChanged)
     Q_PROPERTY(QString mimeFilter   READ mimeFilter   WRITE setMimeFilter   NOTIFY mimeFilterChanged)
     Q_PROPERTY(int contentWidth     READ contentWidth WRITE setContentWidth NOTIFY contentWidthChanged)
+    Q_PROPERTY(bool aiFilterActive  READ aiFilterActive NOTIFY aiFilterActiveChanged)
 
 public:
     enum FilterMode { AllMode = 0, FavoritesMode = 1, TrashMode = 2, HiddenMode = 3 };
@@ -49,6 +50,10 @@ public:
     int contentWidth() const { return m_contentWidth; }
     Q_INVOKABLE void setContentWidth(int px);
 
+    bool aiFilterActive() const { return !m_aiFilterIds.isEmpty(); }
+    Q_INVOKABLE void setAiFilter(const QVariantList &ids);
+    Q_INVOKABLE void clearAiFilter();
+
     Q_INVOKABLE void refresh(bool hideIgnored = true);
     Q_INVOKABLE QVariantList getFlatMediaList() const;
 
@@ -59,6 +64,7 @@ signals:
     void searchFilterChanged();
     void mimeFilterChanged();
     void contentWidthChanged();
+    void aiFilterActiveChanged();
 
 private:
     // Each row is either a month header or a strip of up to numColumns photos.
@@ -77,4 +83,5 @@ private:
     QString          m_folderFilter;
     QString          m_searchFilter;
     QString          m_mimeFilter;
+    QList<int>       m_aiFilterIds;
 };
