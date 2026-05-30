@@ -795,6 +795,19 @@ Item {
                     }
                 }
             }
+
+            SettingsSection {
+                title: qsTr("Performance")
+                SettingsRow {
+                    label: qsTr("Parallel Thumbnail Generation (BETA)")
+                    sub: qsTr("Use multiple CPU cores during scan. Each worker uses 1 libvips thread to avoid overload. Takes effect on next scan.")
+                    last: true
+                    action: M3Switch {
+                        checked: Settings.parallelThumbnails
+                        onToggled: Settings.parallelThumbnails = checked
+                    }
+                }
+            }
         }
     }
 }

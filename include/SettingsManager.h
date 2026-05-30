@@ -10,6 +10,7 @@ class SettingsManager : public QObject {
     Q_PROPERTY(int  mosaicDensity READ mosaicDensity WRITE setMosaicDensity NOTIFY mosaicDensityChanged)
     Q_PROPERTY(int  rawFilter READ rawFilter WRITE setRawFilter NOTIFY rawFilterChanged)
     Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY languageChanged)
+    Q_PROPERTY(bool parallelThumbnails READ parallelThumbnails WRITE setParallelThumbnails NOTIFY parallelThumbnailsChanged)
     Q_PROPERTY(QString homePath READ homePath CONSTANT)
 
 public:
@@ -31,6 +32,9 @@ public:
     QString language() const;
     void setLanguage(const QString &lang);
 
+    bool parallelThumbnails() const;
+    void setParallelThumbnails(bool p);
+
     Q_INVOKABLE bool copyImageToClipboard(const QString &filePath);
     Q_INVOKABLE void openImageFilePicker(const QString &title = QString());
 
@@ -42,6 +46,7 @@ signals:
     void mosaicDensityChanged();
     void rawFilterChanged();
     void languageChanged();
+    void parallelThumbnailsChanged();
     void imageFilePicked(const QString &path);
 
 private:

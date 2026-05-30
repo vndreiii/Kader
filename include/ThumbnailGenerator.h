@@ -5,12 +5,18 @@
 #include <QString>
 #include <QByteArray>
 #include <QMutex>
+#include <atomic>
 #include <vips/vips8>
 
 class ThumbnailGenerator : public QObject {
     Q_OBJECT
 public:
     explicit ThumbnailGenerator(QObject *parent = nullptr);
+
+    // Enable/disable parallel generation (set before scanning).
+    // When enabled: vips_concurrency_set(1) per task, global mutex dropped.
+    void setParallelMode(bool enabled);
+    bool parallelMode() const { return m_parallelMode.load(); }
 
     // Legacy file-based path (used by AlbumModel CoverRole synchronously).
     Q_INVOKABLE QString getOrCreateThumbnail(const QString &filePath, int size = 256);
@@ -37,5 +43,6 @@ private:
     static QByteArray deriveKey();
     QString generateHash(const QString &filePath);
     QString m_cacheDir;
-    QMutex m_genMutex;  // serializes vips/ffmpeg calls across threads
+    QMutex m_genMutex;         // serializes vips/ffmpeg calls in legacy mode
+    std::atomic<bool> m_parallelMode{false};
 };

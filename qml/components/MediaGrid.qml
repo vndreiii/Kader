@@ -74,7 +74,7 @@ Item {
         rightMargin: hMargin
         topMargin: 0
         bottomMargin: root.selectionMode ? 88 : 40
-        cacheBuffer: Math.round(height * 3)
+        cacheBuffer: Math.round(height * 1.5)
         visible: count > 0
 
         delegate: Item {
@@ -160,9 +160,8 @@ Item {
             return TimelineModel.data(TimelineModel.index(idx, 0), 258) || ""
         }
 
-        // Bubble appears once user has scrolled past the starting month
-        readonly property bool _showBubble: _dragging
-            && _currentMonth !== "" && _currentMonth !== _startMonth
+        // Bubble shows immediately on drag, updates as months change
+        readonly property bool _showBubble: _dragging && _currentMonth !== ""
 
         // Handle — y is purely driven by list scroll (no drag.target, no binding conflict)
         Rectangle {

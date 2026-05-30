@@ -47,66 +47,84 @@ QString ThumbnailGenerator::thumbnailUrl(const QString &filePath) {
     return "image://thumbnails" + filePath;
 }
 
+void ThumbnailGenerator::setParallelMode(bool enabled) {
+    m_parallelMode.store(enabled);
+    // When parallel: limit each vips task to 1 thread so multiple concurrent
+    // calls don't create a thread explosion (N tasks × M vips threads).
+    // When legacy: restore auto mode so the single serialized task uses all cores.
+    vips_concurrency_set(enabled ? 1 : 0);
+    qDebug() << "ThumbnailGenerator: parallel mode" << (enabled ? "ON" : "OFF");
+}
+
 // Legacy: generate thumbnail and save as plain .jpg file on disk.
 QString ThumbnailGenerator::getOrCreateThumbnail(const QString &filePath, int size) {
     QString hash = generateHash(filePath);
     QString thumbPath = m_cacheDir + "/" + hash + "_" + QString::number(size) + ".jpg";
 
-    // Fast path: thumbnail already on disk — no lock needed.
+    // Fast path: thumbnail already on disk — no lock needed either way.
     if (QFile::exists(thumbPath)) {
         if (QFile(thumbPath).size() > 0)
             return thumbPath;
         QFile::remove(thumbPath);
     }
 
-    // Serialize all vips/ffmpeg generation to prevent heap corruption from
-    // concurrent allocators (glib vs libc malloc) when called from multiple threads.
-    QMutexLocker lock(&m_genMutex);
+    // Core generation logic, invoked either locked (legacy) or directly (parallel).
+    auto generate = [&]() -> QString {
+        // Double-check: another thread may have finished while we were waiting.
+        if (QFile::exists(thumbPath)) {
+            if (QFile(thumbPath).size() > 0) return thumbPath;
+            QFile::remove(thumbPath);
+        }
 
-    // Re-check after acquiring lock — another thread may have finished it.
-    if (QFile::exists(thumbPath)) {
-        if (QFile(thumbPath).size() > 0)
+        if (isVideoFile(filePath)) {
+            if (QProcess::execute("/usr/bin/ffmpegthumbnailer", {
+                    "-i", filePath, "-o", thumbPath,
+                    "-s", QString::number(size), "-t", "10%", "-c", "jpeg"
+                }) == 0 && QFile::exists(thumbPath) && QFile(thumbPath).size() > 0)
+                return thumbPath;
+            QFile::remove(thumbPath);
+
+            if (QProcess::execute("/usr/bin/ffmpeg", {
+                    "-y", "-hide_banner", "-loglevel", "error",
+                    "-i", filePath, "-ss", "00:00:02", "-frames:v", "1",
+                    "-vf", QString("scale=%1:-1").arg(size), "-q:v", "2", thumbPath
+                }) == 0 && QFile::exists(thumbPath) && QFile(thumbPath).size() > 0)
+                return thumbPath;
+            QFile::remove(thumbPath);
+            return "";
+        }
+
+        if (isRawFile(filePath)) {
+            QByteArray bytes = generateRawThumbnailBytes(filePath, size);
+            if (!bytes.isEmpty()) {
+                QFile f(thumbPath);
+                if (f.open(QIODevice::WriteOnly)) { f.write(bytes); f.close(); return thumbPath; }
+            }
+            return "";
+        }
+
+        try {
+            vips::VImage thumb = vips::VImage::thumbnail(filePath.toLocal8Bit().constData(), size);
+            thumb.write_to_file(thumbPath.toLocal8Bit().constData());
             return thumbPath;
-        QFile::remove(thumbPath);
-    }
-
-    if (isVideoFile(filePath)) {
-        if (QProcess::execute("/usr/bin/ffmpegthumbnailer", {
-                "-i", filePath, "-o", thumbPath,
-                "-s", QString::number(size), "-t", "10%", "-c", "jpeg"
-            }) == 0 && QFile::exists(thumbPath) && QFile(thumbPath).size() > 0)
-            return thumbPath;
-        QFile::remove(thumbPath);
-
-        if (QProcess::execute("/usr/bin/ffmpeg", {
-                "-y", "-hide_banner", "-loglevel", "error",
-                "-i", filePath, "-ss", "00:00:02", "-frames:v", "1",
-                "-vf", QString("scale=%1:-1").arg(size), "-q:v", "2", thumbPath
-            }) == 0 && QFile::exists(thumbPath) && QFile(thumbPath).size() > 0)
-            return thumbPath;
-        QFile::remove(thumbPath);
-        return "";
-    }
-
-    if (isRawFile(filePath)) {
-        QByteArray bytes = generateRawThumbnailBytes(filePath, size);
-        if (!bytes.isEmpty()) {
-            QFile f(thumbPath);
-            if (f.open(QIODevice::WriteOnly)) { f.write(bytes); f.close(); return thumbPath; }
+        } catch (vips::VError &e) {
+            qWarning() << "libvips error for" << filePath << ":" << e.what();
+        } catch (...) {
+            qWarning() << "Unknown error generating thumbnail for" << filePath;
         }
         return "";
-    }
+    };
 
-    try {
-        vips::VImage thumb = vips::VImage::thumbnail(filePath.toLocal8Bit().constData(), size);
-        thumb.write_to_file(thumbPath.toLocal8Bit().constData());
-        return thumbPath;
-    } catch (vips::VError &e) {
-        qWarning() << "libvips error for" << filePath << ":" << e.what();
-    } catch (...) {
-        qWarning() << "Unknown error generating thumbnail for" << filePath;
+    if (m_parallelMode.load()) {
+        // Parallel mode: libvips is thread-safe with concurrency=1 per task.
+        // Multiple threads can generate different thumbnails concurrently.
+        return generate();
+    } else {
+        // Legacy mode: serialize all vips/ffmpeg calls to prevent heap issues
+        // from concurrent glib/libc allocators.
+        QMutexLocker lock(&m_genMutex);
+        return generate();
     }
-    return "";
 }
 
 static QByteArray readAndRemove(const QString &path) {

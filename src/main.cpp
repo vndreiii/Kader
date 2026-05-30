@@ -115,6 +115,12 @@ int main(int argc, char *argv[]) {
         storageManager.refresh();
     });
 
+    // Apply saved parallel thumbnail mode
+    thumbGenerator.setParallelMode(settingsManager.parallelThumbnails());
+    QObject::connect(&settingsManager, &SettingsManager::parallelThumbnailsChanged, [&]() {
+        thumbGenerator.setParallelMode(settingsManager.parallelThumbnails());
+    });
+
     // Handle settings changes
     QObject::connect(&settingsManager, &SettingsManager::hideIgnoredInTimelineChanged, [&]() {
         mediaModel.refresh(settingsManager.hideIgnoredInTimeline());

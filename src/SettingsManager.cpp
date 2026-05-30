@@ -93,6 +93,17 @@ void SettingsManager::setLanguage(const QString &lang) {
     }
 }
 
+bool SettingsManager::parallelThumbnails() const {
+    return m_data.value("parallelThumbnails").toBool(false);
+}
+void SettingsManager::setParallelThumbnails(bool p) {
+    if (parallelThumbnails() != p) {
+        m_data["parallelThumbnails"] = p;
+        save();
+        emit parallelThumbnailsChanged();
+    }
+}
+
 bool SettingsManager::copyImageToClipboard(const QString &filePath) {
     QImage img(filePath);
     if (img.isNull()) return false;

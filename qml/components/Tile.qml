@@ -30,7 +30,8 @@ Item {
         radius: 16
         color: "white"
         visible: false
-        layer.enabled: true
+        // Only allocate the FBO once the image is present; placeholder needs no mask
+        layer.enabled: img.status === Image.Ready
     }
 
     // ── All content — clipped to rounded rect via MultiEffect ─────────────
@@ -51,7 +52,7 @@ Item {
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
             autoTransform: true
-            cache: false
+            cache: true
 
             scale: mouseArea.containsMouse ? 1.06 : 1.0
             Behavior on scale { NumberAnimation { duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
@@ -113,7 +114,8 @@ Item {
             }
         }
 
-        layer.enabled: true
+        // Skip the FBO entirely while the placeholder is showing — no image to clip yet
+        layer.enabled: img.status === Image.Ready
         layer.effect: MultiEffect {
             maskEnabled: true
             maskThresholdMin: 0.5
