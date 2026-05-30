@@ -354,25 +354,11 @@ ApplicationWindow {
                             onClicked: sortMenu.popup(sortBtn, 0, sortBtn.height + 4)
                         }
 
-                        // Helper: human-readable label from MIME type
-                        function mimeLabel(mime) {
-                            var map = {
-                                "image/jpeg":"JPEG","image/png":"PNG","image/gif":"GIF",
-                                "image/webp":"WebP","image/heic":"HEIC","image/heif":"HEIF",
-                                "image/tiff":"TIFF","image/bmp":"BMP","image/avif":"AVIF",
-                                "image/x-canon-cr2":"Canon RAW","image/x-nikon-nef":"Nikon RAW",
-                                "image/x-adobe-dng":"DNG","image/x-raw":"RAW",
-                                "video/mp4":"MP4","video/quicktime":"MOV",
-                                "video/x-msvideo":"AVI","video/webm":"WebM",
-                                "video/x-matroska":"MKV","video/mpeg":"MPEG"
-                            }
-                            return map[mime] || mime.split("/").pop().toUpperCase()
-                        }
-
+                        // ── Primary sort menu ─────────────────────────────────
                         Menu {
                             id: sortMenu
 
-                            // ── Sort By ──────────────────────────────────────
+                            // ── Sort By ───────────────────────────────────────
                             MenuItem {
                                 text: "Created date"; checkable: true
                                 checked: TimelineModel.sortRole === 0
@@ -417,23 +403,21 @@ ApplicationWindow {
                                 onTriggered: { TimelineModel.setSortOrder(0); DB.setSortPref(window.currentView, TimelineModel.sortRole, 0) }
                             }
 
-                            // ── Type filter ───────────────────────────────────
+                            // ── Type filter (cascade) ─────────────────────────
                             MenuSeparator {
                                 visible: ["timeline","favorites"].indexOf(window.currentView) >= 0
                                 height: visible ? implicitHeight : 0
                             }
-                            MenuItem {
+                            CascadeMenuItem {
                                 text: "Filter by type…"
                                 visible: ["timeline","favorites"].indexOf(window.currentView) >= 0
                                 height: visible ? implicitHeight : 0
-                                onTriggered: Qt.callLater(function() {
-                                    typeMenu.popup(sortBtn, 0, sortBtn.height + 4)
-                                })
+                                submenu: typeMenu
                             }
                         }
 
-                        // ── Type filter submenu ───────────────────────────────
-                        Menu {
+                        // ── Type submenu — declared separately (m3e pattern) ──
+                        CascadeMenu {
                             id: typeMenu
                             property var _types: []
 
@@ -448,11 +432,21 @@ ApplicationWindow {
                             MenuSeparator {}
 
                             Instantiator {
-                                id: typeInstantiator
                                 model: typeMenu._types
                                 delegate: MenuItem {
                                     required property string modelData
-                                    text: sortBtn.mimeLabel(modelData)
+                                    text: {
+                                        var m = {
+                                            "image/jpeg":"JPEG","image/png":"PNG","image/gif":"GIF",
+                                            "image/webp":"WebP","image/heic":"HEIC","image/heif":"HEIF",
+                                            "image/tiff":"TIFF","image/bmp":"BMP","image/avif":"AVIF",
+                                            "image/x-canon-cr2":"Canon RAW","image/x-nikon-nef":"Nikon RAW",
+                                            "image/x-adobe-dng":"DNG","video/mp4":"MP4",
+                                            "video/quicktime":"MOV","video/x-msvideo":"AVI",
+                                            "video/webm":"WebM","video/x-matroska":"MKV"
+                                        }
+                                        return m[modelData] || modelData.split("/").pop().toUpperCase()
+                                    }
                                     checkable: true
                                     checked: TimelineModel.mimeFilter === modelData
                                     onTriggered: TimelineModel.setMimeFilter(modelData)
