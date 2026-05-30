@@ -14,6 +14,11 @@
 class DatabaseManager : public QObject {
     Q_OBJECT
 public:
+    enum SortRole  { ByCreated = 0, ByModified = 1, ByName = 2, BySize = 3, ByViewed = 4 };
+    enum SortOrder { Descending = 0, Ascending = 1 };
+    Q_ENUM(SortRole)
+    Q_ENUM(SortOrder)
+
     explicit DatabaseManager(QObject *parent = nullptr);
     ~DatabaseManager();
 
@@ -36,8 +41,14 @@ public:
 
     // Get all media for the models.
     // rawFilter: 0=all, 1=JPEG-only (exclude RAW), 2=RAW-only
-    QVariantList getAllMedia(bool hideIgnored = true);
+    QVariantList getAllMedia(bool hideIgnored = true,
+                             SortRole role   = ByCreated,
+                             SortOrder order = Descending);
     Q_INVOKABLE void setRawFilter(int filter);
+
+    // Per-view sort preference persistence (stored in settings_kv).
+    Q_INVOKABLE void        setSortPref(const QString &view, int role, int order);
+    Q_INVOKABLE QVariantMap getSortPref(const QString &view);
 
     // Get automatically grouped albums (by folder)
     QVariantList getAlbums(bool hideIgnored = true);

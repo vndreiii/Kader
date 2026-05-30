@@ -3,6 +3,9 @@
 #include "ThumbnailGenerator.h"
 #include <QDateTime>
 #include <QDebug>
+#include <QSet>
+#include <QSqlDatabase>
+#include <QSqlQuery>
 #include <algorithm>
 
 TimelineModel::TimelineModel(DatabaseManager *db, QObject *parent)
@@ -100,6 +103,53 @@ void TimelineModel::setContentWidth(int px) {
     }
 }
 
+void TimelineModel::setSortRole(int role) {
+    if (m_sortRole != role) {
+        m_sortRole = role;
+        emit sortRoleChanged();
+        refresh();
+    }
+}
+
+void TimelineModel::setSortOrder(int order) {
+    if (m_sortOrder != order) {
+        m_sortOrder = order;
+        emit sortOrderChanged();
+        refresh();
+    }
+}
+
+bool TimelineModel::groupingEnabled() const {
+    // Month headers only make sense when sorted by a date field
+    return m_sortRole == DatabaseManager::ByCreated || m_sortRole == DatabaseManager::ByModified;
+}
+
+void TimelineModel::markAsViewed(int mediaId) {
+    QSqlDatabase db = m_db->threadDb();
+    QSqlQuery q(db);
+    q.prepare("UPDATE media SET last_viewed = :ts WHERE id = :id");
+    q.bindValue(":ts", QDateTime::currentSecsSinceEpoch());
+    q.bindValue(":id", mediaId);
+    q.exec();
+}
+
+QStringList TimelineModel::getAvailableMimeTypes() const {
+    QSet<QString> seen;
+    QStringList result;
+    for (const Row &row : m_rows) {
+        if (row.isHeader) continue;
+        for (const QVariant &v : row.items) {
+            QString mime = v.toMap().value("mime_type").toString();
+            if (!mime.isEmpty() && !seen.contains(mime)) {
+                seen.insert(mime);
+                result.append(mime);
+            }
+        }
+    }
+    result.sort();
+    return result;
+}
+
 QVariantList TimelineModel::getFlatMediaList() const {
     QVariantList flat;
     for (const Row &row : m_rows)
@@ -112,7 +162,11 @@ void TimelineModel::refresh(bool hideIgnored) {
     beginResetModel();
     m_rows.clear();
 
-    QVariantList allMedia = m_db->getAllMedia(hideIgnored);
+    QVariantList allMedia = m_db->getAllMedia(
+        hideIgnored,
+        static_cast<DatabaseManager::SortRole>(m_sortRole),
+        static_cast<DatabaseManager::SortOrder>(m_sortOrder)
+    );
 
     // In-memory folder filter
     if (!m_folderFilter.isEmpty()) {
@@ -256,14 +310,19 @@ void TimelineModel::refresh(bool hideIgnored) {
         if (m_filterMode == HiddenMode    && !isHidden)                          continue;
         if (m_filterMode == AllMode       && (isTrashed || isHidden))            continue;
 
-        const QString fp    = map.value("file_path").toString();
-        const qint64  ts    = map.value("creation_date").toLongLong();
-        const QString month = QDateTime::fromSecsSinceEpoch(ts).toString("MMMM yyyy");
+        const QString fp = map.value("file_path").toString();
 
-        if (month != currentMonth) {
-            flushRow(false);
-            currentMonth = month;
-            if (!aiMode) m_rows.append({true, month, {}, 0});
+        if (groupingEnabled() && !aiMode) {
+            // Use creation_date for ByCreated, modified_date for ByModified grouping
+            const qint64 ts = (m_sortRole == DatabaseManager::ByModified)
+                ? map.value("modified_date").toLongLong()
+                : map.value("creation_date").toLongLong();
+            const QString month = QDateTime::fromSecsSinceEpoch(ts).toString("MMMM yyyy");
+            if (month != currentMonth) {
+                flushRow(false);
+                currentMonth = month;
+                m_rows.append({true, month, {}, 0});
+            }
         }
 
         map["thumb"]       = ThumbnailGenerator::thumbnailUrl(fp);
@@ -282,4 +341,13 @@ void TimelineModel::refresh(bool hideIgnored) {
     qDebug() << "Timeline refresh:" << m_rows.size() << "rows ("
              << allMedia.size() << "items," << m_numColumns << "cols)";
     endResetModel();
+}
+
+QString TimelineModel::monthAtRow(int row) const {
+    // Scan upward from the given row to find the nearest month header.
+    for (int i = qMin(row, m_rows.count() - 1); i >= 0; --i) {
+        if (m_rows[i].isHeader)
+            return m_rows[i].monthName;
+    }
+    return {};
 }

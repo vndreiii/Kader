@@ -14,6 +14,7 @@ struct MediaEntry {
     qint64    fileSize    = 0;
     QString   mimeType;
     QDateTime creationDate;
+    QDateTime modifiedDate;
     int       width       = 0;
     int       height      = 0;
     double    latitude    = 0.0;

@@ -223,8 +223,9 @@ void FileScanner::runScan(const std::string &rootPath, const std::vector<std::st
         entry.filePath   = info.path;
         entry.folderPath = fi.absolutePath();
         entry.fileSize   = info.size;
-        entry.mimeType   = mimeDb.mimeTypeForFile(fi).name();
-        entry.creationDate = fi.lastModified();
+        entry.mimeType     = mimeDb.mimeTypeForFile(fi).name();
+        entry.modifiedDate = fi.lastModified();
+        entry.creationDate = fi.lastModified(); // overridden below by EXIF if available
 
         if (entry.mimeType.startsWith("image/")) {
             try {

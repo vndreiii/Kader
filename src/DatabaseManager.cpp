@@ -147,8 +147,10 @@ bool DatabaseManager::createTables() {
     migrate("media",  "is_favorite", "BOOLEAN DEFAULT 0");
     migrate("media",  "is_trashed",  "BOOLEAN DEFAULT 0");
     migrate("media",  "is_hidden",   "BOOLEAN DEFAULT 0");
-    migrate("media",  "latitude",    "REAL");
-    migrate("media",  "longitude",   "REAL");
+    migrate("media",  "latitude",      "REAL");
+    migrate("media",  "longitude",     "REAL");
+    migrate("media",  "modified_date", "INTEGER DEFAULT 0");
+    migrate("media",  "last_viewed",   "INTEGER DEFAULT 0");
 
     query.exec(
         "CREATE TABLE IF NOT EXISTS scan_exclusions ("
@@ -598,7 +600,7 @@ static QString rawGlobClause(bool invert) {
     return invert ? ("NOT " + combined) : combined;
 }
 
-QVariantList DatabaseManager::getAllMedia(bool hideIgnored) {
+QVariantList DatabaseManager::getAllMedia(bool hideIgnored, SortRole role, SortOrder order) {
     checkConnection();
 
     // Resolve the thread-local connection by name to avoid sharing m_db across threads.
@@ -613,14 +615,24 @@ QVariantList DatabaseManager::getAllMedia(bool hideIgnored) {
         conditions << "COALESCE(folder_path,'') NOT IN "
                       "(SELECT COALESCE(path_prefix,'') FROM albums WHERE is_ignored = 1)";
     if (m_rawFilter == 1)
-        conditions << rawGlobClause(true);   // JPEG-only: exclude RAW
+        conditions << rawGlobClause(true);
     else if (m_rawFilter == 2)
-        conditions << rawGlobClause(false);  // RAW-only: include only RAW
+        conditions << rawGlobClause(false);
+
+    const QString dir = (order == Ascending) ? QStringLiteral("ASC") : QStringLiteral("DESC");
+    QString orderClause;
+    switch (role) {
+        case ByModified: orderClause = "modified_date " + dir; break;
+        case ByName:     orderClause = "LOWER(file_path) " + dir; break;
+        case BySize:     orderClause = "file_size " + dir; break;
+        case ByViewed:   orderClause = "last_viewed " + dir; break;
+        default:         orderClause = "creation_date " + dir; break;
+    }
 
     QString sql = "SELECT * FROM media";
     if (!conditions.isEmpty())
         sql += " WHERE " + conditions.join(" AND ");
-    sql += " ORDER BY creation_date DESC";
+    sql += " ORDER BY " + orderClause;
 
     QSqlQuery query(db);
     if (!query.exec(sql)) {
@@ -636,6 +648,34 @@ QVariantList DatabaseManager::getAllMedia(bool hideIgnored) {
         list.append(map);
     }
     return list;
+}
+
+void DatabaseManager::setSortPref(const QString &view, int role, int order) {
+    checkConnection();
+    QSqlQuery q(m_db);
+    q.prepare("INSERT INTO settings_kv (key, value) VALUES (:k, :v) "
+              "ON CONFLICT(key) DO UPDATE SET value = excluded.value");
+    q.bindValue(":k", "sort_pref_" + view);
+    q.bindValue(":v", QString("%1,%2").arg(role).arg(order));
+    q.exec();
+}
+
+QVariantMap DatabaseManager::getSortPref(const QString &view) {
+    checkConnection();
+    QSqlQuery q(m_db);
+    q.prepare("SELECT value FROM settings_kv WHERE key = :k");
+    q.bindValue(":k", "sort_pref_" + view);
+    QVariantMap result;
+    result["role"]  = 0; // ByCreated
+    result["order"] = 0; // Descending
+    if (q.exec() && q.next()) {
+        QStringList parts = q.value(0).toString().split(',');
+        if (parts.size() == 2) {
+            result["role"]  = parts[0].toInt();
+            result["order"] = parts[1].toInt();
+        }
+    }
+    return result;
 }
 
 int DatabaseManager::emptyTrash() {

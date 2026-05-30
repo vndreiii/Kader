@@ -29,6 +29,13 @@ ApplicationWindow {
         }
     }
 
+    // Restore sort preference for the given view key
+    function applyViewSort(view) {
+        var pref = DB.getSortPref(view)
+        TimelineModel.setSortRole(pref.role)
+        TimelineModel.setSortOrder(pref.order)
+    }
+
     Connections {
         target: AI
         function onSearchFinished(results) {
@@ -175,18 +182,22 @@ ApplicationWindow {
                     if (tl && mainStack.currentItem !== tl) mainStack.replace(tl)
                     TimelineModel.setMimeFilter("")
                     TimelineModel.filterMode = 0
+                    window.applyViewSort("timeline")
                 } else if (view === "videos") {
                     if (tl && mainStack.currentItem !== tl) mainStack.replace(tl)
                     TimelineModel.filterMode = 0
                     TimelineModel.setMimeFilter("video/")
+                    window.applyViewSort("videos")
                 } else if (view === "favorites") {
                     if (tl && mainStack.currentItem !== tl) mainStack.replace(tl)
                     TimelineModel.setMimeFilter("")
                     TimelineModel.filterMode = 1
+                    window.applyViewSort("favorites")
                 } else if (view === "trash") {
                     if (tl && mainStack.currentItem !== tl) mainStack.replace(tl)
                     TimelineModel.setMimeFilter("")
                     TimelineModel.filterMode = 2
+                    window.applyViewSort("trash")
                 } else if (view === "albums") {
                     if (!window._albumsViewInst) window._albumsViewInst = albumsView.createObject(null)
                     mainStack.replace(window._albumsViewInst)
@@ -312,6 +323,142 @@ ApplicationWindow {
                             onClicked: {
                                 DB.emptyTrash()
                                 TimelineModel.refresh()
+                            }
+                        }
+                    }
+
+                    // ── Sort button ──────────────────────────────────────────
+                    Rectangle {
+                        id: sortBtn
+                        readonly property var _sortableViews: ["timeline","videos","favorites","trash","hidden"]
+                        visible: _sortableViews.indexOf(window.currentView) >= 0
+                        width: 40; height: 40; radius: 20
+                        color: sortMenu.opened
+                               ? Qt.alpha(ThemeManager.primary, 0.12)
+                               : (sortBtnMA.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent")
+                        Behavior on color { ColorAnimation { duration: 80 } }
+
+                        M3Icon {
+                            anchors.centerIn: parent
+                            name: "sort"
+                            size: 22
+                            color: sortMenu.opened ? ThemeManager.primary : ThemeManager.onSurfaceVariant
+                            Behavior on color { ColorAnimation { duration: 80 } }
+                        }
+
+                        MouseArea {
+                            id: sortBtnMA
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: sortMenu.popup(sortBtn, 0, sortBtn.height + 4)
+                        }
+
+                        // Helper: human-readable label from MIME type
+                        function mimeLabel(mime) {
+                            var map = {
+                                "image/jpeg":"JPEG","image/png":"PNG","image/gif":"GIF",
+                                "image/webp":"WebP","image/heic":"HEIC","image/heif":"HEIF",
+                                "image/tiff":"TIFF","image/bmp":"BMP","image/avif":"AVIF",
+                                "image/x-canon-cr2":"Canon RAW","image/x-nikon-nef":"Nikon RAW",
+                                "image/x-adobe-dng":"DNG","image/x-raw":"RAW",
+                                "video/mp4":"MP4","video/quicktime":"MOV",
+                                "video/x-msvideo":"AVI","video/webm":"WebM",
+                                "video/x-matroska":"MKV","video/mpeg":"MPEG"
+                            }
+                            return map[mime] || mime.split("/").pop().toUpperCase()
+                        }
+
+                        Menu {
+                            id: sortMenu
+
+                            // ── Sort By ──────────────────────────────────────
+                            MenuItem {
+                                text: "Created date"; checkable: true
+                                checked: TimelineModel.sortRole === 0
+                                visible: ["timeline","videos","favorites","hidden"].indexOf(window.currentView) >= 0
+                                height: visible ? implicitHeight : 0
+                                onTriggered: { TimelineModel.setSortRole(0); DB.setSortPref(window.currentView, 0, TimelineModel.sortOrder) }
+                            }
+                            MenuItem {
+                                text: "Modified date"; checkable: true
+                                checked: TimelineModel.sortRole === 1
+                                onTriggered: { TimelineModel.setSortRole(1); DB.setSortPref(window.currentView, 1, TimelineModel.sortOrder) }
+                            }
+                            MenuItem {
+                                text: "Name"; checkable: true
+                                checked: TimelineModel.sortRole === 2
+                                onTriggered: { TimelineModel.setSortRole(2); DB.setSortPref(window.currentView, 2, TimelineModel.sortOrder) }
+                            }
+                            MenuItem {
+                                text: "Size"; checkable: true
+                                checked: TimelineModel.sortRole === 3
+                                onTriggered: { TimelineModel.setSortRole(3); DB.setSortPref(window.currentView, 3, TimelineModel.sortOrder) }
+                            }
+                            MenuItem {
+                                text: "Last viewed"; checkable: true
+                                checked: TimelineModel.sortRole === 4
+                                visible: ["timeline","videos"].indexOf(window.currentView) >= 0
+                                height: visible ? implicitHeight : 0
+                                onTriggered: { TimelineModel.setSortRole(4); DB.setSortPref(window.currentView, 4, TimelineModel.sortOrder) }
+                            }
+
+                            MenuSeparator {}
+
+                            // ── Order ─────────────────────────────────────────
+                            MenuItem {
+                                text: "A → Z"; checkable: true
+                                checked: TimelineModel.sortOrder === 1
+                                onTriggered: { TimelineModel.setSortOrder(1); DB.setSortPref(window.currentView, TimelineModel.sortRole, 1) }
+                            }
+                            MenuItem {
+                                text: "Z → A"; checkable: true
+                                checked: TimelineModel.sortOrder === 0
+                                onTriggered: { TimelineModel.setSortOrder(0); DB.setSortPref(window.currentView, TimelineModel.sortRole, 0) }
+                            }
+
+                            // ── Type filter ───────────────────────────────────
+                            MenuSeparator {
+                                visible: ["timeline","favorites"].indexOf(window.currentView) >= 0
+                                height: visible ? implicitHeight : 0
+                            }
+                            MenuItem {
+                                text: "Filter by type…"
+                                visible: ["timeline","favorites"].indexOf(window.currentView) >= 0
+                                height: visible ? implicitHeight : 0
+                                onTriggered: Qt.callLater(function() {
+                                    typeMenu.popup(sortBtn, 0, sortBtn.height + 4)
+                                })
+                            }
+                        }
+
+                        // ── Type filter submenu ───────────────────────────────
+                        Menu {
+                            id: typeMenu
+                            property var _types: []
+
+                            onAboutToShow: _types = TimelineModel.getAvailableMimeTypes()
+
+                            MenuItem {
+                                text: "All types"
+                                checkable: true
+                                checked: TimelineModel.mimeFilter === ""
+                                onTriggered: TimelineModel.setMimeFilter("")
+                            }
+                            MenuSeparator {}
+
+                            Instantiator {
+                                id: typeInstantiator
+                                model: typeMenu._types
+                                delegate: MenuItem {
+                                    required property string modelData
+                                    text: sortBtn.mimeLabel(modelData)
+                                    checkable: true
+                                    checked: TimelineModel.mimeFilter === modelData
+                                    onTriggered: TimelineModel.setMimeFilter(modelData)
+                                }
+                                onObjectAdded: (index, obj) => typeMenu.insertItem(index + 2, obj)
+                                onObjectRemoved: (index, obj) => typeMenu.removeItem(obj)
                             }
                         }
                     }
@@ -774,6 +921,7 @@ ApplicationWindow {
             TimelineModel.setFolderFilter("")
             TimelineModel.setMimeFilter("")
             TimelineModel.filterMode = 3
+            window.applyViewSort("hidden")
             // Clear any sub-pages so back button never appears inside Hidden
             while (mainStack.depth > 1)
                 mainStack.pop(null, StackView.Immediate)

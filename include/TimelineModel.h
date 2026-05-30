@@ -2,8 +2,7 @@
 
 #include <QAbstractListModel>
 #include <QVariantList>
-
-class DatabaseManager;
+#include "DatabaseManager.h"
 
 class TimelineModel : public QAbstractListModel {
     Q_OBJECT
@@ -14,6 +13,9 @@ class TimelineModel : public QAbstractListModel {
     Q_PROPERTY(QString mimeFilter   READ mimeFilter   WRITE setMimeFilter   NOTIFY mimeFilterChanged)
     Q_PROPERTY(int contentWidth     READ contentWidth WRITE setContentWidth NOTIFY contentWidthChanged)
     Q_PROPERTY(bool aiFilterActive  READ aiFilterActive NOTIFY aiFilterActiveChanged)
+    Q_PROPERTY(int sortRole  READ sortRole  WRITE setSortRole  NOTIFY sortRoleChanged)
+    Q_PROPERTY(int sortOrder READ sortOrder WRITE setSortOrder NOTIFY sortOrderChanged)
+    Q_PROPERTY(bool groupingEnabled READ groupingEnabled NOTIFY sortRoleChanged)
 
 public:
     enum FilterMode { AllMode = 0, FavoritesMode = 1, TrashMode = 2, HiddenMode = 3 };
@@ -54,8 +56,17 @@ public:
     Q_INVOKABLE void setAiFilter(const QVariantList &ids);
     Q_INVOKABLE void clearAiFilter();
 
+    int  sortRole()  const { return m_sortRole; }
+    void setSortRole(int role);
+    int  sortOrder() const { return m_sortOrder; }
+    void setSortOrder(int order);
+    bool groupingEnabled() const;
+
     Q_INVOKABLE void refresh(bool hideIgnored = true);
     Q_INVOKABLE QVariantList getFlatMediaList() const;
+    Q_INVOKABLE QString monthAtRow(int row) const;
+    Q_INVOKABLE void markAsViewed(int mediaId);
+    Q_INVOKABLE QStringList getAvailableMimeTypes() const;
 
 signals:
     void filterModeChanged();
@@ -65,6 +76,8 @@ signals:
     void mimeFilterChanged();
     void contentWidthChanged();
     void aiFilterActiveChanged();
+    void sortRoleChanged();
+    void sortOrderChanged();
 
 private:
     // Each row is either a month header or a strip of up to numColumns photos.
@@ -84,4 +97,6 @@ private:
     QString          m_searchFilter;
     QString          m_mimeFilter;
     QList<int>       m_aiFilterIds;
+    int              m_sortRole  = 0; // DatabaseManager::ByCreated
+    int              m_sortOrder = 0; // DatabaseManager::Descending
 };

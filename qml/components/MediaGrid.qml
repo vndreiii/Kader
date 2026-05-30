@@ -75,7 +75,13 @@ Item {
         topMargin: 0
         bottomMargin: root.selectionMode ? 88 : 40
         cacheBuffer: Math.round(height * 1.5)
+        reuseItems: true
         visible: count > 0
+
+        pixelAligned: true
+        boundsBehavior: Flickable.StopAtBounds
+        flickDeceleration: 3000
+        maximumFlickVelocity: 4000
 
         delegate: Item {
             id: rowItem
@@ -152,12 +158,13 @@ Item {
         property bool   _dragging:   false
         property string _startMonth: ""
 
-        // Current month at the visible scroll position — only computed while dragging
+        // Current month at the visible scroll position — only computed while dragging.
+        // monthAtRow() scans upward from the estimated row to the nearest header.
         readonly property string _currentMonth: {
             if (!_dragging) return ""
             var idx = Math.floor(listView.visibleArea.yPosition * listView.count)
             idx = Math.max(0, Math.min(listView.count - 1, idx))
-            return TimelineModel.data(TimelineModel.index(idx, 0), 258) || ""
+            return TimelineModel.monthAtRow(idx) || ""
         }
 
         // Bubble shows immediately on drag, updates as months change
@@ -217,7 +224,7 @@ Item {
             }
 
             onPressed: (mouse) => {
-                // Record the month we're starting from before any scroll
+                listView.cancelFlick()
                 var idx = Math.round(listView.visibleArea.yPosition * listView.count)
                 idx = Math.max(0, Math.min(listView.count - 1, idx))
                 scrubber._startMonth = TimelineModel.data(TimelineModel.index(idx, 0), 258) || ""

@@ -39,12 +39,13 @@ bool MediaRepository::upsertBatch(const QVector<MediaEntry> &entries) {
     QSqlQuery q(db);
     q.prepare(
         "INSERT INTO media "
-        "(file_path, folder_path, file_hash, file_size, mime_type, creation_date, width, height, latitude, longitude) "
-        "VALUES (:path, :folder, :hash, :size, :mime, :date, :w, :h, :lat, :lon) "
+        "(file_path, folder_path, file_hash, file_size, mime_type, creation_date, modified_date, width, height, latitude, longitude) "
+        "VALUES (:path, :folder, :hash, :size, :mime, :date, :mdate, :w, :h, :lat, :lon) "
         "ON CONFLICT(file_path) DO UPDATE SET "
         "folder_path=excluded.folder_path, file_hash=excluded.file_hash, "
         "file_size=excluded.file_size, mime_type=excluded.mime_type, "
-        "creation_date=excluded.creation_date, width=excluded.width, height=excluded.height, "
+        "creation_date=excluded.creation_date, modified_date=excluded.modified_date, "
+        "width=excluded.width, height=excluded.height, "
         "latitude=excluded.latitude, longitude=excluded.longitude"
     );
     for (const MediaEntry &e : entries) {
@@ -53,7 +54,8 @@ bool MediaRepository::upsertBatch(const QVector<MediaEntry> &entries) {
         q.bindValue(":hash",   QString());
         q.bindValue(":size",   e.fileSize);
         q.bindValue(":mime",   e.mimeType);
-        q.bindValue(":date",   e.creationDate.isValid() ? e.creationDate.toSecsSinceEpoch() : 0LL);
+        q.bindValue(":date",   e.creationDate.isValid()  ? e.creationDate.toSecsSinceEpoch()  : 0LL);
+        q.bindValue(":mdate",  e.modifiedDate.isValid()  ? e.modifiedDate.toSecsSinceEpoch()  : 0LL);
         q.bindValue(":w",      e.width);
         q.bindValue(":h",      e.height);
         q.bindValue(":lat",    e.latitude  != 0.0 ? QVariant(e.latitude)  : QVariant(QMetaType::fromType<double>()));

@@ -1,6 +1,6 @@
 # Maintainer: Alex <alex@milfs.party>
 pkgname=kader
-pkgver=0.1.0.r55.cf4964b
+pkgver=0.1.0.r62.7a37a82
 pkgrel=1
 pkgdesc="Modern photo gallery"
 arch=('x86_64')
@@ -67,6 +67,11 @@ package() {
         mkdir -p "$pkgdir/usr/lib/kader/qml_modules"
         cp -r build-pkg/qml_modules/* "$pkgdir/usr/lib/kader/qml_modules/"
     fi
+
+    # QmlMaterial shared library (plugin depends on it; patch RPATH so it's self-contained)
+    install -Dm755 "build-pkg/lib/QmlMaterial/libqml_material.so" "$pkgdir/usr/lib/kader/libqml_material.so"
+    patchelf --set-rpath '$ORIGIN/../../../' \
+        "$pkgdir/usr/lib/kader/qml_modules/Qcm/Material/libqml_materialplugin.so"
 
     # Wrapper script in PATH
     install -Dm755 /dev/stdin "$pkgdir/usr/bin/kader" <<'EOF'
