@@ -41,7 +41,7 @@ void SemanticWorker::loadModel(const QString &modelPath, const QString &mmprojPa
     llama_backend_init();
 
     llama_model_params mparams = llama_model_default_params();
-    mparams.n_gpu_layers = 99;
+    mparams.n_gpu_layers = 0; // Vulkan backend (not ROCm HIP) locks up AMD GPU under load
 
     auto *model = llama_model_load_from_file(modelPath.toLocal8Bit().constData(), mparams);
     if (!model) {
