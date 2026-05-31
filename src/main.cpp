@@ -85,6 +85,12 @@ int main(int argc, char *argv[]) {
             }
         });
 
+        // Pre-generate 768px disk thumbnails for all known media.
+        // Runs after a short delay so the UI renders first.
+        QTimer::singleShot(1500, &app, [&]() {
+            thumbGenerator.startCacheBuilding(dbManager.getAllMediaPaths(), 768);
+        });
+
         // Run once at startup, then every 3 minutes to catch external file deletions.
         runPrune();
         QTimer *pruneTimer = new QTimer(&app);
@@ -113,6 +119,11 @@ int main(int argc, char *argv[]) {
         timelineModel.refresh(settingsManager.hideIgnoredInTimeline());
         albumModel.refresh(true);
         storageManager.refresh();
+        // Re-run cache builder after a scan to pick up newly indexed files.
+        QTimer::singleShot(500, &app, [&]() {
+            if (!viewerOnly)
+                thumbGenerator.startCacheBuilding(dbManager.getAllMediaPaths(), 768);
+        });
     });
 
     // Apply saved parallel thumbnail mode

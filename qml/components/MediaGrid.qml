@@ -43,10 +43,11 @@ Item {
     Component.onCompleted: TimelineModel.setContentWidth(Math.round(contentW))
 
     // ── Preserve scroll position across model rebuilds ───────────────────
-    // Save contentY before reset; restore after via a Timer (one frame later
-    // lets the new delegates finish layout before we set contentY).
     property real _savedY: 0
     property bool _pendingRestore: false
+
+    // Smooth wheel scroll target — accumulates delta across rapid wheel events.
+    property real _scrollTarget: 0
 
     Connections {
         target: TimelineModel
@@ -55,13 +56,21 @@ Item {
         }
         function onModelReset() {
             if (root._savedY > 0) {
-                // Qt.callLater defers until after layout is done — no visible jump
                 Qt.callLater(function() {
-                    var maxY = Math.max(0, listView.contentHeight - listView.height)
-                    listView.contentY = Math.min(root._savedY, maxY)
+                    var newY = Math.min(root._savedY, Math.max(0, listView.contentHeight - listView.height))
+                    listView.contentY = newY
+                    root._scrollTarget = newY
                 })
             }
         }
+    }
+
+    NumberAnimation {
+        id: scrollAnim
+        target: listView
+        property: "contentY"
+        duration: 220
+        easing.type: Easing.OutCubic
     }
 
     ListView {
@@ -78,10 +87,34 @@ Item {
         reuseItems: true
         visible: count > 0
 
+        // WheelHandler inside ListView takes priority over Flickable's built-in wheel scroll.
+        WheelHandler {
+            id: wheelHandler
+            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+            target: null
+            onWheel: function(event) {
+                if (scrubber._dragging) return
+                var dy = event.pixelDelta.y !== 0
+                    ? event.pixelDelta.y
+                    : event.angleDelta.y / 120.0 * 100
+                var maxY = Math.max(0, listView.contentHeight - listView.height)
+                root._scrollTarget = Math.max(0, Math.min(maxY, root._scrollTarget - dy))
+                scrollAnim.from = listView.contentY
+                scrollAnim.to   = root._scrollTarget
+                scrollAnim.restart()
+            }
+        }
+
         pixelAligned: true
         boundsBehavior: Flickable.StopAtBounds
         flickDeceleration: 3000
         maximumFlickVelocity: 4000
+
+        // Keep _scrollTarget in sync when scrubber drags contentY directly.
+        onContentYChanged: {
+            if (scrubber._dragging)
+                root._scrollTarget = listView.contentY
+        }
 
         delegate: Item {
             id: rowItem

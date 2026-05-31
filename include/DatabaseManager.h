@@ -44,6 +44,9 @@ public:
     QVariantList getAllMedia(bool hideIgnored = true,
                              SortRole role   = ByCreated,
                              SortOrder order = Descending);
+
+    // Returns all non-trashed file paths (for background thumbnail pre-generation).
+    QStringList getAllMediaPaths();
     Q_INVOKABLE void setRawFilter(int filter);
 
     // Per-view sort preference persistence (stored in settings_kv).

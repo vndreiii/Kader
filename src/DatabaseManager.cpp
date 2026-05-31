@@ -650,6 +650,16 @@ QVariantList DatabaseManager::getAllMedia(bool hideIgnored, SortRole role, SortO
     return list;
 }
 
+QStringList DatabaseManager::getAllMediaPaths() {
+    checkConnection();
+    QSqlQuery q(m_db);
+    q.exec("SELECT file_path FROM media WHERE is_trashed = 0");
+    QStringList paths;
+    while (q.next())
+        paths << q.value(0).toString();
+    return paths;
+}
+
 void DatabaseManager::setSortPref(const QString &view, int role, int order) {
     checkConnection();
     QSqlQuery q(m_db);

@@ -15,6 +15,10 @@ Item {
     signal enterSelectionMode()
 
     readonly property var _d: (tileData !== null && tileData !== undefined) ? tileData : ({})
+    readonly property bool _isGif: (root._d.mime_type || "").toString() === "image/gif"
+
+    // Whichever media element is active — used to gate layer FBO allocation
+    readonly property int _activeStatus: root._isGif ? gifImg.status : img.status
 
     // ── Background placeholder (visible while image loads) ────────────────
     Rectangle {
@@ -30,8 +34,8 @@ Item {
         radius: 16
         color: "white"
         visible: false
-        // Only allocate the FBO once the image is present; placeholder needs no mask
-        layer.enabled: img.status === Image.Ready
+        // Only allocate the FBO once the active media element is loaded
+        layer.enabled: root._activeStatus === Image.Ready
     }
 
     // ── All content — clipped to rounded rect via MultiEffect ─────────────
@@ -42,7 +46,9 @@ Item {
         Image {
             id: img
             anchors.fill: parent
+            visible: !root._isGif
             source: {
+                if (root._isGif) return ""
                 var isVid = root._d.mime_type ? root._d.mime_type.toString().startsWith("video/") : false
                 if (!isVid && root.width > 600 && root._d.file_path) return "file://" + root._d.file_path
                 var p = root._d.thumb || root._d.file_path || ""
@@ -58,6 +64,21 @@ Item {
             Behavior on scale { NumberAnimation { duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
         }
 
+        // Animated GIF — plays directly from file, loops automatically
+        AnimatedImage {
+            id: gifImg
+            anchors.fill: parent
+            visible: root._isGif
+            source: root._isGif ? ("file://" + (root._d.file_path || "")) : ""
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: true
+            playing: root._isGif
+            cache: false
+
+            scale: mouseArea.containsMouse ? 1.06 : 1.0
+            Behavior on scale { NumberAnimation { duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
+        }
+
         // Video badge
         Rectangle {
             visible: root._d.mime_type ? root._d.mime_type.toString().startsWith("video/") : false
@@ -65,6 +86,15 @@ Item {
             width: 24; height: 24; radius: 12
             color: Qt.alpha("black", 0.55)
             M3Icon { anchors.centerIn: parent; name: "play"; size: 14; color: "white" }
+        }
+
+        // GIF badge
+        Rectangle {
+            visible: root._isGif
+            anchors.top: parent.top; anchors.left: parent.left; anchors.margins: 8
+            height: 18; radius: 9; width: gifLabel.implicitWidth + 10
+            color: Qt.alpha("black", 0.55)
+            Label { id: gifLabel; anchors.centerIn: parent; text: "GIF"; color: "white"; font.pixelSize: 9; font.weight: Font.Bold }
         }
 
         // Selection checkmark
@@ -114,8 +144,8 @@ Item {
             }
         }
 
-        // Skip the FBO entirely while the placeholder is showing — no image to clip yet
-        layer.enabled: img.status === Image.Ready
+        // Skip the FBO entirely while the placeholder is showing — no media loaded yet
+        layer.enabled: root._activeStatus === Image.Ready
         layer.effect: MultiEffect {
             maskEnabled: true
             maskThresholdMin: 0.5

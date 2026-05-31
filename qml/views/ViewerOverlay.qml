@@ -66,6 +66,10 @@ Rectangle {
         var m = root.mediaData ? (root.mediaData.mime_type || "") : ""
         return m.indexOf("video/") === 0
     }
+    readonly property bool _isGif: {
+        var m = root.mediaData ? (root.mediaData.mime_type || "") : ""
+        return m === "image/gif"
+    }
 
     function resetZoom() { _zoom = 1.0; _panX = 0; _panY = 0 }
     onMediaDataChanged: {
@@ -105,7 +109,7 @@ Rectangle {
     function _transition(dir) {
         resetZoom()
         _dir = dir
-        outImg.source = root._isVideo
+        outImg.source = (root._isVideo || root._isGif)
             ? (root.mediaData && root.mediaData.thumb ? root.mediaData.thumb : "")
             : mainImg.source
         outImg.opacity = 1.0
@@ -199,11 +203,31 @@ Rectangle {
             anchors.centerIn: parent
             width:  Math.min(imgArea.width,  implicitWidth  > 0 ? implicitWidth  : imgArea.width)
             height: Math.min(imgArea.height, implicitHeight > 0 ? implicitHeight : imgArea.height)
-            source: (!root._isVideo && root.mediaData) ? "file://" + root.mediaData.file_path : ""
-            visible: !root._isVideo
+            source: (!root._isVideo && !root._isGif && root.mediaData) ? "file://" + root.mediaData.file_path : ""
+            visible: !root._isVideo && !root._isGif
             fillMode: Image.PreserveAspectFit
             autoTransform: true
             asynchronous: true
+
+            scale: root._zoom
+            transformOrigin: Item.Center
+            transform: Translate { x: root._panX; y: root._panY }
+
+            Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutQuint } }
+        }
+
+        // Animated GIF viewer — loops silently, supports zoom + pan
+        AnimatedImage {
+            id: gifViewer
+            anchors.centerIn: parent
+            width:  Math.min(imgArea.width,  implicitWidth  > 0 ? implicitWidth  : imgArea.width)
+            height: Math.min(imgArea.height, implicitHeight > 0 ? implicitHeight : imgArea.height)
+            source: root._isGif && root.mediaData ? "file://" + root.mediaData.file_path : ""
+            visible: root._isGif
+            fillMode: Image.PreserveAspectFit
+            playing: root._isGif
+            asynchronous: true
+            cache: false
 
             scale: root._zoom
             transformOrigin: Item.Center

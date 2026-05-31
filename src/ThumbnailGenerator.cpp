@@ -6,6 +6,7 @@
 #include <QBuffer>
 #include <QProcess>
 #include <QDebug>
+#include <QtConcurrent>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <libraw/libraw.h>
@@ -100,7 +101,7 @@ QString ThumbnailGenerator::getOrCreateThumbnail(const QString &filePath, int si
                 QFile f(thumbPath);
                 if (f.open(QIODevice::WriteOnly)) { f.write(bytes); f.close(); return thumbPath; }
             }
-            return "";
+            // LibRaw failed — fall through to libvips native RAW loader
         }
 
         try {
@@ -164,7 +165,6 @@ QByteArray ThumbnailGenerator::generateVideoThumbnailBytes(const QString &filePa
 }
 
 QByteArray ThumbnailGenerator::generateRawThumbnailBytes(const QString &filePath, int size) {
-    // One LibRaw instance per call — not thread-safe to share across threads.
     LibRaw raw;
     raw.set_progress_handler(nullptr, nullptr);
 
@@ -173,7 +173,7 @@ QByteArray ThumbnailGenerator::generateRawThumbnailBytes(const QString &filePath
         return {};
     }
 
-    // Primary path: extract embedded JPEG thumbnail (fast, avoids full decode).
+    // Primary: extract embedded JPEG thumbnail (fast, avoids full decode).
     if (raw.unpack_thumb() == LIBRAW_SUCCESS) {
         int ret = 0;
         libraw_processed_image_t *thumb = raw.dcraw_make_mem_thumb(&ret);
@@ -181,7 +181,6 @@ QByteArray ThumbnailGenerator::generateRawThumbnailBytes(const QString &filePath
             QByteArray result;
             try {
                 if (thumb->type == LIBRAW_IMAGE_JPEG) {
-                    // Pass JPEG bytes directly to vips — libjpeg-turbo shrink-on-load.
                     vips::VImage img = vips::VImage::thumbnail_buffer(
                         thumb->data, thumb->data_size, size,
                         vips::VImage::option()->set("height", size));
@@ -190,10 +189,12 @@ QByteArray ThumbnailGenerator::generateRawThumbnailBytes(const QString &filePath
                     result = QByteArray(static_cast<const char *>(buf), static_cast<int>(len));
                     g_free(buf);
                 } else {
-                    // Bitmap thumbnail — wrap as raw pixels and resize.
+                    VipsBandFormat fmt = (thumb->bits == 16) ? VIPS_FORMAT_USHORT : VIPS_FORMAT_UCHAR;
                     vips::VImage img = vips::VImage::new_from_memory(
                         thumb->data, thumb->data_size,
-                        thumb->width, thumb->height, thumb->colors, VIPS_FORMAT_UCHAR);
+                        thumb->width, thumb->height, thumb->colors, fmt);
+                    img = img.copy(vips::VImage::option()
+                        ->set("interpretation", static_cast<int>(VIPS_INTERPRETATION_sRGB)));
                     vips::VImage resized = img.thumbnail_image(size,
                         vips::VImage::option()->set("height", size));
                     void *buf = nullptr; size_t len = 0;
@@ -202,14 +203,18 @@ QByteArray ThumbnailGenerator::generateRawThumbnailBytes(const QString &filePath
                     g_free(buf);
                 }
             } catch (vips::VError &e) {
-                qWarning() << "LibRaw+vips resize error for" << filePath << ":" << e.what();
+                qWarning() << "LibRaw+vips thumb error for" << filePath << ":" << e.what();
             }
             LibRaw::dcraw_clear_mem(thumb);
             if (!result.isEmpty()) return result;
         }
     }
 
-    // Fallback: half-size decode (fast; avoids full demosaic).
+    // Fallback: half-size decode. unpack() is required before dcraw_process().
+    if (raw.unpack() != LIBRAW_SUCCESS) {
+        qWarning() << "LibRaw: unpack failed for" << filePath;
+        return {};
+    }
     raw.imgdata.params.half_size      = 1;
     raw.imgdata.params.use_camera_wb  = 1;
     raw.imgdata.params.no_auto_bright = 1;
@@ -224,10 +229,12 @@ QByteArray ThumbnailGenerator::generateRawThumbnailBytes(const QString &filePath
 
     QByteArray result;
     try {
+        VipsBandFormat fmt = (img->bits == 16) ? VIPS_FORMAT_USHORT : VIPS_FORMAT_UCHAR;
         vips::VImage vimg = vips::VImage::new_from_memory(
             img->data, img->data_size,
-            img->width, img->height, img->colors,
-            img->bits == 16 ? VIPS_FORMAT_USHORT : VIPS_FORMAT_UCHAR);
+            img->width, img->height, img->colors, fmt);
+        vimg = vimg.copy(vips::VImage::option()
+            ->set("interpretation", static_cast<int>(VIPS_INTERPRETATION_sRGB)));
         vips::VImage resized = vimg.thumbnail_image(size,
             vips::VImage::option()->set("height", size));
         void *buf = nullptr; size_t len = 0;
@@ -245,8 +252,11 @@ QByteArray ThumbnailGenerator::generateRawThumbnailBytes(const QString &filePath
 QByteArray ThumbnailGenerator::generateThumbnailBytes(const QString &filePath, int size) {
     if (isVideoFile(filePath))
         return generateVideoThumbnailBytes(filePath, size);
-    if (isRawFile(filePath))
-        return generateRawThumbnailBytes(filePath, size);
+    if (isRawFile(filePath)) {
+        QByteArray bytes = generateRawThumbnailBytes(filePath, size);
+        if (!bytes.isEmpty()) return bytes;
+        // LibRaw failed — fall through to libvips native RAW loader
+    }
     try {
         vips::VImage thumb = vips::VImage::thumbnail(filePath.toLocal8Bit().constData(), size);
         void *buf = nullptr;
@@ -261,6 +271,51 @@ QByteArray ThumbnailGenerator::generateThumbnailBytes(const QString &filePath, i
         qWarning() << "Unknown thumbnail error for" << filePath;
     }
     return {};
+}
+
+void ThumbnailGenerator::startCacheBuilding(const QStringList &paths, int size) {
+    if (m_thumbCaching.load()) {
+        m_cancelCache.store(true);
+        m_cacheFuture.waitForFinished();
+    }
+
+    QStringList uncached;
+    uncached.reserve(paths.size());
+    for (const QString &p : paths) {
+        QString tp = m_cacheDir + "/" + generateHash(p) + "_" + QString::number(size) + ".jpg";
+        if (!QFile::exists(tp) || QFile(tp).size() == 0)
+            uncached << p;
+    }
+
+    if (uncached.isEmpty()) {
+        emit thumbCacheFinished();
+        return;
+    }
+
+    m_cancelCache.store(false);
+    m_thumbCaching.store(true);
+    m_thumbCacheDone.store(0);
+    m_thumbCacheTotal.store(uncached.size());
+    QMetaObject::invokeMethod(this, "thumbCachingChanged",     Qt::QueuedConnection);
+    QMetaObject::invokeMethod(this, "thumbCacheProgressChanged", Qt::QueuedConnection);
+
+    m_cacheFuture = QtConcurrent::run([this, uncached, size]() {
+        for (const QString &p : uncached) {
+            if (m_cancelCache.load()) break;
+            getOrCreateThumbnail(p, size);
+            int done = m_thumbCacheDone.fetch_add(1) + 1;
+            if (done % 10 == 0 || done == m_thumbCacheTotal.load())
+                QMetaObject::invokeMethod(this, "thumbCacheProgressChanged", Qt::QueuedConnection);
+        }
+        m_thumbCaching.store(false);
+        QMetaObject::invokeMethod(this, "thumbCachingChanged",  Qt::QueuedConnection);
+        QMetaObject::invokeMethod(this, "thumbCacheFinished",   Qt::QueuedConnection);
+    });
+}
+
+void ThumbnailGenerator::cancelCacheBuilding() {
+    if (m_thumbCaching.load())
+        m_cancelCache.store(true);
 }
 
 // Derive a 32-byte AES key from the machine ID + a fixed app salt.

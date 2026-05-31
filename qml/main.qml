@@ -12,7 +12,18 @@ ApplicationWindow {
     width: 1480
     height: 940
     visible: true
-    title: qsTr("Kader")
+    // _pendingView is set the moment the password dialog opens (before auth),
+    // so the window title reports "Hidden" immediately for IPC / screen-share scripts.
+    property string _pendingView: ""
+    title: {
+        var v = (_pendingView !== "") ? _pendingView : currentView
+        var suffix = ({ "albums": "Albums", "videos": "Videos", "map": "Places",
+                        "favorites": "Favorites", "hidden": "Hidden",
+                        "trash": "Trash", "settings": "Settings" })[v]
+        if (!suffix) return "Kader"
+        if (v === "albums" && detailTitle !== "") return "Kader — " + detailTitle
+        return "Kader — " + suffix
+    }
     flags: Qt.Window | Qt.FramelessWindowHint
 
     property string currentView: "timeline"
@@ -95,6 +106,36 @@ ApplicationWindow {
     property int scanFileCount: 0
     property bool scanDone: false
 
+    // Thumbnail cache state
+    property bool isThumbCaching: false
+    property int  thumbCacheDone:  0
+    property int  thumbCacheTotal: 0
+    property bool thumbCacheDoneFlag: false
+
+    Connections {
+        target: ThumbGen
+        function onThumbCachingChanged() {
+            window.isThumbCaching = ThumbGen.thumbCaching
+            if (!ThumbGen.thumbCaching && window.thumbCacheTotal > 0) {
+                window.thumbCacheDoneFlag = true
+                thumbCacheBannerTimer.restart()
+            }
+        }
+        function onThumbCacheProgressChanged() {
+            window.thumbCacheDone  = ThumbGen.thumbCacheDone
+            window.thumbCacheTotal = ThumbGen.thumbCacheTotal
+        }
+        function onThumbCacheFinished() {
+            window.thumbCacheDone = window.thumbCacheTotal
+        }
+    }
+
+    Timer {
+        id: thumbCacheBannerTimer
+        interval: 3000
+        onTriggered: window.thumbCacheDoneFlag = false
+    }
+
     Connections {
         target: FileScanner
         function onScanStarted(path) {
@@ -169,6 +210,7 @@ ApplicationWindow {
             currentView: window.currentView
             onViewChanged: (view) => {
                 if (view === "hidden") {
+                    window._pendingView = "hidden"
                     passwordPrompt.open()
                     return
                 }
@@ -905,11 +947,82 @@ ApplicationWindow {
         }
     }
 
+    // Thumbnail cache progress banner
+    Rectangle {
+        id: thumbCacheBanner
+        visible: window.isThumbCaching || window.thumbCacheDoneFlag
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: scanBanner.visible ? scanBanner.top : parent.bottom
+        anchors.bottomMargin: scanBanner.visible ? 8 : 24
+        z: 50
+        width: Math.min(560, parent.width - 48)
+        height: 64
+        radius: 20
+        color: window.thumbCacheDoneFlag ? ThemeManager.primaryContainer : ThemeManager.inverseSurface
+
+        opacity: visible ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
+        transform: Translate { y: thumbCacheBanner.visible ? 0 : 24 }
+
+        // Deterministic progress bar (fills left → right)
+        Rectangle {
+            visible: window.isThumbCaching && window.thumbCacheTotal > 0
+            anchors.bottom: parent.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.leftMargin: 16; anchors.rightMargin: 16; anchors.bottomMargin: 10
+            height: 3; radius: 1.5
+            color: Qt.alpha(ThemeManager.inverseOnSurface, 0.2)
+
+            Rectangle {
+                height: parent.height; radius: parent.radius
+                color: ThemeManager.inverseOnSurface
+                width: window.thumbCacheTotal > 0
+                    ? parent.width * Math.min(1, window.thumbCacheDone / window.thumbCacheTotal)
+                    : 0
+                Behavior on width { NumberAnimation { duration: 300; easing.type: Easing.OutQuart } }
+            }
+        }
+
+        RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 16; anchors.rightMargin: 16
+            anchors.bottomMargin: window.isThumbCaching ? 16 : 0
+            spacing: 12
+
+            M3Icon {
+                name: window.thumbCacheDoneFlag ? "check" : "photo_library"
+                size: 20
+                color: window.thumbCacheDoneFlag ? ThemeManager.onPrimaryContainer : ThemeManager.inverseOnSurface
+            }
+
+            Column {
+                Layout.fillWidth: true
+                spacing: 1
+                Label {
+                    text: window.thumbCacheDoneFlag
+                        ? "Thumbnail cache ready"
+                        : "Generating thumbnail cache"
+                    color: window.thumbCacheDoneFlag ? ThemeManager.onPrimaryContainer : ThemeManager.inverseOnSurface
+                    font.pixelSize: 13; font.weight: Font.Medium
+                    elide: Text.ElideRight; width: parent.width
+                }
+                Label {
+                    visible: window.isThumbCaching
+                    text: window.thumbCacheDone.toLocaleString() + " / " + window.thumbCacheTotal.toLocaleString()
+                    color: Qt.alpha(ThemeManager.inverseOnSurface, 0.7)
+                    font.pixelSize: 11
+                }
+            }
+        }
+    }
+
     PasswordPrompt {
         id: passwordPrompt
         parent: Overlay.overlay
         anchors.fill: parent
         onAccepted: {
+            window._pendingView = ""
             window.currentView = "hidden"
             window.detailTitle = ""
             TimelineModel.setFolderFilter("")
@@ -921,7 +1034,7 @@ ApplicationWindow {
                 mainStack.pop(null, StackView.Immediate)
             mainStack.replace(timelineView)
         }
-        onRejected: { /* stay on current view */ }
+        onRejected: { window._pendingView = "" }
     }
 
     ViewerOverlay {

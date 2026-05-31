@@ -5,11 +5,17 @@
 #include <QString>
 #include <QByteArray>
 #include <QMutex>
+#include <QFuture>
 #include <atomic>
 #include <vips/vips8>
 
 class ThumbnailGenerator : public QObject {
     Q_OBJECT
+
+    Q_PROPERTY(bool   thumbCaching     READ thumbCaching     NOTIFY thumbCachingChanged)
+    Q_PROPERTY(int    thumbCacheDone   READ thumbCacheDone   NOTIFY thumbCacheProgressChanged)
+    Q_PROPERTY(int    thumbCacheTotal  READ thumbCacheTotal  NOTIFY thumbCacheProgressChanged)
+
 public:
     explicit ThumbnailGenerator(QObject *parent = nullptr);
 
@@ -30,6 +36,15 @@ public:
     // Generate video thumbnail via ffmpegthumbnailer.
     QByteArray generateVideoThumbnailBytes(const QString &filePath, int size = 256);
 
+    // Pre-generate disk-cached thumbnails for all paths at the given size.
+    // Skips files that already have a cached thumbnail. Shows progress via signals.
+    Q_INVOKABLE void startCacheBuilding(const QStringList &paths, int size = 768);
+    Q_INVOKABLE void cancelCacheBuilding();
+
+    bool thumbCaching()    const { return m_thumbCaching.load(); }
+    int  thumbCacheDone()  const { return m_thumbCacheDone.load(); }
+    int  thumbCacheTotal() const { return m_thumbCacheTotal.load(); }
+
     static bool isRawFile(const QString &filePath);
 
     // Encrypt / decrypt using AES-256-CBC with a machine-derived key.
@@ -39,10 +54,21 @@ public:
     // Returns the URL to pass as an Image source in QML: "image://thumbnails/<path>"
     static QString thumbnailUrl(const QString &filePath);
 
+signals:
+    void thumbCachingChanged();
+    void thumbCacheProgressChanged();
+    void thumbCacheFinished();
+
 private:
     static QByteArray deriveKey();
     QString generateHash(const QString &filePath);
     QString m_cacheDir;
     QMutex m_genMutex;         // serializes vips/ffmpeg calls in legacy mode
     std::atomic<bool> m_parallelMode{false};
+
+    std::atomic<bool> m_thumbCaching{false};
+    std::atomic<bool> m_cancelCache{false};
+    std::atomic<int>  m_thumbCacheDone{0};
+    std::atomic<int>  m_thumbCacheTotal{0};
+    QFuture<void>     m_cacheFuture;
 };

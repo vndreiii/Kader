@@ -5,7 +5,8 @@
 #include <QDebug>
 
 ThumbnailProvider::ThumbnailProvider(DatabaseManager *db, ThumbnailGenerator *gen)
-    : QQuickImageProvider(QQuickImageProvider::Image)
+    : QQuickImageProvider(QQuickImageProvider::Image,
+                          QQuickImageProvider::ForceAsynchronousImageLoading)
     , m_db(db)
     , m_gen(gen)
 {}
