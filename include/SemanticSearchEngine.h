@@ -86,8 +86,8 @@ public:
     Q_INVOKABLE void cancelDownload();
     Q_INVOKABLE void indexAllMedia();
 
-    // Sync cosine-similarity search over stored embeddings; returns [{id, score}]
-    Q_INVOKABLE QVariantList searchByText(const QString &query);
+    // Async cosine-similarity search; emits searchFinished([{id, score}]) when done
+    Q_INVOKABLE void searchByText(const QString &query);
 
 signals:
     void readyChanged();

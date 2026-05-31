@@ -449,46 +449,51 @@ float SemanticSearchEngine::cosine(const float *a, const float *b, int n)
     return dot;
 }
 
-QVariantList SemanticSearchEngine::searchByText(const QString &query)
+void SemanticSearchEngine::searchByText(const QString &query)
 {
-    if (!m_ready) { emit engineError("Model not loaded"); return {}; }
+    if (!m_ready) { emit engineError("Model not loaded"); return; }
 
-    QByteArray queryBlob;
     int qid = m_nextQueryId++;
-    m_textCbs[qid] = [&queryBlob](QByteArray b){ queryBlob = b; };
+    // Callback runs on the main thread via onTextEmbeddingReady once the
+    // worker finishes embedding the query text.  The DB cosine scan happens
+    // here so it stays on the main thread and avoids thread-local DB issues.
+    m_textCbs[qid] = [this](QByteArray blob) {
+        if (blob.isEmpty()) { emit searchFinished({}); return; }
+
+        int nEmbd = (int)(blob.size() / sizeof(float));
+        const float *qvec = reinterpret_cast<const float*>(blob.constData());
+
+        QSqlDatabase db = m_db->threadDb();
+        QSqlQuery q(db);
+        q.prepare("SELECT e.media_id, e.embedding FROM ai_embeddings e "
+                  "JOIN media m ON m.id = e.media_id "
+                  "WHERE m.is_trashed=0 AND m.is_ignored=0");
+        q.exec();
+
+        QVector<QPair<int,float>> scores;
+        while (q.next()) {
+            int id  = q.value(0).toInt();
+            QByteArray eblob = q.value(1).toByteArray();
+            if (eblob.size() != (qsizetype)(nEmbd * sizeof(float))) continue;
+            scores.append({ id, cosine(qvec,
+                reinterpret_cast<const float*>(eblob.constData()), nEmbd) });
+        }
+
+        std::sort(scores.begin(), scores.end(),
+                  [](const auto &a, const auto &b){ return a.second > b.second; });
+        if (scores.size() > 30) scores.resize(30);
+
+        QVariantList out;
+        for (const auto &[id, score] : scores) {
+            QVariantMap m; m["id"] = id; m["score"] = (double)score;
+            out.append(m);
+        }
+        emit searchFinished(out);
+    };
+
+    // QueuedConnection — worker runs async, emits textEmbeddingReady back to
+    // main thread, which then fires the callback above via onTextEmbeddingReady.
     QMetaObject::invokeMethod(m_worker, [this, query, qid]{
         m_worker->generateTextEmbedding(query, qid);
-    }, Qt::BlockingQueuedConnection);
-
-    if (queryBlob.isEmpty()) return {};
-
-    int nEmbd = (int)(queryBlob.size() / sizeof(float));
-    const float *qvec = reinterpret_cast<const float*>(queryBlob.constData());
-
-    QSqlDatabase db = m_db->threadDb();
-    QSqlQuery q(db);
-    q.prepare("SELECT e.media_id, e.embedding FROM ai_embeddings e "
-              "JOIN media m ON m.id = e.media_id "
-              "WHERE m.is_trashed=0 AND m.is_ignored=0");
-    q.exec();
-
-    QVector<QPair<int,float>> scores;
-    while (q.next()) {
-        int id = q.value(0).toInt();
-        QByteArray blob = q.value(1).toByteArray();
-        if (blob.size() != (qsizetype)(nEmbd * sizeof(float))) continue;
-        scores.append({ id, cosine(qvec,
-            reinterpret_cast<const float*>(blob.constData()), nEmbd) });
-    }
-
-    std::sort(scores.begin(), scores.end(),
-              [](const auto &a, const auto &b){ return a.second > b.second; });
-    if (scores.size() > 30) scores.resize(30);
-
-    QVariantList out;
-    for (const auto &[id, score] : scores) {
-        QVariantMap m; m["id"] = id; m["score"] = (double)score;
-        out.append(m);
-    }
-    return out;
+    }, Qt::QueuedConnection);
 }

@@ -1,6 +1,0 @@
-<RCC>
-  <qresource prefix="/">
-    <file alias="/Qcm/Material">/home/meh/Builds/KaderGallery/src/build-pkg/qml_modules/Qcm/Material</file>
-
-  </qresource>
-</RCC>

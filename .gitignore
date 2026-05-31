@@ -13,6 +13,11 @@ Thumbs.db
 
 # Local dependencies
 lib/QmlMaterial/
+QmlMaterial/
+src/QmlMaterial/
+src/kader/
+kader/
+pkg/
 
 # Project Management & Scripts
 PROJECT_PLAN.md

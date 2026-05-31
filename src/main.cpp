@@ -75,6 +75,13 @@ int main(int argc, char *argv[]) {
     };
 
     if (!viewerOnly) {
+        // Auto-load semantic model in background if already downloaded.
+        if (semanticSearch.modelsPresent()) {
+            QTimer::singleShot(2500, &app, [&]() {
+                semanticSearch.loadModel();
+            });
+        }
+
         // Auto-scan indexed directories on startup (delayed so UI loads first).
         QTimer::singleShot(800, &app, [&]() {
             QVariantList dirs = dbManager.getIndexedDirectories();
