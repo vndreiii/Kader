@@ -732,7 +732,7 @@ void SemanticSearchEngine::searchByText(const QString &query)
         QSqlQuery q(db);
         q.prepare("SELECT e.media_id, e.embedding FROM ai_embeddings e "
                   "JOIN media m ON m.id = e.media_id "
-                  "WHERE m.is_trashed=0 AND m.is_ignored=0");
+                  "WHERE m.is_trashed=0 AND m.is_hidden=0 AND m.is_ignored=0");
         q.exec();
 
         QVector<QPair<int,float>> scores;

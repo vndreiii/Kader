@@ -29,6 +29,9 @@ ApplicationWindow {
     property string currentView: "timeline"
     property bool sidebarCollapsed: false
     property string detailTitle: ""
+    property int _photoCount: 0
+
+    function _refreshPhotoCount() { _photoCount = DB.getPhotoCount() }
     property bool viewerOnlyMode: false   // true when launched via argv[1]
 
     property real timelineScrollY: 0
@@ -83,6 +86,8 @@ ApplicationWindow {
 
     Component.onCompleted: {
         var isViewerOnly = (typeof STARTUP_FILE === "string" && STARTUP_FILE !== "")
+
+        window._refreshPhotoCount()
 
         // In vieweronly mode the stack and sidebar are never shown — skip expensive view creation.
         // Other views are created lazily on first navigation to avoid blocking startup.
@@ -282,6 +287,7 @@ ApplicationWindow {
             window.isScanning = false
             window.scanDone = true
             scanBannerTimer.restart()
+            window._refreshPhotoCount()
         }
     }
 
@@ -440,9 +446,14 @@ ApplicationWindow {
                     Column {
                         spacing: 2
                         Label {
-                            text: mainStack.depth > 1 && window.detailTitle !== ""
-                                  ? window.detailTitle
-                                  : (viewTitles[window.currentView] || "")
+                            text: {
+                                var base = mainStack.depth > 1 && window.detailTitle !== ""
+                                    ? window.detailTitle
+                                    : (viewTitles[window.currentView] || "")
+                                if (window.currentView === "timeline" && window._photoCount > 0)
+                                    return base + " · " + window._photoCount.toLocaleString()
+                                return base
+                            }
                             font.family: "Roboto Flex"
                             font.pixelSize: 28
                             font.weight: Font.Medium

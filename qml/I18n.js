@@ -116,7 +116,7 @@ var _s = {
         "refresh_library": "Refresh library", "add_directory": "Add folder",
         "new_album": "New album", "search_placeholder": "Search photos...", "ai_search_placeholder": "Search with AI...",
         "empty_trash": "Empty trash",
-        "section_library": "Library", "section_appearance": "Appearance",
+        "section_library": "Gallery", "section_appearance": "Appearance",
         "section_playback": "Playback", "section_raw": "RAW files",
         "section_privacy": "Privacy", "section_ai": "AI features",
         "section_language": "Language",

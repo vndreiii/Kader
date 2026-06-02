@@ -742,7 +742,7 @@ Item {
                 // Index library
                 SettingsRow {
                     visible: AI.ready
-                    label: qsTr("Index Library")
+                    label: qsTr("Index Gallery")
                     sub: {
                         if (AI.indexing)
                             return qsTr("%1 / %2 photos embedded…").arg(AI.indexedCount).arg(AI.indexTotal)
