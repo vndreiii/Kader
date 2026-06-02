@@ -1,6 +1,6 @@
 # Maintainer: Alex <alex@milfs.party>
 pkgname=kader
-pkgver=0.1.0.r62.7a37a82
+pkgver=2026.06.71
 pkgrel=1
 pkgdesc="Modern photo gallery"
 arch=('x86_64')
@@ -33,12 +33,11 @@ sha256sums=('SKIP' 'SKIP')
 
 pkgver() {
     cd "$pkgname"
-    local ver=$(git describe --tags --long 2>/dev/null | sed 's/\([^-]*-g\)/r\1/;s/-/./g')
-    if [ -z "$ver" ]; then
-        printf "0.1.0.r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
-    else
-        echo "$ver"
-    fi
+    # CalVer: YYYY.MM.<commit-count>
+    printf "%s.%s.%s" \
+        "$(git log -1 --format=%cd --date=format:%Y)" \
+        "$(git log -1 --format=%cd --date=format:%m)" \
+        "$(git rev-list --count HEAD)"
 }
 
 prepare() {
