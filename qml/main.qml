@@ -37,6 +37,7 @@ ApplicationWindow {
         if (searchPill._aiMode) {
             searchPill._aiMode = false
             TimelineModel.clearAiFilter()
+            window._aiDocResults = []
         }
     }
 
@@ -47,14 +48,30 @@ ApplicationWindow {
         TimelineModel.setSortOrder(pref.order)
     }
 
+    property var _aiDocResults: []
+
     Connections {
         target: AI
         function onSearchFinished(results) {
-            var ids = results.map(function(r) { return r.id })
-            TimelineModel.setAiFilter(ids)
+            searchPill._aiSearching = false
+            var imageIds = []
+            var docs = []
+            for (var i = 0; i < results.length; i++) {
+                var r = results[i]
+                if (r.type === "doc") docs.push(r)
+                else imageIds.push(r.id)
+            }
+            window._aiDocResults = docs
+            TimelineModel.setAiFilter(imageIds)
             var tl = window._tlViewInst
             if (tl && mainStack.currentItem !== tl) mainStack.replace(tl)
             window.currentView = "timeline"
+        }
+        function onEngineError(msg) {
+            searchPill._aiSearching = false
+            aiErrorToast.message = msg
+            aiErrorToast.visible = true
+            aiErrorToastTimer.restart()
         }
     }
 
@@ -84,6 +101,118 @@ ApplicationWindow {
             viewerOverlay.currentIndex = 0
             viewerOverlay.mediaData = viewerOverlay.allItems[0]
             viewerOverlay.active = true
+        }
+    }
+
+    // ── AI document results panel ────────────────────────────────────────
+    Rectangle {
+        id: docResultsPanel
+        visible: window._aiDocResults.length > 0 && window.currentView === "timeline" && !window.viewerOnlyMode
+        anchors.left: parent.left
+        anchors.leftMargin: sidebar.width + 12
+        anchors.right: parent.right
+        anchors.rightMargin: 12
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 12
+        z: 200
+        height: visible ? 96 : 0
+        radius: 16
+        color: ThemeManager.surfaceContainerHigh
+
+        Behavior on height { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 12
+            spacing: 4
+
+            Label {
+                text: qsTr("Documents  (%1)").arg(window._aiDocResults.length)
+                font.pixelSize: 11; font.weight: Font.Medium
+                color: ThemeManager.onSurfaceVariant
+            }
+
+            ListView {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                orientation: ListView.Horizontal
+                spacing: 8
+                clip: true
+                model: window._aiDocResults
+
+                delegate: Rectangle {
+                    required property var modelData
+                    width: Math.min(220, docResultsPanel.width / 3 - 12)
+                    height: 44
+                    radius: 10
+                    color: docHover.containsMouse
+                        ? Qt.alpha(ThemeManager.primary, 0.12)
+                        : Qt.alpha(ThemeManager.primary, 0.06)
+                    Behavior on color { ColorAnimation { duration: 80 } }
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 8
+                        spacing: 8
+
+                        M3Icon {
+                            name: modelData.name && modelData.name.endsWith(".pdf") ? "picture_as_pdf" : "description"
+                            size: 20
+                            color: ThemeManager.primary
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 0
+                            Label {
+                                Layout.fillWidth: true
+                                text: modelData.name || ""
+                                font.pixelSize: 12; font.weight: Font.Medium
+                                color: ThemeManager.onSurface
+                                elide: Text.ElideRight
+                            }
+                            Label {
+                                text: Math.round((modelData.score || 0) * 100) + "% match"
+                                font.pixelSize: 10
+                                color: ThemeManager.onSurfaceVariant
+                            }
+                        }
+                    }
+
+                    MouseArea {
+                        id: docHover
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: Qt.openUrlExternally("file://" + modelData.file_path)
+                    }
+                }
+            }
+        }
+    }
+
+    // ── AI error toast ───────────────────────────────────────────────────
+    Rectangle {
+        id: aiErrorToast
+        property string message: ""
+        visible: false
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 32
+        z: 9999
+        width: Math.min(aiErrorLabel.implicitWidth + 48, parent.width * 0.85)
+        height: 48; radius: 8
+        color: ThemeManager.inverseSurface
+        Label {
+            id: aiErrorLabel
+            anchors.centerIn: parent
+            text: aiErrorToast.message
+            font.pixelSize: 14
+            color: ThemeManager.inverseOnSurface
+        }
+        Timer {
+            id: aiErrorToastTimer
+            interval: 4000
+            onTriggered: aiErrorToast.visible = false
         }
     }
 
@@ -502,6 +631,7 @@ ApplicationWindow {
                     Rectangle {
                         id: searchPill
                         property bool _aiMode: false
+                        property bool _aiSearching: false
                         MouseArea {
                             anchors.fill: parent
                             z: -1
@@ -558,8 +688,10 @@ ApplicationWindow {
                                         }
                                     }
                                     Keys.onReturnPressed: {
-                                        if (searchPill._aiMode && text.length > 0)
+                                        if (searchPill._aiMode && text.length > 0) {
+                                            searchPill._aiSearching = true
                                             AI.searchByText(text)
+                                        }
                                     }
                                 }
                             }
@@ -604,12 +736,17 @@ ApplicationWindow {
                                     onClicked: {
                                         searchPill._aiMode = !searchPill._aiMode
                                         if (!searchPill._aiMode) {
+                                            searchPill._aiSearching = false
                                             TimelineModel.clearAiFilter()
+                                            window._aiDocResults = []
                                             TimelineModel.setSearchFilter(searchField.text)
                                             AlbumModel.setSearchFilter(searchField.text)
                                         } else {
                                             TimelineModel.setSearchFilter("")
                                             AlbumModel.setSearchFilter("")
+                                            // Auto-load the model when AI mode is enabled
+                                            if (!AI.ready && !AI.loading && AI.modelsPresent)
+                                                AI.loadModel()
                                         }
                                         searchField.forceActiveFocus()
                                     }

@@ -52,7 +52,7 @@ public:
     int contentWidth() const { return m_contentWidth; }
     Q_INVOKABLE void setContentWidth(int px);
 
-    bool aiFilterActive() const { return !m_aiFilterIds.isEmpty(); }
+    bool aiFilterActive() const { return m_aiFilterActive; }
     Q_INVOKABLE void setAiFilter(const QVariantList &ids);
     Q_INVOKABLE void clearAiFilter();
 
@@ -97,6 +97,7 @@ private:
     QString          m_searchFilter;
     QString          m_mimeFilter;
     QList<int>       m_aiFilterIds;
+    bool             m_aiFilterActive = false;
     int              m_sortRole  = 0; // DatabaseManager::ByCreated
     int              m_sortOrder = 0; // DatabaseManager::Descending
 };

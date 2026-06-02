@@ -83,16 +83,16 @@ void TimelineModel::setAiFilter(const QVariantList &ids) {
     m_aiFilterIds.clear();
     for (const QVariant &v : ids)
         m_aiFilterIds.append(v.toInt());
+    m_aiFilterActive = true;   // mark filter active even if ids is empty ("no results")
     emit aiFilterActiveChanged();
     refresh();
 }
 
 void TimelineModel::clearAiFilter() {
-    if (!m_aiFilterIds.isEmpty()) {
-        m_aiFilterIds.clear();
-        emit aiFilterActiveChanged();
-        refresh();
-    }
+    m_aiFilterIds.clear();
+    m_aiFilterActive = false;
+    emit aiFilterActiveChanged();
+    refresh();
 }
 
 void TimelineModel::setContentWidth(int px) {
@@ -197,7 +197,8 @@ void TimelineModel::refresh(bool hideIgnored) {
     }
 
     // AI semantic search filter — keep only matching IDs in relevance order
-    const bool aiMode = !m_aiFilterIds.isEmpty();
+    // m_aiFilterActive is true even when ids is empty (explicit "no results" from a search)
+    const bool aiMode = m_aiFilterActive;
     if (aiMode) {
         QHash<int, int> rank;
         for (int i = 0; i < m_aiFilterIds.size(); ++i)

@@ -174,6 +174,18 @@ bool DatabaseManager::createTables() {
         ")"
     );
 
+    query.exec(
+        "CREATE TABLE IF NOT EXISTS doc_chunks ("
+        "id        INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "file_path TEXT NOT NULL,"
+        "chunk_idx INTEGER NOT NULL,"
+        "embedding BLOB NOT NULL,"
+        "model_ver TEXT NOT NULL,"
+        "UNIQUE(file_path, chunk_idx)"
+        ")"
+    );
+    query.exec("CREATE INDEX IF NOT EXISTS idx_doc_chunks_path ON doc_chunks(file_path)");
+
     // Ensure path_prefix has a UNIQUE index. Adding an index is safe under WAL
     // and avoids the DDL-heavy table-recreation that would deadlock with open readers.
     {
@@ -188,6 +200,15 @@ bool DatabaseManager::createTables() {
     }
 
     return success;
+}
+
+QStringList DatabaseManager::getIndexedDirectoryPaths() {
+    checkConnection();
+    QStringList paths;
+    QSqlQuery q("SELECT path FROM indexed_directories WHERE is_active=1", m_db);
+    while (q.next())
+        paths.append(q.value(0).toString());
+    return paths;
 }
 
 QVariantList DatabaseManager::getIndexedDirectories() {

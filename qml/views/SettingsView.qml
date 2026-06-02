@@ -750,7 +750,6 @@ Item {
                             return qsTr("Done — %1 photos indexed").arg(AI.indexedCount)
                         return qsTr("Generate embeddings so you can search by description (GPU accelerated)")
                     }
-                    last: true
                     action: ColumnLayout {
                         spacing: 6
 
@@ -791,6 +790,45 @@ Item {
                                 enabled: !AI.indexing
                                 onClicked: AI.indexAllMedia()
                             }
+                        }
+                    }
+                }
+
+                // Index documents
+                SettingsRow {
+                    visible: AI.modelsPresent
+                    label: qsTr("Index Documents")
+                    sub: {
+                        if (!AI.docsEnabled)
+                            return qsTr("Enable to search PDF, TXT and Markdown files by content (uses AI embeddings)")
+                        if (AI.docIndexing)
+                            return qsTr("%1 / %2 documents indexed…").arg(AI.docIndexedCount).arg(AI.docIndexTotal)
+                        if (AI.docIndexedCount > 0 && AI.docIndexTotal > 0)
+                            return qsTr("Done — %1 documents indexed").arg(AI.docIndexedCount)
+                        return qsTr("Ready — click to re-index documents")
+                    }
+                    last: true
+                    action: RowLayout {
+                        spacing: 8
+
+                        // Progress bar while doc indexing
+                        Rectangle {
+                            visible: AI.docIndexing
+                            width: 120; height: 6; radius: 3
+                            color: ThemeManager.surfaceContainerHighest
+                            Rectangle {
+                                width: AI.docIndexTotal > 0
+                                    ? Math.max(4, parent.width * AI.docIndexedCount / AI.docIndexTotal)
+                                    : 0
+                                height: parent.height; radius: parent.radius
+                                color: ThemeManager.primary
+                                Behavior on width { NumberAnimation { duration: 300 } }
+                            }
+                        }
+
+                        M3Switch {
+                            checked: AI.docsEnabled
+                            onToggled: AI.setDocsEnabled(checked)
                         }
                     }
                 }

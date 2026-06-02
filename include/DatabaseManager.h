@@ -64,6 +64,7 @@ public:
 
     // Indexed Directories
     Q_INVOKABLE QVariantList getIndexedDirectories();
+    QStringList getIndexedDirectoryPaths();
     Q_INVOKABLE bool addIndexedDirectory(const QString &path);
     Q_INVOKABLE bool removeIndexedDirectory(const QString &path);
     bool updateDirectoryStats(const QString &path, int count);

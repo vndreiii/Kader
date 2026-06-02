@@ -440,12 +440,15 @@ Item {
         visible: listView.count === 0
         spacing: 16
 
-        readonly property int    mode:   TimelineModel.filterMode
-        readonly property bool   isVid:  TimelineModel.mimeFilter === "video/"
+        readonly property int    mode:    TimelineModel.filterMode
+        readonly property bool   isVid:   TimelineModel.mimeFilter === "video/"
+        readonly property bool   isAI:    TimelineModel.aiFilterActive
+        readonly property bool   aiIndexing: isAI && AI.indexing
 
         M3Icon {
             Layout.alignment: Qt.AlignHCenter
-            name:    parent.mode === 2 ? "delete"
+            name:    parent.isAI     ? "auto_awesome"
+                   : parent.mode === 2 ? "delete"
                    : parent.mode === 1 ? "favorite"
                    : parent.isVid ? "video_library"
                    : "schedule"
@@ -453,7 +456,9 @@ Item {
         }
         Label {
             Layout.alignment: Qt.AlignHCenter
-            text:  parent.mode === 2 ? "Trash is empty"
+            text:  parent.aiIndexing ? qsTr("AI is indexing your library…")
+                 : parent.isAI       ? qsTr("No matches for your AI search")
+                 : parent.mode === 2 ? "Trash is empty"
                  : parent.mode === 1 ? "No favorites yet"
                  : parent.isVid      ? "No videos found"
                  :                     "No photos found"
@@ -461,7 +466,9 @@ Item {
         }
         Label {
             Layout.alignment: Qt.AlignHCenter
-            text:  parent.mode === 2 ? "Deleted photos will appear here."
+            text:  parent.aiIndexing ? qsTr("%1 / %2 photos embedded").arg(AI.indexedCount).arg(AI.indexTotal)
+                 : parent.isAI       ? qsTr("Try a different description, or wait for indexing to complete.")
+                 : parent.mode === 2 ? "Deleted photos will appear here."
                  : parent.mode === 1 ? "Tap the heart on any photo to add it to Favorites."
                  : parent.isVid      ? "Scan a directory containing video files."
                  :                     "Press \"Scan directory\" to discover your photo library."

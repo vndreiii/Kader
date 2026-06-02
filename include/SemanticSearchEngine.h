@@ -24,12 +24,14 @@ public slots:
     void unloadModel();
     void generateTextEmbedding(const QString &text, int queryId);
     void indexPendingMedia();
+    void indexPendingDocs(QStringList rootDirs);
 
 signals:
     void loaded(bool ok);
     void unloaded();
     void textEmbeddingReady(int queryId, QByteArray embedding);
     void indexProgress(int current, int total);
+    void docIndexProgress(int current, int total);
     void workerError(QString message);
 
 private:
@@ -46,6 +48,16 @@ private:
     int   m_nEmbd   = 0;
 
     QMutex m_mutex;
+
+    // Batched image indexing state
+    int m_idxDone  = 0;
+    int m_idxTotal = 0;
+    bool m_idxRunning = false;
+
+    // Batched document indexing state
+    int  m_docDone    = 0;
+    int  m_docTotal   = 0;
+    bool m_docRunning = false;
 };
 
 // Public API — lives on the main thread
@@ -60,6 +72,10 @@ class SemanticSearchEngine : public QObject {
     Q_PROPERTY(int indexedCount    READ indexedCount   NOTIFY indexedCountChanged)
     Q_PROPERTY(int indexTotal      READ indexTotal     NOTIFY indexTotalChanged)
     Q_PROPERTY(bool indexing       READ indexing       NOTIFY indexingChanged)
+    Q_PROPERTY(bool docsEnabled    READ docsEnabled    NOTIFY docsEnabledChanged)
+    Q_PROPERTY(bool docIndexing    READ docIndexing    NOTIFY docIndexingChanged)
+    Q_PROPERTY(int  docIndexedCount READ docIndexedCount NOTIFY docIndexedCountChanged)
+    Q_PROPERTY(int  docIndexTotal  READ docIndexTotal  NOTIFY docIndexTotalChanged)
 
 public:
     explicit SemanticSearchEngine(DatabaseManager *db, QObject *parent = nullptr);
@@ -73,7 +89,11 @@ public:
     double  dlProgress() const { return m_dlProgress; }
     int indexedCount()   const { return m_indexedCount; }
     int indexTotal()     const { return m_indexTotal; }
-    bool indexing()      const { return m_indexing; }
+    bool indexing()         const { return m_indexing; }
+    bool docsEnabled()      const { return m_docsEnabled; }
+    bool docIndexing()      const { return m_docIndexing; }
+    int  docIndexedCount()  const { return m_docIndexedCount; }
+    int  docIndexTotal()    const { return m_docIndexTotal; }
 
     // Models are stored here
     static QString modelsDir();
@@ -85,8 +105,10 @@ public:
     Q_INVOKABLE void downloadModels();
     Q_INVOKABLE void cancelDownload();
     Q_INVOKABLE void indexAllMedia();
+    Q_INVOKABLE void setDocsEnabled(bool enabled);
+    Q_INVOKABLE void indexAllDocs();
 
-    // Async cosine-similarity search; emits searchFinished([{id, score}]) when done
+    // Async cosine-similarity search; emits searchFinished([{id,score,type}]) when done
     Q_INVOKABLE void searchByText(const QString &query);
 
 signals:
@@ -99,6 +121,10 @@ signals:
     void indexedCountChanged();
     void indexTotalChanged();
     void indexingChanged();
+    void docsEnabledChanged();
+    void docIndexingChanged();
+    void docIndexedCountChanged();
+    void docIndexTotalChanged();
     void searchFinished(QVariantList results);
     void engineError(QString message);
 
@@ -106,6 +132,7 @@ private slots:
     void onWorkerLoaded(bool ok);
     void onTextEmbeddingReady(int queryId, QByteArray embedding);
     void onIndexProgress(int cur, int total);
+    void onDocIndexProgress(int cur, int total);
     void onWorkerError(QString msg);
     void downloadNext();
     void onDownloadProgress(qint64 recv, qint64 total);
@@ -121,9 +148,14 @@ private:
 
     bool    m_ready        = false;
     bool    m_loading      = false;
+    QString m_pendingQuery;          // query buffered while model is loading
     bool    m_downloading  = false;
     bool    m_dlCancel     = false;
-    bool    m_indexing     = false;
+    bool    m_indexing        = false;
+    bool    m_docsEnabled     = false;
+    bool    m_docIndexing     = false;
+    int     m_docIndexedCount = 0;
+    int     m_docIndexTotal   = 0;
     QString m_dlStatus;
     double  m_dlProgress   = 0.0;
     int     m_indexedCount = 0;

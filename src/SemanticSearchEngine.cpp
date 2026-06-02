@@ -3,6 +3,9 @@
 
 #include <QStandardPaths>
 #include <QDir>
+#include <QDirIterator>
+#include <QFile>
+#include <QFileInfo>
 #include <QNetworkRequest>
 #include <QSqlDatabase>
 #include <QSqlQuery>
@@ -18,6 +21,38 @@
 #include <llama-cpp.h>
 #include <mtmd.h>
 #include <mtmd-helper.h>
+
+#include <poppler/cpp/poppler-document.h>
+#include <poppler/cpp/poppler-page.h>
+
+// ─── Text chunking helper ─────────────────────────────────────────────────────
+
+static QStringList chunkText(const QString &text, int chunkSize = 700, int overlap = 70, int maxChunks = 20)
+{
+    QStringList chunks;
+    int len = text.length();
+    int start = 0;
+    while (start < len && (int)chunks.size() < maxChunks) {
+        chunks.append(text.mid(start, chunkSize));
+        start += chunkSize - overlap;
+    }
+    return chunks;
+}
+
+static QString extractPdfText(const QString &path)
+{
+    auto doc = std::unique_ptr<poppler::document>(
+        poppler::document::load_from_file(path.toStdString()));
+    if (!doc || doc->is_locked()) return {};
+    QString full;
+    for (int i = 0; i < doc->pages(); ++i) {
+        auto page = std::unique_ptr<poppler::page>(doc->create_page(i));
+        if (!page) continue;
+        auto bytes = page->text().to_utf8();
+        full += QString::fromUtf8(bytes.data(), (qsizetype)bytes.size()) + "\n";
+    }
+    return full.trimmed();
+}
 
 // ─── SemanticWorker ───────────────────────────────────────────────────────────
 
@@ -199,26 +234,50 @@ void SemanticWorker::generateTextEmbedding(const QString &text, int queryId)
 
 void SemanticWorker::indexPendingMedia()
 {
+    constexpr int BATCH = 8;  // yield to event loop every N images
+
     QSqlDatabase db = m_db->threadDb();
+
+    // On first call of a run: count total pending and reset counters
+    if (!m_idxRunning) {
+        m_idxRunning = true;
+        m_idxDone    = 0;
+        QSqlQuery cnt(db);
+        cnt.exec("SELECT COUNT(*) FROM media m "
+                 "WHERE m.is_trashed=0 AND m.is_hidden=0 "
+                 "AND m.id NOT IN (SELECT media_id FROM ai_embeddings)");
+        m_idxTotal = cnt.next() ? cnt.value(0).toInt() : 0;
+        emit indexProgress(0, m_idxTotal);
+        if (m_idxTotal == 0) { m_idxRunning = false; return; }
+    }
+
+    // Fetch the next BATCH un-indexed images
     QSqlQuery q(db);
-    q.prepare("SELECT m.id, m.file_path FROM media m "
-              "WHERE m.is_trashed=0 AND m.is_hidden=0 "
-              "AND m.id NOT IN (SELECT media_id FROM ai_embeddings) "
-              "ORDER BY m.creation_date DESC");
+    q.prepare(QString("SELECT m.id, m.file_path FROM media m "
+                      "WHERE m.is_trashed=0 AND m.is_hidden=0 "
+                      "AND m.id NOT IN (SELECT media_id FROM ai_embeddings) "
+                      "ORDER BY m.creation_date DESC "
+                      "LIMIT %1").arg(BATCH));
     q.exec();
 
-    QList<QPair<int,QString>> pending;
+    QList<QPair<int,QString>> batch;
     while (q.next())
-        pending.append({ q.value(0).toInt(), q.value(1).toString() });
+        batch.append({ q.value(0).toInt(), q.value(1).toString() });
 
-    int total = (int)pending.size();
-    int done  = 0;
-    emit indexProgress(done, total);
+    if (batch.isEmpty()) {
+        // All done (possibly indexed in a prior run before this call)
+        emit indexProgress(m_idxTotal, m_idxTotal);
+        m_idxRunning = false;
+        return;
+    }
 
-    for (const auto &[id, path] : pending) {
-        if (QThread::currentThread()->isInterruptionRequested()) break;
+    for (const auto &[id, path] : batch) {
+        if (QThread::currentThread()->isInterruptionRequested()) {
+            m_idxRunning = false;
+            return;
+        }
         QMutexLocker lk(&m_mutex);
-        if (!m_model) break;
+        if (!m_model) { m_idxRunning = false; return; }
         auto embd = embedImage(path);
         if (!embd.empty()) {
             QSqlQuery ins(db);
@@ -230,8 +289,115 @@ void SemanticWorker::indexPendingMedia()
             ins.addBindValue(QString("qwen3vl-emb-2b-q4km"));
             ins.exec();
         }
-        emit indexProgress(++done, total);
+        emit indexProgress(++m_idxDone, m_idxTotal);
     }
+
+    // Re-post ourselves to process the next batch; other queued messages
+    // (e.g. text embedding for a search) will interleave between batches.
+    QMetaObject::invokeMethod(this, &SemanticWorker::indexPendingMedia,
+                              Qt::QueuedConnection);
+}
+
+void SemanticWorker::indexPendingDocs(QStringList rootDirs)
+{
+    constexpr int BATCH = 4;  // fewer than images — text embedding is cheaper but docs have many chunks
+    static const QSet<QString> docExts = { ".pdf", ".txt", ".md", ".csv" };
+
+    QSqlDatabase db = m_db->threadDb();
+
+    // On first call of a run: collect all un-indexed doc files and count chunks needed
+    if (!m_docRunning) {
+        m_docRunning = true;
+        m_docDone    = 0;
+
+        // Count total pending doc files (not chunks — we count files for progress)
+        int total = 0;
+        for (const QString &root : rootDirs) {
+            QDirIterator it(root, QDirIterator::Subdirectories | QDirIterator::FollowSymlinks);
+            while (it.hasNext()) {
+                QString p = it.next();
+                QString ext = QFileInfo(p).suffix().toLower();
+                if (!docExts.contains("." + ext)) continue;
+                // Check if already fully indexed (has at least one chunk)
+                QSqlQuery chk(db);
+                chk.prepare("SELECT COUNT(*) FROM doc_chunks WHERE file_path=?");
+                chk.addBindValue(p);
+                if (chk.exec() && chk.next() && chk.value(0).toInt() > 0) continue;
+                ++total;
+            }
+        }
+        m_docTotal = total;
+        emit docIndexProgress(0, m_docTotal);
+        if (m_docTotal == 0) { m_docRunning = false; return; }
+    }
+
+    // Process up to BATCH doc files per invocation
+    int processed = 0;
+    for (const QString &root : rootDirs) {
+        if (processed >= BATCH) break;
+        QDirIterator it(root, QDirIterator::Subdirectories | QDirIterator::FollowSymlinks);
+        while (it.hasNext() && processed < BATCH) {
+            if (QThread::currentThread()->isInterruptionRequested()) {
+                m_docRunning = false; return;
+            }
+            QString p = it.next();
+            QString ext = QFileInfo(p).suffix().toLower();
+            if (!docExts.contains("." + ext)) continue;
+
+            // Skip already-indexed files
+            QSqlQuery chk(db);
+            chk.prepare("SELECT COUNT(*) FROM doc_chunks WHERE file_path=?");
+            chk.addBindValue(p);
+            if (chk.exec() && chk.next() && chk.value(0).toInt() > 0) continue;
+
+            // Extract text
+            QString text;
+            if (ext == "pdf") {
+                text = extractPdfText(p);
+            } else {
+                QFile f(p);
+                if (f.open(QIODevice::ReadOnly | QIODevice::Text))
+                    text = QString::fromUtf8(f.readAll());
+            }
+            if (text.trimmed().isEmpty()) {
+                // Mark as indexed with a dummy so we don't retry forever
+                emit docIndexProgress(++m_docDone, m_docTotal);
+                ++processed;
+                continue;
+            }
+
+            // Chunk and embed
+            QStringList chunks = chunkText(text);
+            for (int ci = 0; ci < chunks.size(); ++ci) {
+                QMutexLocker lk(&m_mutex);
+                if (!m_model) { m_docRunning = false; return; }
+                auto embd = embedText(chunks[ci]);
+                if (!embd.empty()) {
+                    QSqlQuery ins(db);
+                    ins.prepare("INSERT OR IGNORE INTO doc_chunks "
+                                "(file_path, chunk_idx, embedding, model_ver) VALUES (?,?,?,?)");
+                    ins.addBindValue(p);
+                    ins.addBindValue(ci);
+                    ins.addBindValue(QByteArray(reinterpret_cast<const char*>(embd.data()),
+                                                (qsizetype)(embd.size() * sizeof(float))));
+                    ins.addBindValue(QString("qwen3vl-emb-2b-q4km"));
+                    ins.exec();
+                }
+            }
+            emit docIndexProgress(++m_docDone, m_docTotal);
+            ++processed;
+        }
+    }
+
+    if (m_docDone >= m_docTotal) {
+        m_docRunning = false;
+        return;
+    }
+
+    // Re-post for next batch
+    QMetaObject::invokeMethod(this, [this, rootDirs]{
+        indexPendingDocs(rootDirs);
+    }, Qt::QueuedConnection);
 }
 
 // ─── SemanticSearchEngine ─────────────────────────────────────────────────────
@@ -260,6 +426,12 @@ bool SemanticSearchEngine::modelsPresent() const
 SemanticSearchEngine::SemanticSearchEngine(DatabaseManager *db, QObject *parent)
     : QObject(parent), m_db(db), m_nam(new QNetworkAccessManager(this))
 {
+    // Load persisted docs-enabled setting
+    QSqlQuery sq(m_db->threadDb());
+    sq.prepare("SELECT value FROM settings_kv WHERE key='ai_docs_enabled'");
+    if (sq.exec() && sq.next())
+        m_docsEnabled = (sq.value(0).toString() == "1");
+
     m_thread = new QThread(this);
     m_worker = new SemanticWorker(db);
     m_worker->moveToThread(m_thread);
@@ -270,6 +442,8 @@ SemanticSearchEngine::SemanticSearchEngine(DatabaseManager *db, QObject *parent)
             this, &SemanticSearchEngine::onTextEmbeddingReady);
     connect(m_worker, &SemanticWorker::indexProgress,
             this, &SemanticSearchEngine::onIndexProgress);
+    connect(m_worker, &SemanticWorker::docIndexProgress,
+            this, &SemanticSearchEngine::onDocIndexProgress);
     connect(m_worker, &SemanticWorker::workerError,
             this, &SemanticSearchEngine::onWorkerError);
     connect(m_thread, &QThread::finished, m_worker, &QObject::deleteLater);
@@ -314,6 +488,34 @@ void SemanticSearchEngine::indexAllMedia()
     m_indexTotal   = 0; emit indexTotalChanged();
     QMetaObject::invokeMethod(m_worker, &SemanticWorker::indexPendingMedia,
                               Qt::QueuedConnection);
+}
+
+void SemanticSearchEngine::setDocsEnabled(bool enabled)
+{
+    if (m_docsEnabled == enabled) return;
+    m_docsEnabled = enabled;
+    // Persist
+    QSqlQuery q(m_db->threadDb());
+    q.prepare("INSERT INTO settings_kv (key,value) VALUES ('ai_docs_enabled',?) "
+              "ON CONFLICT(key) DO UPDATE SET value=excluded.value");
+    q.addBindValue(enabled ? "1" : "0");
+    q.exec();
+    emit docsEnabledChanged();
+    if (enabled && m_ready) indexAllDocs();
+}
+
+void SemanticSearchEngine::indexAllDocs()
+{
+    if (!m_ready) { emit engineError("Model not loaded"); return; }
+    if (!m_docsEnabled) return;
+    if (m_docIndexing) return;
+    m_docIndexing = true; emit docIndexingChanged();
+    m_docIndexedCount = 0; emit docIndexedCountChanged();
+    m_docIndexTotal   = 0; emit docIndexTotalChanged();
+    QStringList dirs = m_db->getIndexedDirectoryPaths();
+    QMetaObject::invokeMethod(m_worker, [this, dirs]{
+        m_worker->indexPendingDocs(dirs);
+    }, Qt::QueuedConnection);
 }
 
 // ── Download ──────────────────────────────────────────────────────────────────
@@ -413,7 +615,18 @@ void SemanticSearchEngine::onWorkerLoaded(bool ok)
 {
     m_loading = false; emit loadingChanged();
     m_ready   = ok;    emit readyChanged();
-    if (!ok) emit engineError("Model failed to load");
+    if (!ok) { emit engineError("Model failed to load"); return; }
+
+    // Fire any query that arrived while the model was loading
+    if (!m_pendingQuery.isEmpty()) {
+        QString q = m_pendingQuery;
+        m_pendingQuery.clear();
+        searchByText(q);  // queues text-embed first
+    }
+
+    // Auto-index photos then docs in the background (batched)
+    indexAllMedia();
+    if (m_docsEnabled) indexAllDocs();
 }
 
 void SemanticSearchEngine::onTextEmbeddingReady(int queryId, QByteArray blob)
@@ -434,6 +647,18 @@ void SemanticSearchEngine::onIndexProgress(int cur, int total)
     }
 }
 
+void SemanticSearchEngine::onDocIndexProgress(int cur, int total)
+{
+    m_docIndexedCount = cur;
+    if (m_docIndexTotal != total) { m_docIndexTotal = total; emit docIndexTotalChanged(); }
+    emit docIndexedCountChanged();
+    if (cur >= total && total > 0) {
+        m_docIndexing = false;
+        emit docIndexingChanged();
+        qDebug() << "[AI] Doc indexing complete:" << cur << "files processed";
+    }
+}
+
 void SemanticSearchEngine::onWorkerError(QString msg)
 {
     qWarning() << "[SemanticSearch]" << msg;
@@ -451,7 +676,16 @@ float SemanticSearchEngine::cosine(const float *a, const float *b, int n)
 
 void SemanticSearchEngine::searchByText(const QString &query)
 {
-    if (!m_ready) { emit engineError("Model not loaded"); return; }
+    if (!m_ready) {
+        if (!modelsPresent()) {
+            emit engineError("AI model not downloaded — go to Settings to download it");
+            return;
+        }
+        // Auto-load: queue the query and kick off model loading
+        m_pendingQuery = query;
+        loadModel();   // self-guards against double-load
+        return;
+    }
 
     int qid = m_nextQueryId++;
     // Callback runs on the main thread via onTextEmbeddingReady once the
@@ -485,9 +719,39 @@ void SemanticSearchEngine::searchByText(const QString &query)
 
         QVariantList out;
         for (const auto &[id, score] : scores) {
-            QVariantMap m; m["id"] = id; m["score"] = (double)score;
+            QVariantMap m; m["id"] = id; m["score"] = (double)score; m["type"] = "image";
             out.append(m);
         }
+
+        // Also search doc_chunks if docs are enabled — keep best score per file
+        if (m_docsEnabled) {
+            QSqlQuery dq(db);
+            dq.exec("SELECT file_path, embedding FROM doc_chunks");
+            QMap<QString, float> docBest;
+            while (dq.next()) {
+                QString fp  = dq.value(0).toString();
+                QByteArray eb = dq.value(1).toByteArray();
+                if (eb.size() != (qsizetype)(nEmbd * sizeof(float))) continue;
+                float s = cosine(qvec, reinterpret_cast<const float*>(eb.constData()), nEmbd);
+                if (!docBest.contains(fp) || s > docBest[fp]) docBest[fp] = s;
+            }
+            // Sort doc results and take top 10
+            QVector<QPair<QString,float>> docScores;
+            for (auto it = docBest.begin(); it != docBest.end(); ++it)
+                docScores.append({ it.key(), it.value() });
+            std::sort(docScores.begin(), docScores.end(),
+                      [](const auto &a, const auto &b){ return a.second > b.second; });
+            if (docScores.size() > 10) docScores.resize(10);
+            for (const auto &[fp, score] : docScores) {
+                QVariantMap m;
+                m["type"]  = "doc";
+                m["file_path"] = fp;
+                m["name"]  = QFileInfo(fp).fileName();
+                m["score"] = (double)score;
+                out.append(m);
+            }
+        }
+
         emit searchFinished(out);
     };
 

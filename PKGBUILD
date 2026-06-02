@@ -17,6 +17,7 @@ depends=(
     'openssl'
     'libheif'
     'libraw'
+    'poppler'
 )
 makedepends=(
     'cmake'

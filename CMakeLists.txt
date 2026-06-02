@@ -15,6 +15,7 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(VIPS REQUIRED vips-cpp)
 pkg_check_modules(EXIV2 REQUIRED exiv2)
 pkg_check_modules(LIBRAW REQUIRED libraw_r)
+pkg_check_modules(POPPLER REQUIRED poppler-cpp)
 
 enable_testing()
 
@@ -24,7 +25,7 @@ set(INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(QML_DIR ${CMAKE_CURRENT_SOURCE_DIR}/qml)
 
 # Include directories
-include_directories(${INCLUDE_DIR} ${VIPS_INCLUDE_DIRS} ${EXIV2_INCLUDE_DIRS} ${LIBRAW_INCLUDE_DIRS})
+include_directories(${INCLUDE_DIR} ${VIPS_INCLUDE_DIRS} ${EXIV2_INCLUDE_DIRS} ${LIBRAW_INCLUDE_DIRS} ${POPPLER_INCLUDE_DIRS})
 
 # QmlMaterial Subdirectory
 add_subdirectory(lib/QmlMaterial)
@@ -84,6 +85,7 @@ target_link_libraries(KaderLib PUBLIC
     ${VIPS_LIBRARIES}
     ${EXIV2_LIBRARIES}
     ${LIBRAW_LIBRARIES}
+    ${POPPLER_LIBRARIES}
     Qt6::Network
     llama
     mtmd
