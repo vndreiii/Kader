@@ -279,16 +279,19 @@ void SemanticWorker::indexPendingMedia()
         QMutexLocker lk(&m_mutex);
         if (!m_model) { m_idxRunning = false; return; }
         auto embd = embedImage(path);
-        if (!embd.empty()) {
-            QSqlQuery ins(db);
-            ins.prepare("INSERT OR REPLACE INTO ai_embeddings "
-                        "(media_id, embedding, model_ver) VALUES (?, ?, ?)");
-            ins.addBindValue(id);
-            ins.addBindValue(QByteArray(reinterpret_cast<const char*>(embd.data()),
-                                        (qsizetype)(embd.size() * sizeof(float))));
-            ins.addBindValue(QString("qwen3vl-emb-2b-q4km"));
-            ins.exec();
-        }
+        // Always store — failed files get a 1-byte sentinel so they are never retried.
+        // The search cosine scan skips blobs whose size ≠ nEmbd*4, so sentinels are
+        // harmless in queries.
+        QSqlQuery ins(db);
+        ins.prepare("INSERT OR REPLACE INTO ai_embeddings "
+                    "(media_id, embedding, model_ver) VALUES (?, ?, ?)");
+        ins.addBindValue(id);
+        ins.addBindValue(embd.empty()
+            ? QByteArray(1, '\0')
+            : QByteArray(reinterpret_cast<const char*>(embd.data()),
+                         (qsizetype)(embd.size() * sizeof(float))));
+        ins.addBindValue(QString("qwen3vl-emb-2b-q4km"));
+        ins.exec();
         emit indexProgress(++m_idxDone, m_idxTotal);
     }
 
