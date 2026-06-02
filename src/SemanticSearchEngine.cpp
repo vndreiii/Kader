@@ -430,10 +430,28 @@ SemanticSearchEngine::SemanticSearchEngine(DatabaseManager *db, QObject *parent)
     : QObject(parent), m_db(db), m_nam(new QNetworkAccessManager(this))
 {
     // Load persisted docs-enabled setting
-    QSqlQuery sq(m_db->threadDb());
-    sq.prepare("SELECT value FROM settings_kv WHERE key='ai_docs_enabled'");
-    if (sq.exec() && sq.next())
-        m_docsEnabled = (sq.value(0).toString() == "1");
+    {
+        QSqlQuery sq(m_db->threadDb());
+        sq.prepare("SELECT value FROM settings_kv WHERE key='ai_docs_enabled'");
+        if (sq.exec() && sq.next())
+            m_docsEnabled = (sq.value(0).toString() == "1");
+    }
+
+    // Pre-populate indexed counts so Settings shows "Done — N photos indexed"
+    // immediately on startup without requiring a model load.
+    {
+        QSqlDatabase db = m_db->threadDb();
+        QSqlQuery cq(db);
+        // Real embeddings (length > 1 excludes the 1-byte failed-file sentinels)
+        cq.exec("SELECT COUNT(*) FROM ai_embeddings WHERE length(embedding) > 1");
+        if (cq.next()) m_indexedCount = cq.value(0).toInt();
+        // Doc chunks
+        cq.exec("SELECT COUNT(DISTINCT file_path) FROM doc_chunks");
+        if (cq.next()) m_docIndexedCount = cq.value(0).toInt();
+        // Set totals equal to counts so QML shows the "Done" branch
+        m_indexTotal      = m_indexedCount;
+        m_docIndexTotal   = m_docIndexedCount;
+    }
 
     m_thread = new QThread(this);
     m_worker = new SemanticWorker(db);
@@ -486,6 +504,16 @@ void SemanticSearchEngine::indexAllMedia()
 {
     if (!m_ready) { emit engineError("Model not loaded"); return; }
     if (m_indexing) return;
+
+    // Quick main-thread check — if nothing is pending, don't enter "indexing" state
+    // and don't reset the displayed counts. This makes re-loading the model a no-op
+    // when the library is already fully indexed.
+    QSqlQuery chk(m_db->threadDb());
+    chk.exec("SELECT COUNT(*) FROM media m "
+             "WHERE m.is_trashed=0 AND m.is_hidden=0 "
+             "AND m.id NOT IN (SELECT media_id FROM ai_embeddings)");
+    if (chk.next() && chk.value(0).toInt() == 0) return;
+
     m_indexing = true; emit indexingChanged();
     m_indexedCount = 0; emit indexedCountChanged();
     m_indexTotal   = 0; emit indexTotalChanged();
@@ -643,10 +671,10 @@ void SemanticSearchEngine::onIndexProgress(int cur, int total)
     m_indexedCount = cur;
     if (m_indexTotal != total) { m_indexTotal = total; emit indexTotalChanged(); }
     emit indexedCountChanged();
-    if (cur >= total && total > 0) {
+    if (cur >= total) {   // handles total==0 (nothing to index) as well as normal completion
         m_indexing = false;
         emit indexingChanged();
-        qDebug() << "[AI] Indexing complete:" << cur << "embeddings stored";
+        if (total > 0) qDebug() << "[AI] Indexing complete:" << cur << "embeddings stored";
     }
 }
 
@@ -655,10 +683,10 @@ void SemanticSearchEngine::onDocIndexProgress(int cur, int total)
     m_docIndexedCount = cur;
     if (m_docIndexTotal != total) { m_docIndexTotal = total; emit docIndexTotalChanged(); }
     emit docIndexedCountChanged();
-    if (cur >= total && total > 0) {
+    if (cur >= total) {
         m_docIndexing = false;
         emit docIndexingChanged();
-        qDebug() << "[AI] Doc indexing complete:" << cur << "files processed";
+        if (total > 0) qDebug() << "[AI] Doc indexing complete:" << cur << "files processed";
     }
 }
 
