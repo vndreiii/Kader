@@ -1,6 +1,7 @@
 #include "AlbumModel.h"
 #include "DatabaseManager.h"
 #include "ThumbnailGenerator.h"
+#include <algorithm>
 
 AlbumModel::AlbumModel(DatabaseManager *db, ThumbnailGenerator *thumb, QObject *parent)
     : QAbstractListModel(parent), m_db(db), m_thumb(thumb) {
@@ -65,6 +66,7 @@ void AlbumModel::refresh(bool hideIgnored) {
                 filtered.append(v);
         m_data = filtered;
     }
+    applySort();
     qDebug() << "Album refresh: loaded" << m_data.size() << "albums";
     endResetModel();
 }
@@ -75,4 +77,59 @@ void AlbumModel::setSearchFilter(const QString &query) {
         emit searchFilterChanged();
         refresh();
     }
+}
+
+// Sort the already-loaded album list in place. Operates purely on m_data, so it
+// never touches the SQL/hidden filtering — hidden media can't leak in here.
+void AlbumModel::applySort() {
+    const bool asc = (m_sortOrder == 1);
+    std::stable_sort(m_data.begin(), m_data.end(),
+        [&](const QVariant &av, const QVariant &bv) {
+            const QVariantMap a = av.toMap();
+            const QVariantMap b = bv.toMap();
+            // Pinned albums always come first, regardless of sort field/order.
+            const bool pa = a.value("pinned").toBool();
+            const bool pb = b.value("pinned").toBool();
+            if (pa != pb) return pa;
+
+            int cmp = 0;
+            switch (m_sortRole) {
+            case ByCount: {
+                const qlonglong x = a.value("count").toLongLong();
+                const qlonglong y = b.value("count").toLongLong();
+                cmp = (x < y) ? -1 : (x > y) ? 1 : 0;
+                break;
+            }
+            case BySize: {
+                const qlonglong x = a.value("size").toLongLong();
+                const qlonglong y = b.value("size").toLongLong();
+                cmp = (x < y) ? -1 : (x > y) ? 1 : 0;
+                break;
+            }
+            default: // ByName
+                cmp = QString::compare(a.value("name").toString(),
+                                       b.value("name").toString(),
+                                       Qt::CaseInsensitive);
+                break;
+            }
+            return asc ? (cmp < 0) : (cmp > 0);
+        });
+}
+
+void AlbumModel::setSortRole(int role) {
+    if (m_sortRole == role) return;
+    m_sortRole = role;
+    emit sortRoleChanged();
+    beginResetModel();
+    applySort();
+    endResetModel();
+}
+
+void AlbumModel::setSortOrder(int order) {
+    if (m_sortOrder == order) return;
+    m_sortOrder = order;
+    emit sortOrderChanged();
+    beginResetModel();
+    applySort();
+    endResetModel();
 }

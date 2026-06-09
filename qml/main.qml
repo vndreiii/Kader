@@ -47,8 +47,13 @@ ApplicationWindow {
     // Restore sort preference for the given view key
     function applyViewSort(view) {
         var pref = DB.getSortPref(view)
-        TimelineModel.setSortRole(pref.role)
-        TimelineModel.setSortOrder(pref.order)
+        if (view === "albums") {
+            AlbumModel.setSortRole(pref.role)
+            AlbumModel.setSortOrder(pref.order)
+        } else {
+            TimelineModel.setSortRole(pref.role)
+            TimelineModel.setSortOrder(pref.order)
+        }
     }
 
     property var _aiDocResults: []
@@ -378,6 +383,7 @@ ApplicationWindow {
                 } else if (view === "albums") {
                     if (!window._albumsViewInst) window._albumsViewInst = albumsView.createObject(null)
                     mainStack.replace(window._albumsViewInst)
+                    window.applyViewSort("albums")
                 } else if (view === "map") {
                     if (!window._mapViewInst) window._mapViewInst = mapView.createObject(null)
                     mainStack.replace(window._mapViewInst)
@@ -512,7 +518,7 @@ ApplicationWindow {
                     // ── Sort button ──────────────────────────────────────────
                     Rectangle {
                         id: sortBtn
-                        readonly property var _sortableViews: ["timeline","videos","favorites","trash","hidden"]
+                        readonly property var _sortableViews: ["timeline","videos","favorites","trash","hidden","albums"]
                         visible: _sortableViews.indexOf(window.currentView) >= 0
                         width: 40; height: 40; radius: 20
                         color: sortMenu.opened
@@ -551,16 +557,22 @@ ApplicationWindow {
                             MenuItem {
                                 text: "Modified date"; checkable: true
                                 checked: TimelineModel.sortRole === 1
+                                visible: window.currentView !== "albums"
+                                height: visible ? implicitHeight : 0
                                 onTriggered: { TimelineModel.setSortRole(1); DB.setSortPref(window.currentView, 1, TimelineModel.sortOrder) }
                             }
                             MenuItem {
                                 text: "Name"; checkable: true
                                 checked: TimelineModel.sortRole === 2
+                                visible: window.currentView !== "albums"
+                                height: visible ? implicitHeight : 0
                                 onTriggered: { TimelineModel.setSortRole(2); DB.setSortPref(window.currentView, 2, TimelineModel.sortOrder) }
                             }
                             MenuItem {
                                 text: "Size"; checkable: true
                                 checked: TimelineModel.sortRole === 3
+                                visible: window.currentView !== "albums"
+                                height: visible ? implicitHeight : 0
                                 onTriggered: { TimelineModel.setSortRole(3); DB.setSortPref(window.currentView, 3, TimelineModel.sortOrder) }
                             }
                             MenuItem {
@@ -571,18 +583,49 @@ ApplicationWindow {
                                 onTriggered: { TimelineModel.setSortRole(4); DB.setSortPref(window.currentView, 4, TimelineModel.sortOrder) }
                             }
 
+                            // ── Album sort fields (only on the Albums view) ───
+                            MenuItem {
+                                text: "Name"; checkable: true
+                                checked: AlbumModel.sortRole === 0
+                                visible: window.currentView === "albums"
+                                height: visible ? implicitHeight : 0
+                                onTriggered: { AlbumModel.setSortRole(0); DB.setSortPref("albums", 0, AlbumModel.sortOrder) }
+                            }
+                            MenuItem {
+                                text: "Item count"; checkable: true
+                                checked: AlbumModel.sortRole === 1
+                                visible: window.currentView === "albums"
+                                height: visible ? implicitHeight : 0
+                                onTriggered: { AlbumModel.setSortRole(1); DB.setSortPref("albums", 1, AlbumModel.sortOrder) }
+                            }
+                            MenuItem {
+                                text: "Size"; checkable: true
+                                checked: AlbumModel.sortRole === 2
+                                visible: window.currentView === "albums"
+                                height: visible ? implicitHeight : 0
+                                onTriggered: { AlbumModel.setSortRole(2); DB.setSortPref("albums", 2, AlbumModel.sortOrder) }
+                            }
+
                             MenuSeparator {}
 
                             // ── Order ─────────────────────────────────────────
                             MenuItem {
-                                text: "A → Z"; checkable: true
-                                checked: TimelineModel.sortOrder === 1
-                                onTriggered: { TimelineModel.setSortOrder(1); DB.setSortPref(window.currentView, TimelineModel.sortRole, 1) }
+                                readonly property bool _alb: window.currentView === "albums"
+                                text: _alb ? "Ascending" : "A → Z"; checkable: true
+                                checked: (_alb ? AlbumModel.sortOrder : TimelineModel.sortOrder) === 1
+                                onTriggered: {
+                                    if (_alb) AlbumModel.setSortOrder(1); else TimelineModel.setSortOrder(1)
+                                    DB.setSortPref(window.currentView, (_alb ? AlbumModel.sortRole : TimelineModel.sortRole), 1)
+                                }
                             }
                             MenuItem {
-                                text: "Z → A"; checkable: true
-                                checked: TimelineModel.sortOrder === 0
-                                onTriggered: { TimelineModel.setSortOrder(0); DB.setSortPref(window.currentView, TimelineModel.sortRole, 0) }
+                                readonly property bool _alb: window.currentView === "albums"
+                                text: _alb ? "Descending" : "Z → A"; checkable: true
+                                checked: (_alb ? AlbumModel.sortOrder : TimelineModel.sortOrder) === 0
+                                onTriggered: {
+                                    if (_alb) AlbumModel.setSortOrder(0); else TimelineModel.setSortOrder(0)
+                                    DB.setSortPref(window.currentView, (_alb ? AlbumModel.sortRole : TimelineModel.sortRole), 0)
+                                }
                             }
 
                             // ── Type filter (cascade) ─────────────────────────
