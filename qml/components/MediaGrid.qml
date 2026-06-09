@@ -65,12 +65,16 @@ Item {
         }
     }
 
-    NumberAnimation {
+    // SmoothedAnimation (not NumberAnimation): it preserves the current velocity
+    // when the target is updated mid-flight, so a burst of free-spin wheel events
+    // produces one continuous glide instead of overlapping OutCubic restarts.
+    SmoothedAnimation {
         id: scrollAnim
         target: listView
         property: "contentY"
-        duration: 220
-        easing.type: Easing.OutCubic
+        velocity: 6000          // px/s ceiling
+        duration: 600           // max settle time when target stops moving
+        reversingMode: SmoothedAnimation.Immediate
     }
 
     ListView {
@@ -98,9 +102,11 @@ Item {
                     ? event.pixelDelta.y
                     : event.angleDelta.y / 120.0 * 100
                 var maxY = Math.max(0, listView.contentHeight - listView.height)
+                // If a previous glide already finished, resync the target to the
+                // real position so we don't accumulate drift.
+                if (!scrollAnim.running) root._scrollTarget = listView.contentY
                 root._scrollTarget = Math.max(0, Math.min(maxY, root._scrollTarget - dy))
-                scrollAnim.from = listView.contentY
-                scrollAnim.to   = root._scrollTarget
+                scrollAnim.to = root._scrollTarget
                 scrollAnim.restart()
             }
         }

@@ -47,14 +47,19 @@ Item {
             id: img
             anchors.fill: parent
             visible: !root._isGif
+            // Always use the async 768px thumbnail provider. Never decode the
+            // full-resolution original in the grid — that was the main scroll
+            // stutter (a 20MP decode + huge texture upload per wide tile mid-fling).
             source: {
                 if (root._isGif) return ""
-                var isVid = root._d.mime_type ? root._d.mime_type.toString().startsWith("video/") : false
-                if (!isVid && root.width > 600 && root._d.file_path) return "file://" + root._d.file_path
-                var p = root._d.thumb || root._d.file_path || ""
-                if (p && p.indexOf("://") === -1) return "file://" + p
-                return p
+                var p = root._d.thumb || ""           // "image://thumbnails/<path>"
+                if (p) return p
+                var fp = root._d.file_path || ""
+                return fp ? (fp.indexOf("://") === -1 ? "file://" + fp : fp) : ""
             }
+            // Cap decode resolution so even the file:// fallback can't upload a
+            // giant texture. 768 matches the cached thumbnail's longest edge.
+            sourceSize.height: 768
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
             autoTransform: true
@@ -171,111 +176,126 @@ Item {
     property bool   _isHidden:   root._d.is_hidden   ? true : false
     property string _folderPath: root._d.folder_path || ""
 
-    MD.Menu {
-        id: tileMenu
-        MD.MenuItem {
-            text: "Select"
-            onTriggered: root.enterSelectionMode()
-        }
-        MD.MenuItem {
-            text: root._isFav ? "Unfavorite" : "Favorite"
-            onTriggered: { if (root._mediaId) { DB.toggleFavorite(root._mediaId); TimelineModel.refresh() } }
-        }
-        MD.MenuItem {
-            text: "Open in Folder"
-            onTriggered: { if (root._folderPath) Qt.openUrlExternally("file://" + root._folderPath) }
-        }
-        MD.MenuItem {
-            text: "Send to album..."
-            visible: TimelineModel.filterMode !== TimelineModel.HiddenMode
-            onTriggered: {
-                sendToPopup.albumList = DB.getAlbumList()
-                sendToPopup.open()
+    // Context menu + album picker are created lazily (only on first right-click /
+    // first "Send to album"). Eagerly instantiating these for every tile was a
+    // big per-tile cost that hurt scroll when delegates recycle.
+    function _showMenu() {
+        menuLoader.active = true
+        menuLoader.item.popup()
+    }
+
+    Loader {
+        id: menuLoader
+        active: false
+        sourceComponent: MD.Menu {
+            MD.MenuItem {
+                text: "Select"
+                onTriggered: root.enterSelectionMode()
             }
-        }
-        MD.MenuItem {
-            text: root._isHidden ? "Unhide" : "Hide"
-            onTriggered: {
-                if (root._mediaId) {
-                    DB.setHidden(root._mediaId, !root._isHidden)
-                    TimelineModel.refresh()
+            MD.MenuItem {
+                text: root._isFav ? "Unfavorite" : "Favorite"
+                onTriggered: { if (root._mediaId) { DB.toggleFavorite(root._mediaId); TimelineModel.refresh() } }
+            }
+            MD.MenuItem {
+                text: "Open in Folder"
+                onTriggered: { if (root._folderPath) Qt.openUrlExternally("file://" + root._folderPath) }
+            }
+            MD.MenuItem {
+                text: "Send to album..."
+                visible: TimelineModel.filterMode !== TimelineModel.HiddenMode
+                onTriggered: {
+                    sendLoader.active = true
+                    sendLoader.item.albumList = DB.getAlbumList()
+                    sendLoader.item.open()
                 }
             }
-        }
-        MD.MenuItem {
-            text: root._isTrashed ? "Restore" : "Move to Trash"
-            onTriggered: {
-                if (root._mediaId) {
-                    DB.setTrashed(root._mediaId, !root._isTrashed)
-                    TimelineModel.refresh()
+            MD.MenuItem {
+                text: root._isHidden ? "Unhide" : "Hide"
+                onTriggered: {
+                    if (root._mediaId) {
+                        DB.setHidden(root._mediaId, !root._isHidden)
+                        TimelineModel.refresh()
+                    }
                 }
             }
-        }
-        MD.MenuItem {
-            text: "Delete permanently"
-            onTriggered: {
-                if (root._mediaId) { DB.deleteMediaPermanently(root._mediaId); TimelineModel.refresh() }
+            MD.MenuItem {
+                text: root._isTrashed ? "Restore" : "Move to Trash"
+                onTriggered: {
+                    if (root._mediaId) {
+                        DB.setTrashed(root._mediaId, !root._isTrashed)
+                        TimelineModel.refresh()
+                    }
+                }
+            }
+            MD.MenuItem {
+                text: "Delete permanently"
+                onTriggered: {
+                    if (root._mediaId) { DB.deleteMediaPermanently(root._mediaId); TimelineModel.refresh() }
+                }
             }
         }
     }
 
-    // Album picker popup for "Send to album..."
-    Popup {
-        id: sendToPopup
-        parent: Overlay.overlay
-        modal: true
-        anchors.centerIn: parent
-        width: 260
-        padding: 8
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+    // Album picker popup for "Send to album..." (lazy)
+    Loader {
+        id: sendLoader
+        active: false
+        sourceComponent: Popup {
+            parent: Overlay.overlay
+            modal: true
+            anchors.centerIn: parent
+            width: 260
+            padding: 8
+            closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
-        property var albumList: []
+            property var albumList: []
 
-        background: Rectangle {
-            radius: 16
-            color: ThemeManager.surfaceContainer
-        }
-
-        Column {
-            width: parent.width - parent.padding * 2
-            spacing: 0
-
-            Label {
-                width: parent.width
-                text: "Send to album"
-                font.pixelSize: 13; font.weight: Font.Medium
-                color: ThemeManager.onSurfaceVariant
-                leftPadding: 8; topPadding: 4; bottomPadding: 8
+            background: Rectangle {
+                radius: 16
+                color: ThemeManager.surfaceContainer
             }
 
-            Repeater {
-                model: sendToPopup.albumList
-                delegate: Rectangle {
-                    width: parent.width; height: 44; radius: 10
-                    color: sendMa.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
-                    Behavior on color { ColorAnimation { duration: 60 } }
-                    Row {
-                        anchors.left: parent.left; anchors.leftMargin: 10
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: 8
-                        M3Icon { name: "folder"; size: 16; color: ThemeManager.onSurfaceVariant; anchors.verticalCenter: parent.verticalCenter }
-                        Label {
-                            text: modelData.name || ""
-                            font.pixelSize: 14; color: ThemeManager.onSurface
-                            elide: Text.ElideRight
-                            width: sendToPopup.width - 60
-                        }
-                    }
-                    MouseArea {
-                        id: sendMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            var targetPath = modelData.path || ""
-                            if (root._mediaId && targetPath) {
-                                DB.moveMediaToAlbum(root._mediaId, targetPath)
-                                TimelineModel.refresh()
-                                AlbumModel.refresh()
+            Column {
+                width: parent.width - parent.padding * 2
+                spacing: 0
+
+                Label {
+                    width: parent.width
+                    text: "Send to album"
+                    font.pixelSize: 13; font.weight: Font.Medium
+                    color: ThemeManager.onSurfaceVariant
+                    leftPadding: 8; topPadding: 4; bottomPadding: 8
+                }
+
+                Repeater {
+                    model: parent.parent.albumList
+                    delegate: Rectangle {
+                        width: parent.width; height: 44; radius: 10
+                        color: sendMa.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
+                        Behavior on color { ColorAnimation { duration: 60 } }
+                        Row {
+                            anchors.left: parent.left; anchors.leftMargin: 10
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 8
+                            M3Icon { name: "folder"; size: 16; color: ThemeManager.onSurfaceVariant; anchors.verticalCenter: parent.verticalCenter }
+                            Label {
+                                text: modelData.name || ""
+                                font.pixelSize: 14; color: ThemeManager.onSurface
+                                elide: Text.ElideRight
+                                width: 200
                             }
-                            sendToPopup.close()
+                        }
+                        MouseArea {
+                            id: sendMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                var targetPath = modelData.path || ""
+                                if (root._mediaId && targetPath) {
+                                    DB.moveMediaToAlbum(root._mediaId, targetPath)
+                                    TimelineModel.refresh()
+                                    AlbumModel.refresh()
+                                }
+                                sendLoader.item.close()
+                            }
                         }
                     }
                 }
@@ -292,7 +312,7 @@ Item {
         onClicked: (mouse) => {
             if (mouse.button === Qt.RightButton) {
                 if (root.selectable) root.selectToggle()
-                else tileMenu.popup()
+                else root._showMenu()
             } else if (root.selectable) {
                 root.selectToggle()
             } else {
