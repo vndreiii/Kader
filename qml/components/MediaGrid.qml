@@ -65,16 +65,25 @@ Item {
         }
     }
 
-    // SmoothedAnimation (not NumberAnimation): it preserves the current velocity
-    // when the target is updated mid-flight, so a burst of free-spin wheel events
-    // produces one continuous glide instead of overlapping OutCubic restarts.
-    SmoothedAnimation {
-        id: scrollAnim
-        target: listView
-        property: "contentY"
-        velocity: 6000          // px/s ceiling
-        duration: 600           // max settle time when target stops moving
-        reversingMode: SmoothedAnimation.Immediate
+    // Frame-synced momentum scroll. Each rendered frame eases contentY toward the
+    // accumulated wheel target with exponential decay — a smooth, continuous glide
+    // with no easing-restart artifacts, and because it's driven by FrameAnimation
+    // it's vsync-aligned (never tears, never stutters on a free-spin wheel).
+    FrameAnimation {
+        id: scrollSmooth
+        running: false
+        property real rate: 13          // higher = snappier, lower = floatier
+        onTriggered: {
+            var cur = listView.contentY
+            var d   = root._scrollTarget - cur
+            if (Math.abs(d) < 0.5) {
+                listView.contentY = root._scrollTarget
+                running = false
+                return
+            }
+            // frame-rate independent: same feel at 60/120/144 Hz
+            listView.contentY = cur + d * (1 - Math.exp(-rate * frameTime))
+        }
     }
 
     ListView {
@@ -104,10 +113,9 @@ Item {
                 var maxY = Math.max(0, listView.contentHeight - listView.height)
                 // If a previous glide already finished, resync the target to the
                 // real position so we don't accumulate drift.
-                if (!scrollAnim.running) root._scrollTarget = listView.contentY
+                if (!scrollSmooth.running) root._scrollTarget = listView.contentY
                 root._scrollTarget = Math.max(0, Math.min(maxY, root._scrollTarget - dy))
-                scrollAnim.to = root._scrollTarget
-                scrollAnim.restart()
+                scrollSmooth.running = true
             }
         }
 
@@ -264,6 +272,7 @@ Item {
 
             onPressed: (mouse) => {
                 listView.cancelFlick()
+                scrollSmooth.running = false   // hand control to the drag
                 var idx = Math.round(listView.visibleArea.yPosition * listView.count)
                 idx = Math.max(0, Math.min(listView.count - 1, idx))
                 scrubber._startMonth = TimelineModel.data(TimelineModel.index(idx, 0), 258) || ""
