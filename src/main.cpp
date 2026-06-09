@@ -14,6 +14,7 @@
 #include "MediaModel.h"
 #include "TimelineModel.h"
 #include "AlbumModel.h"
+#include "VideoEditor.h"
 #include "SettingsManager.h"
 #include "StorageManager.h"
 #include "SemanticSearchEngine.h"
@@ -55,6 +56,7 @@ int main(int argc, char *argv[]) {
     MediaModel mediaModel(&dbManager, &thumbGenerator);
     TimelineModel timelineModel(&dbManager);
     AlbumModel albumModel(&dbManager, &thumbGenerator);
+    VideoEditor videoEditor;
 
     // In vieweronly mode we only display a single file — skip all heavy startup work.
     const bool viewerOnly = !startupFile.isEmpty();
@@ -171,6 +173,7 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("MediaModel", &mediaModel);
     engine.rootContext()->setContextProperty("TimelineModel", &timelineModel);
     engine.rootContext()->setContextProperty("AlbumModel", &albumModel);
+    engine.rootContext()->setContextProperty("VideoEditor", &videoEditor);
     engine.rootContext()->setContextProperty("ThumbGen", &thumbGenerator);
     engine.rootContext()->setContextProperty("CMAKE_SOURCE_DIR", CMAKE_SOURCE_DIR);
     engine.rootContext()->setContextProperty("STARTUP_FILE", startupFile);

@@ -22,6 +22,26 @@ Rectangle {
     property bool _videoFullscreen: false
     property bool _controlsVisible: true  // auto-hides in video fullscreen
 
+    // ── Minimal video editing (trim + audio toggle + save-as-copy) ──────────
+    property bool   _editMode:    false
+    property real   _trimStartMs: 0
+    property real   _trimEndMs:   0
+    property bool   _keepAudio:   true
+    property string _toast:       ""
+
+    function _fmt(ms) {
+        var s = Math.floor(ms / 1000)
+        var m = Math.floor(s / 60); s = s % 60
+        return m + ":" + (s < 10 ? "0" : "") + s
+    }
+    function _enterEdit() {
+        _trimStartMs = 0
+        _trimEndMs   = videoPlayer.duration
+        _keepAudio   = true
+        _editMode    = true
+        videoPlayer.pause()
+    }
+
     // True when the user is in cinema/video fullscreen — drives chrome visibility
     readonly property bool _vidFs: _videoFullscreen && _isVideo
 
@@ -368,11 +388,24 @@ Rectangle {
                         font.family: "JetBrains Mono"
                     }
 
-                    // Right side: loop + volume + video-fullscreen
+                    // Right side: edit + loop + volume + video-fullscreen
                     Row {
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: 4
+
+                        // Trim / edit
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 28; height: 28; radius: 14
+                            color: Qt.alpha("white", root._editMode ? 0.28 : (editMa.containsMouse ? 0.20 : 0.12))
+                            Behavior on color { ColorAnimation { duration: 80 } }
+                            M3Icon { anchors.centerIn: parent; name: "content_cut"; size: 15; color: "white" }
+                            MouseArea {
+                                id: editMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                onClicked: root._editMode ? (root._editMode = false) : root._enterEdit()
+                            }
+                        }
 
                         // Loop toggle
                         Rectangle {
@@ -529,6 +562,122 @@ Rectangle {
                         }
                     }
                 }
+            }
+        }
+
+        // ── Trim / edit panel (above the video controls) ──────────────────
+        Rectangle {
+            id: editPanel
+            visible: root._editMode && root._isVideo
+            z: 12
+            opacity: visible ? (root._vidFs ? (root._controlsVisible ? 1 : 0) : 1) : 0
+            Behavior on opacity { NumberAnimation { duration: 180 } }
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: videoControls.top
+            anchors.bottomMargin: 10
+            height: 52
+            radius: 16
+            color: Qt.alpha("black", 0.82)
+            width: editRow.implicitWidth + 28
+
+            component MiniBtn: Rectangle {
+                property alias label: t.text
+                property bool filled: false
+                property bool on: false
+                signal clicked()
+                width: t.implicitWidth + 22; height: 30; radius: 15
+                color: filled ? ThemeManager.primary
+                              : Qt.alpha("white", on ? 0.28 : (ma.containsMouse ? 0.20 : 0.12))
+                Behavior on color { ColorAnimation { duration: 80 } }
+                Label { id: t; anchors.centerIn: parent; color: parent.filled ? ThemeManager.onPrimary : "white"
+                        font.pixelSize: 12; font.weight: Font.Medium }
+                MouseArea { id: ma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onClicked: parent.clicked() }
+            }
+
+            Row {
+                id: editRow
+                anchors.centerIn: parent
+                spacing: 8
+
+                Row {
+                    spacing: 6; anchors.verticalCenter: parent.verticalCenter
+                    Label { text: qsTr("Start"); color: Qt.alpha("white", 0.6); font.pixelSize: 11
+                            anchors.verticalCenter: parent.verticalCenter }
+                    Label { text: root._fmt(root._trimStartMs); color: "white"; font.pixelSize: 13
+                            font.family: "JetBrains Mono"; anchors.verticalCenter: parent.verticalCenter }
+                    MiniBtn { anchors.verticalCenter: parent.verticalCenter; label: qsTr("Set")
+                              onClicked: root._trimStartMs = Math.min(videoPlayer.position, root._trimEndMs - 100) }
+                }
+                Rectangle { width: 1; height: 26; color: Qt.alpha("white", 0.15); anchors.verticalCenter: parent.verticalCenter }
+                Row {
+                    spacing: 6; anchors.verticalCenter: parent.verticalCenter
+                    Label { text: qsTr("End"); color: Qt.alpha("white", 0.6); font.pixelSize: 11
+                            anchors.verticalCenter: parent.verticalCenter }
+                    Label { text: root._fmt(root._trimEndMs); color: "white"; font.pixelSize: 13
+                            font.family: "JetBrains Mono"; anchors.verticalCenter: parent.verticalCenter }
+                    MiniBtn { anchors.verticalCenter: parent.verticalCenter; label: qsTr("Set")
+                              onClicked: root._trimEndMs = Math.max(videoPlayer.position, root._trimStartMs + 100) }
+                }
+                Rectangle { width: 1; height: 26; color: Qt.alpha("white", 0.15); anchors.verticalCenter: parent.verticalCenter }
+
+                // Audio keep / drop
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 32; height: 30; radius: 15
+                    color: Qt.alpha("white", audMa.containsMouse ? 0.20 : 0.12)
+                    Behavior on color { ColorAnimation { duration: 80 } }
+                    M3Icon { anchors.centerIn: parent; size: 15; color: "white"
+                             name: root._keepAudio ? "volume_up" : "volume_off" }
+                    MouseArea { id: audMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                onClicked: root._keepAudio = !root._keepAudio }
+                }
+
+                MiniBtn { anchors.verticalCenter: parent.verticalCenter; label: qsTr("Cancel")
+                          onClicked: root._editMode = false }
+                MiniBtn {
+                    anchors.verticalCenter: parent.verticalCenter
+                    filled: true
+                    opacity: (VideoEditor.busy || root._trimEndMs <= root._trimStartMs) ? 0.5 : 1
+                    label: VideoEditor.busy ? qsTr("Exporting…") : qsTr("Save copy")
+                    onClicked: {
+                        if (VideoEditor.busy || root._trimEndMs <= root._trimStartMs) return
+                        VideoEditor.trim(videoPlayer.source,
+                                         Math.round(root._trimStartMs),
+                                         Math.round(root._trimEndMs),
+                                         !root._keepAudio)
+                    }
+                }
+            }
+        }
+
+        // ── Transient toast (export result) ───────────────────────────────
+        Rectangle {
+            visible: root._toast !== ""
+            z: 30
+            opacity: root._toast !== "" ? 1 : 0
+            Behavior on opacity { NumberAnimation { duration: 200 } }
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 120
+            height: 40; radius: 20
+            color: Qt.alpha("black", 0.85)
+            width: toastLbl.implicitWidth + 32
+            Label { id: toastLbl; anchors.centerIn: parent; text: root._toast
+                    color: "white"; font.pixelSize: 13; font.weight: Font.Medium }
+        }
+        Timer { id: toastTimer; interval: 4000; onTriggered: root._toast = "" }
+
+        Connections {
+            target: VideoEditor
+            function onFinished(outputPath) {
+                root._editMode = false
+                root._toast = qsTr("Saved ") + outputPath.split("/").pop()
+                toastTimer.restart()
+            }
+            function onFailed(err) {
+                root._toast = qsTr("Export failed: ") + err
+                toastTimer.restart()
             }
         }
 

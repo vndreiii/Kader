@@ -45,6 +45,7 @@ set(SOURCES
     ${SOURCE_DIR}/SettingsManager.cpp
     ${SOURCE_DIR}/StorageManager.cpp
     ${SOURCE_DIR}/SemanticSearchEngine.cpp
+    ${SOURCE_DIR}/VideoEditor.cpp
 )
 
 # Headers
@@ -62,6 +63,7 @@ set(HEADERS
     ${INCLUDE_DIR}/SettingsManager.h
     ${INCLUDE_DIR}/StorageManager.h
     ${INCLUDE_DIR}/SemanticSearchEngine.h
+    ${INCLUDE_DIR}/VideoEditor.h
 )
 
 add_library(KaderLib STATIC
