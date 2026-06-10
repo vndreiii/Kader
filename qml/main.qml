@@ -483,6 +483,7 @@ ApplicationWindow {
                         readonly property var _views: ["timeline","videos","favorites","trash","hidden","albums"]
                         visible: _views.indexOf(window.currentView) >= 0
                         height: 48; width: 48
+                        Layout.rightMargin: -8   // match the sort↔search gap (equal spacing)
                         radius: densityMenu.opened ? 14 : 24
                         Behavior on radius { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
                         color: densityMenu.opened
