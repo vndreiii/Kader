@@ -117,95 +117,116 @@ Item {
                     color: ThemeManager.outlineVariant
                 }
 
-                // Scrollable, multi-selectable list (gallery-style: click a row to
-                // toggle; bulk-unignore from the footer). Height is bound to content
-                // so the list is actually visible inside the layout.
-                Flickable {
+                // Virtualized, multi-selectable list (gallery-style: click a row to
+                // toggle; bulk-unignore from the footer). ListView handles hundreds of
+                // rows efficiently and the WheelHandler gives free-spin mice real speed.
+                ListView {
+                    id: ignoredListView
                     Layout.fillWidth: true
-                    Layout.preferredHeight: root.ignoredFolders.length === 0
-                                            ? 80
-                                            : Math.min(ignoredList.implicitHeight, root.height - 320)
-                    contentHeight: ignoredList.implicitHeight
+                    visible: root.ignoredFolders.length > 0
+                    Layout.preferredHeight: visible ? Math.min(contentHeight, root.height - 320) : 0
                     clip: true
+                    model: root.ignoredFolders
                     boundsBehavior: Flickable.StopAtBounds
+                    flickDeceleration: 4000
+                    maximumFlickVelocity: 6000
+                    cacheBuffer: 256
+                    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
-                    Column {
-                        id: ignoredList
-                        width: parent.width
+                    // Free-spin wheel: scroll a generous chunk per notch.
+                    WheelHandler {
+                        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                        onWheel: (e) => {
+                            var dy = (e.angleDelta.y !== 0 ? e.angleDelta.y : e.pixelDelta.y)
+                            var max = Math.max(0, ignoredListView.contentHeight - ignoredListView.height)
+                            ignoredListView.contentY =
+                                Math.max(0, Math.min(max, ignoredListView.contentY - dy * 1.6))
+                        }
+                    }
 
-                        Repeater {
-                            model: root.ignoredFolders
-                            delegate: Rectangle {
-                                id: ignRow
-                                required property var modelData
-                                width: ignoredList.width
-                                height: 64
-                                radius: 12
-                                readonly property bool _sel: root.isIgnoredSelected(modelData.path)
-                                color: _sel ? Qt.alpha(ThemeManager.primary, 0.12)
-                                             : (ignRowMa.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.04) : "transparent")
+                    delegate: Rectangle {
+                        id: ignRow
+                        required property var modelData
+                        width: ignoredListView.width
+                        height: 64
+                        radius: 12
+                        readonly property bool _sel: root.isIgnoredSelected(modelData.path)
+                        color: _sel ? Qt.alpha(ThemeManager.primary, 0.12)
+                                     : (ignRowMa.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.04) : "transparent")
 
-                                MouseArea {
-                                    id: ignRowMa
+                        MouseArea {
+                            id: ignRowMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.toggleIgnoredSel(ignRow.modelData.path)
+                        }
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 8
+                            anchors.rightMargin: 8
+                            spacing: 12
+
+                            // Thumbnail preview (folder cover / file thumb), with a
+                            // selected overlay and an icon fallback when none exists.
+                            Rectangle {
+                                width: 40; height: 40; radius: 10
+                                clip: true
+                                color: ignRow._sel ? ThemeManager.primary : ThemeManager.surfaceContainerHighest
+
+                                Image {
                                     anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: root.toggleIgnoredSel(ignRow.modelData.path)
+                                    visible: !ignRow._sel && status === Image.Ready
+                                    source: ignRow.modelData.thumb || ""
+                                    fillMode: Image.PreserveAspectCrop
+                                    asynchronous: true
+                                    cache: true
+                                    sourceSize.width: 80; sourceSize.height: 80
                                 }
+                                M3Icon {
+                                    anchors.centerIn: parent
+                                    visible: ignRow._sel || !ignRow.modelData.thumb
+                                    name: ignRow._sel ? "check" : (ignRow.modelData.isMedia ? "image" : "folder")
+                                    size: 18
+                                    color: ignRow._sel ? ThemeManager.onPrimary : ThemeManager.onSurfaceVariant
+                                }
+                            }
 
-                                RowLayout {
-                                    anchors.fill: parent
-                                    anchors.leftMargin: 8
-                                    anchors.rightMargin: 8
-                                    spacing: 12
-
-                                    Rectangle {
-                                        width: 36; height: 36; radius: 12
-                                        color: ignRow._sel ? ThemeManager.primary : ThemeManager.surfaceContainerHighest
-                                        M3Icon {
-                                            anchors.centerIn: parent
-                                            name: ignRow._sel ? "check" : (ignRow.modelData.isMedia ? "image" : "folder")
-                                            size: 18
-                                            color: ignRow._sel ? ThemeManager.onPrimary : ThemeManager.onSurfaceVariant
-                                        }
-                                    }
-
-                                    Column {
-                                        Layout.fillWidth: true
-                                        spacing: 2
-                                        Label {
-                                            width: parent.width
-                                            text: ignRow.modelData.name || ignRow.modelData.path.split("/").filter(Boolean).pop()
-                                            font.pixelSize: 14
-                                            font.weight: Font.Medium
-                                            color: ThemeManager.onSurface
-                                            elide: Text.ElideRight
-                                        }
-                                        Label {
-                                            width: parent.width
-                                            text: ignRow.modelData.path
-                                            font.family: "JetBrains Mono"
-                                            font.pixelSize: 11
-                                            color: ThemeManager.onSurfaceVariant
-                                            elide: Text.ElideRight
-                                        }
-                                    }
+                            Column {
+                                Layout.fillWidth: true
+                                spacing: 2
+                                Label {
+                                    width: parent.width
+                                    text: ignRow.modelData.name || ignRow.modelData.path.split("/").filter(Boolean).pop()
+                                    font.pixelSize: 14
+                                    font.weight: Font.Medium
+                                    color: ThemeManager.onSurface
+                                    elide: Text.ElideRight
+                                }
+                                Label {
+                                    width: parent.width
+                                    text: ignRow.modelData.path
+                                    font.family: "JetBrains Mono"
+                                    font.pixelSize: 11
+                                    color: ThemeManager.onSurfaceVariant
+                                    elide: Text.ElideRight
                                 }
                             }
                         }
+                    }
+                }
 
-                        // Empty state
-                        Item {
-                            width: parent.width
-                            height: 80
-                            visible: root.ignoredFolders.length === 0
-                            Label {
-                                anchors.centerIn: parent
-                                text: I18n.t(Settings.language, "no_ignored_folders")
-                                font.pixelSize: 14
-                                color: ThemeManager.onSurfaceVariant
-                            }
-                        }
+                // Empty state
+                Item {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 80
+                    visible: root.ignoredFolders.length === 0
+                    Label {
+                        anchors.centerIn: parent
+                        text: I18n.t(Settings.language, "no_ignored_folders")
+                        font.pixelSize: 14
+                        color: ThemeManager.onSurfaceVariant
                     }
                 }
 

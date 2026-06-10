@@ -285,13 +285,19 @@ bool DatabaseManager::ignoreAlbum(const QString &folderPath, bool ignore) {
 QVariantList DatabaseManager::getIgnoredFolders() {
     checkConnection();
     QSqlQuery q(m_db);
-    q.exec("SELECT path_prefix FROM albums WHERE is_ignored = 1 ORDER BY path_prefix");
+    // Pull a sample file from each ignored folder for a cover preview.
+    q.exec("SELECT a.path_prefix, "
+           "  (SELECT m.file_path FROM media m WHERE m.folder_path = a.path_prefix "
+           "   ORDER BY m.id LIMIT 1) AS cover "
+           "FROM albums a WHERE a.is_ignored = 1 ORDER BY a.path_prefix");
     QVariantList list;
     while (q.next()) {
-        QString path = q.value(0).toString();
+        const QString path  = q.value(0).toString();
+        const QString cover = q.value(1).toString();
         QVariantMap map;
-        map["path"] = path;
-        map["name"] = QDir(path).dirName();
+        map["path"]  = path;
+        map["name"]  = QDir(path).dirName();
+        map["thumb"] = cover.isEmpty() ? QString() : ThumbnailGenerator::thumbnailUrl(cover);
         list.append(map);
     }
     return list;
@@ -844,6 +850,7 @@ QVariantList DatabaseManager::getIgnoredMedia() {
         map["id"]      = q.value(0).toInt();
         map["path"]    = path;
         map["name"]    = QFileInfo(path).fileName();
+        map["thumb"]   = ThumbnailGenerator::thumbnailUrl(path);
         map["isMedia"] = true;   // distinguishes single files from folder ignores
         list.append(map);
     }
