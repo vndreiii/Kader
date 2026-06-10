@@ -47,12 +47,14 @@ ApplicationWindow {
     // Restore sort preference for the given view key
     function applyViewSort(view) {
         var pref = DB.getSortPref(view)
+        // Property assignment, not setSortRole(): TimelineModel's setters are plain
+        // WRITE accessors (not Q_INVOKABLE), so the function-call form silently fails.
         if (view === "albums") {
-            AlbumModel.setSortRole(pref.role)
-            AlbumModel.setSortOrder(pref.order)
+            AlbumModel.sortRole  = pref.role
+            AlbumModel.sortOrder = pref.order
         } else {
-            TimelineModel.setSortRole(pref.role)
-            TimelineModel.setSortOrder(pref.order)
+            TimelineModel.sortRole  = pref.role
+            TimelineModel.sortOrder = pref.order
         }
     }
 
@@ -515,23 +517,39 @@ ApplicationWindow {
                         }
                     }
 
-                    // ── Sort button ──────────────────────────────────────────
+                    // ── Sort button (pill matching the search bar) ────────────
                     Rectangle {
                         id: sortBtn
                         readonly property var _sortableViews: ["timeline","videos","favorites","trash","hidden","albums"]
                         visible: _sortableViews.indexOf(window.currentView) >= 0
-                        width: 40; height: 40; radius: 20
+                        height: 48
+                        radius: 24
+                        width: sortRow.implicitWidth + 36
                         color: sortMenu.opened
-                               ? Qt.alpha(ThemeManager.primary, 0.12)
-                               : (sortBtnMA.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent")
-                        Behavior on color { ColorAnimation { duration: 80 } }
+                               ? Qt.alpha(ThemeManager.primary, 0.10)
+                               : (sortBtnMA.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.06)
+                                                          : ThemeManager.surfaceContainer)
+                        Behavior on color { ColorAnimation { duration: 120 } }
 
-                        M3Icon {
+                        Row {
+                            id: sortRow
                             anchors.centerIn: parent
-                            name: "sort"
-                            size: 22
-                            color: sortMenu.opened ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                            Behavior on color { ColorAnimation { duration: 80 } }
+                            spacing: 8
+
+                            M3Icon {
+                                anchors.verticalCenter: parent.verticalCenter
+                                name: "sort"
+                                size: 20
+                                color: sortMenu.opened ? ThemeManager.primary : ThemeManager.onSurfaceVariant
+                                Behavior on color { ColorAnimation { duration: 120 } }
+                            }
+                            Label {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "Sort by"
+                                font.pixelSize: 16
+                                color: sortMenu.opened ? ThemeManager.primary : ThemeManager.onSurface
+                                Behavior on color { ColorAnimation { duration: 120 } }
+                            }
                         }
 
                         MouseArea {
@@ -576,14 +594,18 @@ ApplicationWindow {
                             ascLabel:  _textKey ? "A → Z" : "Ascending"
                             descLabel: _textKey ? "Z → A" : "Descending"
 
+                            // Use property assignment (not setSortRole(): on TimelineModel
+                            // that's a plain WRITE accessor, not Q_INVOKABLE, so calling it
+                            // as a function silently fails — which is why timeline sorting
+                            // never took effect while albums did).
                             onPick: (key) => {
-                                if (_alb) AlbumModel.setSortRole(key); else TimelineModel.setSortRole(key)
+                                if (_alb) AlbumModel.sortRole = key; else TimelineModel.sortRole = key
                                 DB.setSortPref(window.currentView, key,
                                                (_alb ? AlbumModel.sortOrder : TimelineModel.sortOrder))
                             }
                             onOrderPicked: (asc) => {
                                 var o = asc ? 1 : 0
-                                if (_alb) AlbumModel.setSortOrder(o); else TimelineModel.setSortOrder(o)
+                                if (_alb) AlbumModel.sortOrder = o; else TimelineModel.sortOrder = o
                                 DB.setSortPref(window.currentView,
                                                (_alb ? AlbumModel.sortRole : TimelineModel.sortRole), o)
                             }
@@ -626,7 +648,7 @@ ApplicationWindow {
                                             "image/webp":"WebP","image/heic":"HEIC","image/heif":"HEIF",
                                             "image/tiff":"TIFF","image/bmp":"BMP","image/avif":"AVIF",
                                             "image/x-canon-cr2":"Canon RAW","image/x-nikon-nef":"Nikon RAW",
-                                            "image/x-adobe-dng":"DNG","video/mp4":"MP4",
+                                            "image/x-sony-arw":"RAW","image/x-adobe-dng":"DNG","video/mp4":"MP4",
                                             "video/quicktime":"MOV","video/x-msvideo":"AVI",
                                             "video/webm":"WebM","video/x-matroska":"MKV"
                                         }

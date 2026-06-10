@@ -13,8 +13,8 @@ import Qcm.Material
 //       fields: [{ key: 0, label: "Name" }, { key: 1, label: "Size" }]
 //       currentKey: model.sortRole
 //       ascending:  model.sortOrder === 1
-//       onPick:        (key) => model.setSortRole(key)
-//       onOrderPicked: (asc) => model.setSortOrder(asc ? 1 : 0)
+//       onPick:        (key) => model.sortRole = key
+//       onOrderPicked: (asc) => model.sortOrder = asc ? 1 : 0
 //   }
 //
 // Extra items (e.g. a type filter) may be nested in the instance; they appear
