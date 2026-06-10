@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import ".."
+import "../I18n.js" as I18n
 
 Item {
     id: root
@@ -537,8 +538,8 @@ Item {
         }
         Label {
             Layout.alignment: Qt.AlignHCenter
-            text:  parent.aiIndexing ? qsTr("AI is indexing your library…")
-                 : parent.isAI       ? qsTr("No matches for your AI search")
+            text:  parent.aiIndexing ? I18n.t(Settings.language, "ai_lib_indexing")
+                 : parent.isAI       ? I18n.t(Settings.language, "ai_no_matches")
                  : parent.mode === 2 ? "Trash is empty"
                  : parent.mode === 1 ? "No favorites yet"
                  : parent.isVid      ? "No videos found"
@@ -547,8 +548,8 @@ Item {
         }
         Label {
             Layout.alignment: Qt.AlignHCenter
-            text:  parent.aiIndexing ? qsTr("%1 / %2 photos embedded").arg(AI.indexedCount).arg(AI.indexTotal)
-                 : parent.isAI       ? qsTr("Try a different description, or wait for indexing to complete.")
+            text:  parent.aiIndexing ? I18n.t(Settings.language, "ai_photos_embedded").arg(AI.indexedCount).arg(AI.indexTotal)
+                 : parent.isAI       ? I18n.t(Settings.language, "ai_no_matches_sub")
                  : parent.mode === 2 ? "Deleted photos will appear here."
                  : parent.mode === 1 ? "Tap the heart on any photo to add it to Favorites."
                  : parent.isVid      ? "Scan a directory containing video files."

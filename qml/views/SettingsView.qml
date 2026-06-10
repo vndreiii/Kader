@@ -736,10 +736,10 @@ Item {
 
                 // Model status + download
                 SettingsRow {
-                    label: qsTr("Semantic Search")
+                    label: I18n.t(Settings.language, "ai_semantic_search")
                     sub: AI.modelsPresent
-                         ? (AI.ready ? qsTr("Model loaded — ready to search") : qsTr("Models available — click to load"))
-                         : qsTr("Download Qwen3-VL-Embedding-2B (~1.9 GB) to enable AI-powered search")
+                         ? (AI.ready ? I18n.t(Settings.language, "ai_model_loaded") : I18n.t(Settings.language, "ai_models_available"))
+                         : I18n.t(Settings.language, "ai_download_model")
 
                     action: RowLayout {
                         spacing: 8
@@ -753,7 +753,7 @@ Item {
                             Label {
                                 id: btn
                                 anchors.centerIn: parent
-                                text: AI.ready ? qsTr("Unload") : qsTr("Load")
+                                text: AI.ready ? I18n.t(Settings.language, "ai_unload") : I18n.t(Settings.language, "ai_load")
                                 font.pixelSize: 13; font.weight: Font.Medium
                                 color: AI.ready ? ThemeManager.error : ThemeManager.onPrimaryContainer
                             }
@@ -778,7 +778,7 @@ Item {
                             Label {
                                 id: dlLabel
                                 anchors.centerIn: parent
-                                text: qsTr("Download")
+                                text: I18n.t(Settings.language, "ai_download")
                                 font.pixelSize: 13; font.weight: Font.Medium
                                 color: ThemeManager.onPrimaryContainer
                             }
@@ -796,7 +796,7 @@ Item {
                             Label {
                                 id: cancelLabel
                                 anchors.centerIn: parent
-                                text: qsTr("Cancel")
+                                text: I18n.t(Settings.language, "cancel")
                                 font.pixelSize: 13; font.weight: Font.Medium
                                 color: ThemeManager.error
                             }
@@ -828,13 +828,13 @@ Item {
                 // Index library
                 SettingsRow {
                     visible: AI.ready
-                    label: qsTr("Index Gallery")
+                    label: I18n.t(Settings.language, "ai_index_gallery")
                     sub: {
                         if (AI.indexing)
-                            return qsTr("%1 / %2 photos embedded…").arg(AI.indexedCount).arg(AI.indexTotal)
+                            return I18n.t(Settings.language, "ai_photos_embedding").arg(AI.indexedCount).arg(AI.indexTotal)
                         if (AI.indexedCount > 0 && AI.indexTotal > 0)
-                            return qsTr("Done — %1 photos indexed").arg(AI.indexedCount)
-                        return qsTr("Generate embeddings so you can search by description (GPU accelerated)")
+                            return I18n.t(Settings.language, "ai_photos_done").arg(AI.indexedCount)
+                        return I18n.t(Settings.language, "ai_index_gallery_sub")
                     }
                     action: ColumnLayout {
                         spacing: 6
@@ -863,7 +863,7 @@ Item {
                             Label {
                                 id: idxLabel
                                 anchors.centerIn: parent
-                                text: AI.indexing ? qsTr("Indexing…") : qsTr("Start Indexing")
+                                text: AI.indexing ? I18n.t(Settings.language, "ai_indexing") : I18n.t(Settings.language, "ai_start_indexing")
                                 font.pixelSize: 13; font.weight: Font.Medium
                                 color: AI.indexing
                                     ? ThemeManager.onSurfaceVariant
@@ -883,15 +883,15 @@ Item {
                 // Index documents
                 SettingsRow {
                     visible: AI.modelsPresent
-                    label: qsTr("Index Documents")
+                    label: I18n.t(Settings.language, "ai_index_documents")
                     sub: {
                         if (!AI.docsEnabled)
-                            return qsTr("Enable to search PDF, TXT and Markdown files by content (uses AI embeddings)")
+                            return I18n.t(Settings.language, "ai_index_documents_sub")
                         if (AI.docIndexing)
-                            return qsTr("%1 / %2 documents indexed…").arg(AI.docIndexedCount).arg(AI.docIndexTotal)
+                            return I18n.t(Settings.language, "ai_docs_indexing").arg(AI.docIndexedCount).arg(AI.docIndexTotal)
                         if (AI.docIndexedCount > 0 && AI.docIndexTotal > 0)
-                            return qsTr("Done — %1 documents indexed").arg(AI.docIndexedCount)
-                        return qsTr("Ready — click to re-index documents")
+                            return I18n.t(Settings.language, "ai_docs_done").arg(AI.docIndexedCount)
+                        return I18n.t(Settings.language, "ai_docs_ready")
                     }
                     last: true
                     action: RowLayout {
@@ -921,10 +921,10 @@ Item {
             }
 
             SettingsSection {
-                title: qsTr("Performance")
+                title: I18n.t(Settings.language, "section_performance")
                 SettingsRow {
-                    label: qsTr("Parallel Thumbnail Generation (BETA)")
-                    sub: qsTr("Use multiple CPU cores during scan. Each worker uses 1 libvips thread to avoid overload. Takes effect on next scan.")
+                    label: I18n.t(Settings.language, "parallel_thumbs")
+                    sub: I18n.t(Settings.language, "parallel_thumbs_sub")
                     last: true
                     action: M3Switch {
                         checked: Settings.parallelThumbnails

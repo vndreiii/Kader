@@ -139,7 +139,7 @@ ApplicationWindow {
             spacing: 4
 
             Label {
-                text: qsTr("Documents  (%1)").arg(window._aiDocResults.length)
+                text: I18n.t(Settings.language, "documents_count").arg(window._aiDocResults.length)
                 font.pixelSize: 11; font.weight: Font.Medium
                 color: ThemeManager.onSurfaceVariant
             }

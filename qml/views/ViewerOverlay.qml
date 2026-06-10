@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import QtQuick.Window
 import QtMultimedia
 import "../components"
+import "../I18n.js" as I18n
 
 Rectangle {
     id: root
@@ -602,21 +603,21 @@ Rectangle {
 
                 Row {
                     spacing: 6; anchors.verticalCenter: parent.verticalCenter
-                    Label { text: qsTr("Start"); color: Qt.alpha("white", 0.6); font.pixelSize: 11
+                    Label { text: I18n.t(Settings.language, "editor_start"); color: Qt.alpha("white", 0.6); font.pixelSize: 11
                             anchors.verticalCenter: parent.verticalCenter }
                     Label { text: root._fmt(root._trimStartMs); color: "white"; font.pixelSize: 13
                             font.family: "JetBrains Mono"; anchors.verticalCenter: parent.verticalCenter }
-                    MiniBtn { anchors.verticalCenter: parent.verticalCenter; label: qsTr("Set")
+                    MiniBtn { anchors.verticalCenter: parent.verticalCenter; label: I18n.t(Settings.language, "editor_set")
                               onClicked: root._trimStartMs = Math.min(videoPlayer.position, root._trimEndMs - 100) }
                 }
                 Rectangle { width: 1; height: 26; color: Qt.alpha("white", 0.15); anchors.verticalCenter: parent.verticalCenter }
                 Row {
                     spacing: 6; anchors.verticalCenter: parent.verticalCenter
-                    Label { text: qsTr("End"); color: Qt.alpha("white", 0.6); font.pixelSize: 11
+                    Label { text: I18n.t(Settings.language, "editor_end"); color: Qt.alpha("white", 0.6); font.pixelSize: 11
                             anchors.verticalCenter: parent.verticalCenter }
                     Label { text: root._fmt(root._trimEndMs); color: "white"; font.pixelSize: 13
                             font.family: "JetBrains Mono"; anchors.verticalCenter: parent.verticalCenter }
-                    MiniBtn { anchors.verticalCenter: parent.verticalCenter; label: qsTr("Set")
+                    MiniBtn { anchors.verticalCenter: parent.verticalCenter; label: I18n.t(Settings.language, "editor_set")
                               onClicked: root._trimEndMs = Math.max(videoPlayer.position, root._trimStartMs + 100) }
                 }
                 Rectangle { width: 1; height: 26; color: Qt.alpha("white", 0.15); anchors.verticalCenter: parent.verticalCenter }
@@ -633,13 +634,13 @@ Rectangle {
                                 onClicked: root._keepAudio = !root._keepAudio }
                 }
 
-                MiniBtn { anchors.verticalCenter: parent.verticalCenter; label: qsTr("Cancel")
+                MiniBtn { anchors.verticalCenter: parent.verticalCenter; label: I18n.t(Settings.language, "cancel")
                           onClicked: root._editMode = false }
                 MiniBtn {
                     anchors.verticalCenter: parent.verticalCenter
                     filled: true
                     opacity: (VideoEditor.busy || root._trimEndMs <= root._trimStartMs) ? 0.5 : 1
-                    label: VideoEditor.busy ? qsTr("Exporting…") : qsTr("Save copy")
+                    label: VideoEditor.busy ? I18n.t(Settings.language, "editor_exporting") : I18n.t(Settings.language, "editor_save_copy")
                     onClicked: {
                         if (VideoEditor.busy || root._trimEndMs <= root._trimStartMs) return
                         VideoEditor.trim(videoPlayer.source,
@@ -672,11 +673,11 @@ Rectangle {
             target: VideoEditor
             function onFinished(outputPath) {
                 root._editMode = false
-                root._toast = qsTr("Saved ") + outputPath.split("/").pop()
+                root._toast = I18n.t(Settings.language, "editor_saved") + outputPath.split("/").pop()
                 toastTimer.restart()
             }
             function onFailed(err) {
-                root._toast = qsTr("Export failed: ") + err
+                root._toast = I18n.t(Settings.language, "editor_export_failed") + err
                 toastTimer.restart()
             }
         }
