@@ -523,8 +523,12 @@ ApplicationWindow {
                         readonly property var _sortableViews: ["timeline","videos","favorites","trash","hidden","albums"]
                         visible: _sortableViews.indexOf(window.currentView) >= 0
                         height: 48
-                        radius: 24
+                        // Squares off when active/open (a pressed-in "toggled on" look).
+                        radius: sortMenu.opened ? 14 : 24
+                        Behavior on radius { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
                         width: sortRow.implicitWidth + 36
+                        // Sit closer to the search bar (trim the inter-item gap).
+                        Layout.rightMargin: -8
                         color: sortMenu.opened
                                ? Qt.alpha(ThemeManager.primary, 0.10)
                                : (sortBtnMA.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.06)
@@ -610,56 +614,50 @@ ApplicationWindow {
                                                (_alb ? AlbumModel.sortRole : TimelineModel.sortRole), o)
                             }
 
-                            // ── Type filter (media views only) — appended after order ──
+                            // ── Type filter — a real Qt submenu (cascade is managed
+                            //    as one focus unit, so it no longer fights the parent). ──
                             MenuSeparator {
                                 visible: ["timeline","favorites"].indexOf(window.currentView) >= 0
                                 height: visible ? implicitHeight : 0
                             }
-                            CascadeMenuItem {
-                                text: "Filter by type…"
-                                visible: ["timeline","favorites"].indexOf(window.currentView) >= 0
-                                height: visible ? implicitHeight : 0
-                                submenu: typeMenu
-                            }
-                        }
+                            Menu {
+                                id: typeMenu
+                                title: "Filter by type"
+                                enabled: ["timeline","favorites"].indexOf(window.currentView) >= 0
+                                property var _types: []
+                                onAboutToShow: _types = TimelineModel.getAvailableMimeTypes()
 
-                        // ── Type submenu — declared separately (m3e pattern) ──
-                        CascadeMenu {
-                            id: typeMenu
-                            property var _types: []
-
-                            onAboutToShow: _types = TimelineModel.getAvailableMimeTypes()
-
-                            MenuItem {
-                                text: "All types"
-                                checkable: true
-                                checked: TimelineModel.mimeFilter === ""
-                                onTriggered: TimelineModel.setMimeFilter("")
-                            }
-                            MenuSeparator {}
-
-                            Instantiator {
-                                model: typeMenu._types
-                                delegate: MenuItem {
-                                    required property string modelData
-                                    text: {
-                                        var m = {
-                                            "image/jpeg":"JPEG","image/png":"PNG","image/gif":"GIF",
-                                            "image/webp":"WebP","image/heic":"HEIC","image/heif":"HEIF",
-                                            "image/tiff":"TIFF","image/bmp":"BMP","image/avif":"AVIF",
-                                            "image/x-canon-cr2":"Canon RAW","image/x-nikon-nef":"Nikon RAW",
-                                            "image/x-sony-arw":"RAW","image/x-adobe-dng":"DNG","video/mp4":"MP4",
-                                            "video/quicktime":"MOV","video/x-msvideo":"AVI",
-                                            "video/webm":"WebM","video/x-matroska":"MKV"
-                                        }
-                                        return m[modelData] || modelData.split("/").pop().toUpperCase()
-                                    }
+                                MenuItem {
+                                    text: "All types"
                                     checkable: true
-                                    checked: TimelineModel.mimeFilter === modelData
-                                    onTriggered: TimelineModel.setMimeFilter(modelData)
+                                    checked: TimelineModel.mimeFilter === ""
+                                    onTriggered: TimelineModel.setMimeFilter("")
                                 }
-                                onObjectAdded: (index, obj) => typeMenu.insertItem(index + 2, obj)
-                                onObjectRemoved: (index, obj) => typeMenu.removeItem(obj)
+                                MenuSeparator {}
+
+                                Instantiator {
+                                    model: typeMenu._types
+                                    delegate: MenuItem {
+                                        required property string modelData
+                                        text: {
+                                            var m = {
+                                                "image/jpeg":"JPEG","image/png":"PNG","image/gif":"GIF",
+                                                "image/webp":"WebP","image/heic":"HEIC","image/heif":"HEIF",
+                                                "image/tiff":"TIFF","image/bmp":"BMP","image/avif":"AVIF",
+                                                "image/x-canon-cr2":"Canon RAW","image/x-nikon-nef":"Nikon RAW",
+                                                "image/x-sony-arw":"RAW","image/x-adobe-dng":"DNG","video/mp4":"MP4",
+                                                "video/quicktime":"MOV","video/x-msvideo":"AVI",
+                                                "video/webm":"WebM","video/x-matroska":"MKV"
+                                            }
+                                            return m[modelData] || modelData.split("/").pop().toUpperCase()
+                                        }
+                                        checkable: true
+                                        checked: TimelineModel.mimeFilter === modelData
+                                        onTriggered: TimelineModel.setMimeFilter(modelData)
+                                    }
+                                    onObjectAdded: (index, obj) => typeMenu.insertItem(index + 2, obj)
+                                    onObjectRemoved: (index, obj) => typeMenu.removeItem(obj)
+                                }
                             }
                         }
                     }

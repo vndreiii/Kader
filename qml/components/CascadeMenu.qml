@@ -26,27 +26,6 @@ import Qcm.Material as MD
 MD.Menu {
     id: root
 
-    // ── Hover-intent close ────────────────────────────────────────────────────
-    // The submenu stays open while the pointer is over the trigger OR over the
-    // submenu itself. The moment it is over neither, a short grace timer fires
-    // and closes it — long enough to cross the diagonal gap between the trigger
-    // and the first submenu row (the classic "safe triangle" intent).
-    property bool triggerHovered: false
-    readonly property bool keepOpen: triggerHovered || surfaceHover.hovered
-
-    HoverHandler { id: surfaceHover }
-
-    onKeepOpenChanged: {
-        if (keepOpen) closeTimer.stop()
-        else if (root.opened) closeTimer.restart()
-    }
-
-    Timer {
-        id: closeTimer
-        interval: 240
-        onTriggered: if (!root.keepOpen) root.close()
-    }
-
     // Open anchored to the right side of triggerItem (a CascadeMenuItem).
     // Aligns the menu surface flush with the trigger's top, accounting for
     // the menu's own verticalPadding so the first item sits at trigger-top.

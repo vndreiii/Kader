@@ -15,23 +15,19 @@ MD.MenuItem {
 
     property CascadeMenu submenu: null
 
-    // Always show the right-arrow indicator when a submenu is wired up.
-    // Uses our SVG-path M3Icon (the MD icon font has no glyph here → renders tofu).
-    arrow: M3Icon {
+    // Always show the right-arrow indicator when a submenu is wired up
+    arrow: MD.Icon {
         x: root.mirrored ? root.padding : root.width - width - root.padding
         y: root.topPadding + (root.availableHeight - height) / 2
         visible: !!root.submenu
-        size: 18
-        name: "chevron_right"
+        size: 24
+        name: MD.Token.icon.arrow_right
         color: root.mdState.textColor
     }
 
-    // Open submenu on hover, and feed hover state to it so it can decide when to
-    // close (the submenu stays open while either the trigger or itself is hovered).
+    // Open submenu on hover (desktop — feels instant and natural)
     onHoveredChanged: {
-        if (!submenu) return
-        submenu.triggerHovered = hovered
-        if (hovered) submenu.openFrom(root)
+        if (hovered && submenu) submenu.openFrom(root)
     }
 
     // Also open on click/tap so keyboard and touch navigation works
