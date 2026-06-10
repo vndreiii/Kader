@@ -82,7 +82,16 @@ Item {
                 return
             }
             // frame-rate independent: same feel at 60/120/144 Hz
-            listView.contentY = cur + d * (1 - Math.exp(-rate * frameTime))
+            var next = cur + d * (1 - Math.exp(-rate * frameTime))
+            listView.contentY = next
+            // If the Flickable refused the move (we hit its real top/bottom bound,
+            // which can differ from contentHeight-height due to margins/originY),
+            // snap the target to the actual position and stop. Prevents a dead
+            // zone that left scrolling "stuck shifted down" and chasing nothing.
+            if (Math.abs(listView.contentY - next) > 0.5) {
+                root._scrollTarget = listView.contentY
+                running = false
+            }
         }
     }
 
@@ -226,8 +235,14 @@ Item {
             color: scrubber._dragging ? ThemeManager.primary : Qt.alpha(ThemeManager.onSurface, 0.2)
             Behavior on color { ColorAnimation { duration: 100 } }
 
-            y: Math.max(0, Math.min(scrubber.height - height,
-                   listView.visibleArea.yPosition * scrubber.height))
+            // Position by scroll fraction (contentY / maxScroll) over the handle's
+            // travel range — the SAME mapping the drag uses, so the handle sits
+            // exactly under the cursor instead of lagging by an offset.
+            y: {
+                var maxY = Math.max(1, listView.contentHeight - listView.height)
+                var frac = Math.max(0, Math.min(1, listView.contentY / maxY))
+                return frac * (scrubber.height - height)
+            }
 
             // Month bubble — fades + scales in after crossing a month boundary
             Rectangle {
@@ -265,9 +280,12 @@ Item {
             cursorShape: Qt.SizeVerCursor
 
             function _applyScroll(my) {
-                var ratio  = Math.max(0, Math.min(1.0, my / Math.max(1, scrubber.height)))
-                var maxY   = Math.max(0, listView.contentHeight - listView.height)
-                listView.contentY = ratio * maxY
+                // Centre the handle on the cursor: map the handle's CENTRE to the
+                // mouse over its travel range (height minus the handle's own size).
+                var track = Math.max(1, scrubber.height - scrubHandle.height)
+                var frac  = Math.max(0, Math.min(1, (my - scrubHandle.height / 2) / track))
+                var maxY  = Math.max(0, listView.contentHeight - listView.height)
+                listView.contentY = frac * maxY
             }
 
             onPressed: (mouse) => {
