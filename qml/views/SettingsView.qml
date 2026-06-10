@@ -16,6 +16,27 @@ Item {
     property var ignoredFolders: []
     property var scanExclusions: []
 
+    // Selection state for the ignored-items manager (gallery-style multi-select).
+    property var ignoredSel: ({})
+    function ignoredSelCount() { return Object.keys(root.ignoredSel).length }
+    function isIgnoredSelected(p) { return root.ignoredSel[p] === true }
+    function toggleIgnoredSel(p) {
+        var s = root.ignoredSel
+        if (s[p]) delete s[p]; else s[p] = true
+        root.ignoredSel = Object.assign({}, s)
+    }
+    function clearIgnoredSel() { root.ignoredSel = ({}) }
+    function selectAllIgnored() {
+        var s = {}
+        for (var i = 0; i < root.ignoredFolders.length; i++) s[root.ignoredFolders[i].path] = true
+        root.ignoredSel = s
+    }
+    function unignore(paths) {
+        for (var i = 0; i < paths.length; i++) DB.ignoreAlbum(paths[i], false)
+        root.clearIgnoredSel()
+        root.refreshIgnored(); AlbumModel.refresh(); TimelineModel.refresh()
+    }
+
     function refreshDirs() {
         indexedDirs = DB.getIndexedDirectories()
     }
@@ -44,6 +65,7 @@ Item {
     Rectangle {
         id: ignoredModal
         property bool open: false
+        onOpenChanged: if (open) { root.clearIgnoredSel(); root.refreshIgnored() }
         anchors.fill: parent
         color: Qt.alpha("black", 0.45)
         visible: open
@@ -89,13 +111,17 @@ Item {
                     color: ThemeManager.outlineVariant
                 }
 
-                // Scrollable list
+                // Scrollable, multi-selectable list (gallery-style: click a row to
+                // toggle; bulk-unignore from the footer). Height is bound to content
+                // so the list is actually visible inside the layout.
                 Flickable {
                     Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    Layout.maximumHeight: root.height - 300
+                    Layout.preferredHeight: root.ignoredFolders.length === 0
+                                            ? 80
+                                            : Math.min(ignoredList.implicitHeight, root.height - 320)
                     contentHeight: ignoredList.implicitHeight
                     clip: true
+                    boundsBehavior: Flickable.StopAtBounds
 
                     Column {
                         id: ignoredList
@@ -103,20 +129,39 @@ Item {
 
                         Repeater {
                             model: root.ignoredFolders
-                            delegate: Item {
-                                width: parent.width
+                            delegate: Rectangle {
+                                id: ignRow
+                                required property var modelData
+                                width: ignoredList.width
                                 height: 64
+                                radius: 12
+                                readonly property bool _sel: root.isIgnoredSelected(modelData.path)
+                                color: _sel ? Qt.alpha(ThemeManager.primary, 0.12)
+                                             : (ignRowMa.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.04) : "transparent")
+
+                                MouseArea {
+                                    id: ignRowMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: root.toggleIgnoredSel(ignRow.modelData.path)
+                                }
 
                                 RowLayout {
                                     anchors.fill: parent
-                                    anchors.leftMargin: 4
-                                    anchors.rightMargin: 4
+                                    anchors.leftMargin: 8
+                                    anchors.rightMargin: 8
                                     spacing: 12
 
                                     Rectangle {
                                         width: 36; height: 36; radius: 12
-                                        color: ThemeManager.surfaceContainerHighest
-                                        M3Icon { anchors.centerIn: parent; name: "folder"; size: 18; color: ThemeManager.onSurfaceVariant }
+                                        color: ignRow._sel ? ThemeManager.primary : ThemeManager.surfaceContainerHighest
+                                        M3Icon {
+                                            anchors.centerIn: parent
+                                            name: ignRow._sel ? "check" : "folder"
+                                            size: 18
+                                            color: ignRow._sel ? ThemeManager.onPrimary : ThemeManager.onSurfaceVariant
+                                        }
                                     }
 
                                     Column {
@@ -124,7 +169,7 @@ Item {
                                         spacing: 2
                                         Label {
                                             width: parent.width
-                                            text: modelData.name || modelData.path.split("/").filter(Boolean).pop()
+                                            text: ignRow.modelData.name || ignRow.modelData.path.split("/").filter(Boolean).pop()
                                             font.pixelSize: 14
                                             font.weight: Font.Medium
                                             color: ThemeManager.onSurface
@@ -132,44 +177,13 @@ Item {
                                         }
                                         Label {
                                             width: parent.width
-                                            text: modelData.path
+                                            text: ignRow.modelData.path
                                             font.family: "JetBrains Mono"
                                             font.pixelSize: 11
                                             color: ThemeManager.onSurfaceVariant
                                             elide: Text.ElideRight
                                         }
                                     }
-
-                                    Button {
-                                        Layout.preferredWidth: 80
-                                        Layout.preferredHeight: 32
-                                        background: Rectangle {
-                                            radius: 16
-                                            color: parent.hovered ? Qt.alpha(ThemeManager.primary, 0.12) : Qt.alpha(ThemeManager.primary, 0.06)
-                                        }
-                                        contentItem: Label {
-                                            text: I18n.t(Settings.language, "unignore")
-                                            font.pixelSize: 12
-                                            font.weight: Font.Medium
-                                            color: ThemeManager.primary
-                                            horizontalAlignment: Text.AlignHCenter
-                                            verticalAlignment: Text.AlignVCenter
-                                        }
-                                        onClicked: {
-                                            DB.ignoreAlbum(modelData.path, false)
-                                            root.refreshIgnored()
-                                            AlbumModel.refresh()
-                                            TimelineModel.refresh()
-                                        }
-                                    }
-                                }
-
-                                Rectangle {
-                                    anchors.bottom: parent.bottom
-                                    width: parent.width
-                                    height: 1
-                                    color: ThemeManager.outlineVariant
-                                    opacity: 0.5
                                 }
                             }
                         }
@@ -197,19 +211,61 @@ Item {
 
                 Item { height: 16 }
 
-                Button {
-                    Layout.alignment: Qt.AlignRight
-                    text: I18n.t(Settings.language, "done")
-                    onClicked: ignoredModal.open = false
-                    background: Rectangle { radius: 20; color: ThemeManager.primaryContainer }
-                    contentItem: Label {
-                        text: parent.text
-                        color: ThemeManager.onPrimaryContainer
-                        font.weight: Font.Medium
-                        font.pixelSize: 14
-                        topPadding: 8; bottomPadding: 8; leftPadding: 20; rightPadding: 20
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    // Select all / Clear (only when there is something to act on)
+                    Button {
+                        visible: root.ignoredFolders.length > 0
+                        flat: true
+                        text: root.ignoredSelCount() === root.ignoredFolders.length && root.ignoredFolders.length > 0
+                              ? I18n.t(Settings.language, "clear_selection")
+                              : I18n.t(Settings.language, "select_all")
+                        onClicked: {
+                            if (root.ignoredSelCount() === root.ignoredFolders.length) root.clearIgnoredSel()
+                            else root.selectAllIgnored()
+                        }
+                        background: Rectangle { radius: 20; color: parent.hovered ? Qt.alpha(ThemeManager.onSurface, 0.06) : "transparent" }
+                        contentItem: Label {
+                            text: parent.text
+                            color: ThemeManager.primary
+                            font.weight: Font.Medium; font.pixelSize: 14
+                            topPadding: 8; bottomPadding: 8; leftPadding: 12; rightPadding: 12
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    // Bulk un-ignore selected
+                    Button {
+                        visible: root.ignoredSelCount() > 0
+                        text: I18n.t(Settings.language, "unignore") + " (" + root.ignoredSelCount() + ")"
+                        onClicked: root.unignore(Object.keys(root.ignoredSel))
+                        background: Rectangle { radius: 20; color: parent.hovered ? Qt.alpha(ThemeManager.primary, 0.16) : Qt.alpha(ThemeManager.primary, 0.10) }
+                        contentItem: Label {
+                            text: parent.text
+                            color: ThemeManager.primary
+                            font.weight: Font.Medium; font.pixelSize: 14
+                            topPadding: 8; bottomPadding: 8; leftPadding: 16; rightPadding: 16
+                            horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                        }
+                    }
+
+                    Button {
+                        text: I18n.t(Settings.language, "done")
+                        onClicked: ignoredModal.open = false
+                        background: Rectangle { radius: 20; color: ThemeManager.primaryContainer }
+                        contentItem: Label {
+                            text: parent.text
+                            color: ThemeManager.onPrimaryContainer
+                            font.weight: Font.Medium
+                            font.pixelSize: 14
+                            topPadding: 8; bottomPadding: 8; leftPadding: 20; rightPadding: 20
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
                     }
                 }
             }

@@ -477,6 +477,45 @@ ApplicationWindow {
 
                     Item { Layout.fillWidth: true }
 
+                    // ── Density button (mosaic columns) ───────────────────────
+                    Rectangle {
+                        id: densityBtn
+                        readonly property var _views: ["timeline","videos","favorites","trash","hidden","albums"]
+                        visible: _views.indexOf(window.currentView) >= 0
+                        height: 48; width: 48
+                        radius: densityMenu.opened ? 14 : 24
+                        Behavior on radius { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+                        color: densityMenu.opened
+                               ? Qt.alpha(ThemeManager.primary, 0.10)
+                               : (densityBtnMA.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.06)
+                                                             : ThemeManager.surfaceContainer)
+                        Behavior on color { ColorAnimation { duration: 120 } }
+
+                        M3Icon {
+                            anchors.centerIn: parent
+                            name: "grid_view"; size: 20
+                            color: densityMenu.opened ? ThemeManager.primary : ThemeManager.onSurfaceVariant
+                            Behavior on color { ColorAnimation { duration: 120 } }
+                        }
+                        ToolTip.text: I18n.t(Settings.language, "mosaic_density")
+                        ToolTip.visible: densityBtnMA.containsMouse && !densityMenu.opened
+                        ToolTip.delay: 500
+
+                        MouseArea {
+                            id: densityBtnMA
+                            anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onClicked: densityMenu.popup(densityBtn, 0, densityBtn.height + 4)
+                        }
+
+                        Menu {
+                            id: densityMenu
+                            MenuItem { text: I18n.t(Settings.language, "density_dense");       checkable: true; checked: Settings.mosaicDensity === 1; onTriggered: Settings.mosaicDensity = 1 }
+                            MenuItem { text: I18n.t(Settings.language, "density_compact");     checkable: true; checked: Settings.mosaicDensity === 2; onTriggered: Settings.mosaicDensity = 2 }
+                            MenuItem { text: I18n.t(Settings.language, "density_comfortable"); checkable: true; checked: Settings.mosaicDensity === 3; onTriggered: Settings.mosaicDensity = 3 }
+                            MenuItem { text: I18n.t(Settings.language, "density_spacious");    checkable: true; checked: Settings.mosaicDensity === 4; onTriggered: Settings.mosaicDensity = 4 }
+                        }
+                    }
+
                     // ── Sort button (pill matching the search bar) ────────────
                     Rectangle {
                         id: sortBtn

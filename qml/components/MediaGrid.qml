@@ -404,10 +404,11 @@ Item {
                 }
             }
 
-            // Hide (visibility_off reads as "hide" far better than a padlock)
+            // Hide (visibility_off reads as "hide" far better than a padlock).
+            // Hidden in the Hidden view (where Unhide takes its place).
             Rectangle {
                 width: 44; height: 44; radius: 22
-                visible: TimelineModel.filterMode !== 3   // not already in the Hidden view
+                visible: TimelineModel.filterMode !== 3
                 color: selHideMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
                 Behavior on color { ColorAnimation { duration: 80 } }
                 ToolTip.text: "Hide"; ToolTip.visible: selHideMa.containsMouse; ToolTip.delay: 400
@@ -422,7 +423,27 @@ Item {
                 }
             }
 
-            // Move to trash — shown everywhere EXCEPT the trash view itself
+            // Unhide — only in the Hidden view
+            Rectangle {
+                width: 44; height: 44; radius: 22
+                visible: TimelineModel.filterMode === 3
+                color: selUnhideMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
+                Behavior on color { ColorAnimation { duration: 80 } }
+                ToolTip.text: "Unhide"; ToolTip.visible: selUnhideMa.containsMouse; ToolTip.delay: 400
+                M3Icon { anchors.centerIn: parent; name: "visibility"; size: 20; color: ThemeManager.inverseOnSurface }
+                MouseArea {
+                    id: selUnhideMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        var ids = root.selectedIds()
+                        for (var i = 0; i < ids.length; i++) DB.setHidden(ids[i], false)
+                        TimelineModel.refresh(); root.clearSelection()
+                    }
+                }
+            }
+
+            // Move to trash — shown everywhere EXCEPT the trash view itself.
+            // Also clears the hidden flag so a hidden item lands cleanly in trash
+            // (otherwise it stays flagged hidden and never leaves the Hidden view).
             Rectangle {
                 width: 44; height: 44; radius: 22
                 visible: TimelineModel.filterMode !== 2
@@ -434,7 +455,7 @@ Item {
                     id: selTrashMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                     onClicked: {
                         var ids = root.selectedIds()
-                        for (var i = 0; i < ids.length; i++) DB.setTrashed(ids[i], true)
+                        for (var i = 0; i < ids.length; i++) { DB.setHidden(ids[i], false); DB.setTrashed(ids[i], true) }
                         TimelineModel.refresh(); root.clearSelection()
                     }
                 }
