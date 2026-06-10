@@ -19,6 +19,7 @@ struct MediaEntry {
     int       height      = 0;
     double    latitude    = 0.0;
     double    longitude   = 0.0;
+    double    duration    = 0.0;  // seconds; videos only (0 for images)
 };
 
 class MediaRepository {

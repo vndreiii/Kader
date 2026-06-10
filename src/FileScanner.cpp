@@ -19,7 +19,58 @@
 #include <QFileInfo>
 #include <QDateTime>
 #include <QMimeDatabase>
+#include <QProcess>
+#include <QSize>
 #include <QDebug>
+#include <vips/vips8>
+
+namespace {
+
+// Read true pixel dimensions from an image header (no full decode). Handles the
+// formats libvips supports (JPEG/PNG/WebP/TIFF/HEIF/RAW via the native loaders),
+// covering the many files that carry no EXIF PixelXDimension tag.
+QSize probeImageDimensions(const QString &path) {
+    try {
+        vips::VImage img = vips::VImage::new_from_file(
+            path.toLocal8Bit().constData(),
+            vips::VImage::option()->set("access", VIPS_ACCESS_SEQUENTIAL));
+        return QSize(img.width(), img.height());
+    } catch (...) {
+        return QSize();
+    }
+}
+
+// Probe a video for pixel dimensions and duration via ffprobe. Returns false if
+// ffprobe is missing or the file has no video stream. Runs synchronously; the
+// scan already executes on a worker thread.
+bool probeVideo(const QString &path, int &w, int &h, double &durationSec) {
+    QProcess p;
+    p.start("ffprobe", {
+        "-v", "error",
+        "-select_streams", "v:0",
+        "-show_entries", "stream=width,height:format=duration",
+        "-of", "default=noprint_wrappers=1",
+        path
+    });
+    if (!p.waitForStarted(2000)) return false;
+    if (!p.waitForFinished(8000)) { p.kill(); return false; }
+
+    const QString out = QString::fromUtf8(p.readAllStandardOutput());
+    bool got = false;
+    const QList<QStringView> lines = QStringView(out).split(u'\n', Qt::SkipEmptyParts);
+    for (const QStringView &line : lines) {
+        const int eq = line.indexOf(u'=');
+        if (eq < 0) continue;
+        const QStringView key = line.left(eq);
+        const QStringView val = line.mid(eq + 1);
+        if (key == u"width")        { w = val.toInt(); got = true; }
+        else if (key == u"height")  { h = val.toInt(); got = true; }
+        else if (key == u"duration") durationSec = val.toDouble();
+    }
+    return got;
+}
+
+} // namespace
 
 struct linux_dirent64 {
     unsigned long long d_ino;
@@ -253,6 +304,24 @@ void FileScanner::runScan(const std::string &rootPath, const std::vector<std::st
                 if (itH != exif.end()) entry.height = static_cast<int>(itH->value().toInt64());
 
             } catch (...) {}
+
+            // Fallback for images without EXIF dimensions (PNG, screenshots,
+            // stripped JPEGs, RAW): read the real size from the decoder header.
+            if (entry.width <= 0 || entry.height <= 0) {
+                QSize sz = probeImageDimensions(info.path);
+                if (sz.isValid()) {
+                    entry.width  = sz.width();
+                    entry.height = sz.height();
+                }
+            }
+        } else if (entry.mimeType.startsWith("video/")) {
+            int vw = 0, vh = 0;
+            double dur = 0.0;
+            if (probeVideo(info.path, vw, vh, dur)) {
+                entry.width    = vw;
+                entry.height   = vh;
+                entry.duration = dur;
+            }
         }
 
         newEntries.append(entry);

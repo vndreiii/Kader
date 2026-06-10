@@ -2,6 +2,7 @@
 #include "MediaRepository.h"
 #include "AlbumRepository.h"
 #include "ThumbnailGenerator.h"
+#include "Sort.h"
 #include <QStandardPaths>
 #include <QDir>
 #include <QDebug>
@@ -151,6 +152,7 @@ bool DatabaseManager::createTables() {
     migrate("media",  "longitude",     "REAL");
     migrate("media",  "modified_date", "INTEGER DEFAULT 0");
     migrate("media",  "last_viewed",   "INTEGER DEFAULT 0");
+    migrate("media",  "duration",      "REAL DEFAULT 0");
 
     query.exec(
         "CREATE TABLE IF NOT EXISTS scan_exclusions ("
@@ -648,15 +650,7 @@ QVariantList DatabaseManager::getAllMedia(bool hideIgnored, SortRole role, SortO
     else if (m_rawFilter == 2)
         conditions << rawGlobClause(false);
 
-    const QString dir = (order == Ascending) ? QStringLiteral("ASC") : QStringLiteral("DESC");
-    QString orderClause;
-    switch (role) {
-        case ByModified: orderClause = "modified_date " + dir; break;
-        case ByName:     orderClause = "LOWER(file_path) " + dir; break;
-        case BySize:     orderClause = "file_size " + dir; break;
-        case ByViewed:   orderClause = "last_viewed " + dir; break;
-        default:         orderClause = "creation_date " + dir; break;
-    }
+    const QString orderClause = Sort::mediaOrderClause(role, order == Ascending);
 
     QString sql = "SELECT * FROM media";
     if (!conditions.isEmpty())

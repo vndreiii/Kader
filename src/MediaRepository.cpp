@@ -39,14 +39,15 @@ bool MediaRepository::upsertBatch(const QVector<MediaEntry> &entries) {
     QSqlQuery q(db);
     q.prepare(
         "INSERT INTO media "
-        "(file_path, folder_path, file_hash, file_size, mime_type, creation_date, modified_date, width, height, latitude, longitude) "
-        "VALUES (:path, :folder, :hash, :size, :mime, :date, :mdate, :w, :h, :lat, :lon) "
+        "(file_path, folder_path, file_hash, file_size, mime_type, creation_date, modified_date, width, height, latitude, longitude, duration) "
+        "VALUES (:path, :folder, :hash, :size, :mime, :date, :mdate, :w, :h, :lat, :lon, :dur) "
         "ON CONFLICT(file_path) DO UPDATE SET "
         "folder_path=excluded.folder_path, file_hash=excluded.file_hash, "
         "file_size=excluded.file_size, mime_type=excluded.mime_type, "
         "creation_date=excluded.creation_date, modified_date=excluded.modified_date, "
         "width=excluded.width, height=excluded.height, "
-        "latitude=excluded.latitude, longitude=excluded.longitude"
+        "latitude=excluded.latitude, longitude=excluded.longitude, "
+        "duration=excluded.duration"
     );
     for (const MediaEntry &e : entries) {
         q.bindValue(":path",   e.filePath);
@@ -60,6 +61,7 @@ bool MediaRepository::upsertBatch(const QVector<MediaEntry> &entries) {
         q.bindValue(":h",      e.height);
         q.bindValue(":lat",    e.latitude  != 0.0 ? QVariant(e.latitude)  : QVariant(QMetaType::fromType<double>()));
         q.bindValue(":lon",    e.longitude != 0.0 ? QVariant(e.longitude) : QVariant(QMetaType::fromType<double>()));
+        q.bindValue(":dur",    e.duration);
         if (!q.exec()) {
             qWarning() << "upsertBatch row failed:" << q.lastError().text();
             db.rollback();

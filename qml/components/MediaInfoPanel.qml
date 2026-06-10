@@ -31,6 +31,28 @@ Rectangle {
         return lat.toFixed(5) + "°, " + lon.toFixed(5) + "°"
     }
 
+    function formatOrientation(w, h) {
+        if (!w || !h) return "—"
+        if (w > h) return "Landscape"
+        if (w < h) return "Portrait"
+        return "Square"
+    }
+
+    function formatMegapixels(w, h) {
+        if (!w || !h) return "—"
+        return (w * h / 1000000).toFixed(1) + " MP"
+    }
+
+    function formatDuration(sec) {
+        if (!sec || sec <= 0) return "—"
+        var s = Math.round(sec)
+        var h = Math.floor(s / 3600)
+        var m = Math.floor((s % 3600) / 60)
+        var ss = s % 60
+        var pad = function(n) { return (n < 10 ? "0" : "") + n }
+        return h > 0 ? (h + ":" + pad(m) + ":" + pad(ss)) : (m + ":" + pad(ss))
+    }
+
     Column {
         id: mainCol
         anchors.top: parent.top
@@ -53,15 +75,27 @@ Rectangle {
             spacing: 16
 
             Repeater {
-                model: root.mediaData ? [
-                    { label: "File",       value: root.mediaData.file_path ? root.mediaData.file_path.split('/').pop() : "—", mono: true },
-                    { label: "Dimensions", value: (root.mediaData.width && root.mediaData.height) ? root.mediaData.width + " × " + root.mediaData.height + " px" : "—", mono: false },
-                    { label: "File size",  value: root.formatSize(root.mediaData.file_size), mono: false },
-                    { label: "Type",       value: root.mediaData.mime_type || "—", mono: false },
-                    { label: "Date taken", value: root.mediaData.creation_date ? Qt.formatDateTime(new Date(root.mediaData.creation_date * 1000), "dd MMM yyyy · HH:mm") : "—", mono: false },
-                    { label: "GPS",        value: root.formatCoords(root.mediaData.latitude, root.mediaData.longitude), mono: false },
-                    { label: "Folder",     value: root.mediaData.folder_path || "—", mono: true }
-                ] : []
+                model: {
+                    if (!root.mediaData) return []
+                    var d = root.mediaData
+                    var isVideo = (d.mime_type || "").indexOf("video/") === 0
+                    var rows = [
+                        { label: "File",        value: d.file_path ? d.file_path.split('/').pop() : "—", mono: true },
+                        { label: "Dimensions",  value: (d.width && d.height) ? d.width + " × " + d.height + " px" : "—", mono: false },
+                        { label: "Megapixels",  value: root.formatMegapixels(d.width, d.height), mono: false },
+                        { label: "Orientation", value: root.formatOrientation(d.width, d.height), mono: false }
+                    ]
+                    if (isVideo)
+                        rows.push({ label: "Duration", value: root.formatDuration(d.duration), mono: false })
+                    rows.push(
+                        { label: "File size",  value: root.formatSize(d.file_size), mono: false },
+                        { label: "Type",       value: d.mime_type || "—", mono: false },
+                        { label: "Date taken", value: d.creation_date ? Qt.formatDateTime(new Date(d.creation_date * 1000), "dd MMM yyyy · HH:mm") : "—", mono: false },
+                        { label: "GPS",        value: root.formatCoords(d.latitude, d.longitude), mono: false },
+                        { label: "Folder",     value: d.folder_path || "—", mono: true }
+                    )
+                    return rows
+                }
 
                 delegate: Column {
                     width: parent ? parent.width : 0

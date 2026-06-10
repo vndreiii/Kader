@@ -14,7 +14,9 @@
 class DatabaseManager : public QObject {
     Q_OBJECT
 public:
-    enum SortRole  { ByCreated = 0, ByModified = 1, ByName = 2, BySize = 3, ByViewed = 4 };
+    // Mirrors Sort::MediaRole — keep values in sync (0-4 frozen for saved prefs).
+    enum SortRole  { ByCreated = 0, ByModified = 1, ByName = 2, BySize = 3, ByViewed = 4,
+                     ByType = 5, ByWidth = 6, ByHeight = 7, ByDimensions = 8, ByOrientation = 9 };
     enum SortOrder { Descending = 0, Ascending = 1 };
     Q_ENUM(SortRole)
     Q_ENUM(SortOrder)
