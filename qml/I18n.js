@@ -125,7 +125,7 @@ var _s = {
         "theme": "Theme", "theme_system": "System", "theme_light": "Light", "theme_dark": "Dark",
         "dynamic_color": "Dynamic color", "dynamic_color_sub": "From current cover photo",
         "mosaic_density": "Mosaic density",
-        "density_compact": "Compact", "density_comfortable": "Comfortable", "density_spacious": "Spacious",
+        "density_dense": "Dense", "density_compact": "Compact", "density_comfortable": "Comfortable", "density_spacious": "Spacious",
         "use_pulse_audio": "Use PulseAudio output",
         "use_pulse_audio_sub": "Enables Discord to capture audio; switch off for PipeWire",
         "show_raw": "Show RAW files", "show_raw_sub": "Include RAW camera formats in your library",

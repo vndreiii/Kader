@@ -480,19 +480,22 @@ Item {
                     id: densityRow
                     label: I18n.t(Settings.language, "mosaic_density")
                     sub: {
-                        var names = [I18n.t(Settings.language, "density_compact"), I18n.t(Settings.language, "density_comfortable"), I18n.t(Settings.language, "density_spacious")]
-                        return names[Math.max(0, Math.min(Math.round(densitySlider.value) - 1, 2))]
+                        var names = [I18n.t(Settings.language, "density_dense"),
+                                     I18n.t(Settings.language, "density_compact"),
+                                     I18n.t(Settings.language, "density_comfortable"),
+                                     I18n.t(Settings.language, "density_spacious")]
+                        return names[Math.max(0, Math.min(Math.round(densitySlider.value) - 1, 3))]
                     }
                     action: MD.Slider {
                         id: densitySlider
-                        from: 1; to: 3; stepSize: 1
+                        from: 1; to: 4; stepSize: 1
                         snapMode: Slider.SnapAlways
                         value: Settings.mosaicDensity
-                        width: 120
+                        width: 140
                         onMoved: {
                             var d = Math.round(value)
                             Settings.mosaicDensity = d
-                            TimelineModel.numColumns = (d === 1 ? 5 : d === 3 ? 3 : 4)
+                            TimelineModel.numColumns = (7 - d)   // 1→6 … 4→3 columns
                         }
                     }
                 }

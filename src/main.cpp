@@ -6,6 +6,7 @@
 #include <QFile>
 #include <QtConcurrent>
 #include <QTimer>
+#include <algorithm>
 #include "ThemeManager.h"
 #include "FileScanner.h"
 #include "DatabaseManager.h"
@@ -116,7 +117,7 @@ int main(int argc, char *argv[]) {
     // Apply saved mosaic density
     {
         int d = settingsManager.mosaicDensity();
-        timelineModel.setNumColumns(d == 1 ? 5 : d == 3 ? 3 : 4);
+        timelineModel.setNumColumns(7 - std::max(1, std::min(d, 4)));  // 1→6 … 4→3 columns
     }
 
     // Apply saved RAW filter
@@ -148,7 +149,7 @@ int main(int argc, char *argv[]) {
     });
     QObject::connect(&settingsManager, &SettingsManager::mosaicDensityChanged, &app, [&]() {
         int d = settingsManager.mosaicDensity();
-        timelineModel.setNumColumns(d == 1 ? 5 : d == 3 ? 3 : 4);
+        timelineModel.setNumColumns(7 - std::max(1, std::min(d, 4)));  // 1→6 … 4→3 columns
     });
     QObject::connect(&settingsManager, &SettingsManager::rawFilterChanged, &app, [&]() {
         dbManager.setRawFilter(settingsManager.rawFilter());

@@ -392,6 +392,7 @@ Item {
                 width: 44; height: 44; radius: 22
                 color: selFavMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
                 Behavior on color { ColorAnimation { duration: 80 } }
+                ToolTip.text: "Favorite"; ToolTip.visible: selFavMa.containsMouse; ToolTip.delay: 400
                 M3Icon { anchors.centerIn: parent; name: "favorite"; size: 20; color: ThemeManager.inverseOnSurface }
                 MouseArea {
                     id: selFavMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -403,12 +404,14 @@ Item {
                 }
             }
 
-            // Hide
+            // Hide (visibility_off reads as "hide" far better than a padlock)
             Rectangle {
                 width: 44; height: 44; radius: 22
+                visible: TimelineModel.filterMode !== 3   // not already in the Hidden view
                 color: selHideMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
                 Behavior on color { ColorAnimation { duration: 80 } }
-                M3Icon { anchors.centerIn: parent; name: "lock"; size: 20; color: ThemeManager.inverseOnSurface }
+                ToolTip.text: "Hide"; ToolTip.visible: selHideMa.containsMouse; ToolTip.delay: 400
+                M3Icon { anchors.centerIn: parent; name: "visibility_off"; size: 20; color: ThemeManager.inverseOnSurface }
                 MouseArea {
                     id: selHideMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                     onClicked: {
@@ -419,11 +422,13 @@ Item {
                 }
             }
 
-            // Trash
+            // Move to trash — shown everywhere EXCEPT the trash view itself
             Rectangle {
                 width: 44; height: 44; radius: 22
+                visible: TimelineModel.filterMode !== 2
                 color: selTrashMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
                 Behavior on color { ColorAnimation { duration: 80 } }
+                ToolTip.text: "Move to trash"; ToolTip.visible: selTrashMa.containsMouse; ToolTip.delay: 400
                 M3Icon { anchors.centerIn: parent; name: "delete"; size: 20; color: ThemeManager.inverseOnSurface }
                 MouseArea {
                     id: selTrashMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -435,12 +440,14 @@ Item {
                 }
             }
 
-            // Delete permanently
+            // Delete permanently — only in the trash view (where it's the obvious action)
             Rectangle {
                 width: 44; height: 44; radius: 22
-                color: selPermDelMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
+                visible: TimelineModel.filterMode === 2
+                color: selPermDelMa.containsMouse ? Qt.alpha(ThemeManager.error, 0.22) : "transparent"
                 Behavior on color { ColorAnimation { duration: 80 } }
-                M3Icon { anchors.centerIn: parent; name: "delete_forever"; size: 20; color: "#ffd8e4" }
+                ToolTip.text: "Delete permanently"; ToolTip.visible: selPermDelMa.containsMouse; ToolTip.delay: 400
+                M3Icon { anchors.centerIn: parent; name: "delete_forever"; size: 20; color: ThemeManager.inverseOnSurface }
                 MouseArea {
                     id: selPermDelMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                     onClicked: {
@@ -458,6 +465,7 @@ Item {
                 width: 44; height: 44; radius: 22
                 color: selClearMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
                 Behavior on color { ColorAnimation { duration: 80 } }
+                ToolTip.text: "Clear selection"; ToolTip.visible: selClearMa.containsMouse; ToolTip.delay: 400
                 M3Icon { anchors.centerIn: parent; name: "close"; size: 20; color: Qt.alpha(ThemeManager.inverseOnSurface, 0.6) }
                 MouseArea {
                     id: selClearMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor

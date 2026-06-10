@@ -477,46 +477,6 @@ ApplicationWindow {
 
                     Item { Layout.fillWidth: true }
 
-                    // Empty Trash button — only shown in trash view
-                    Rectangle {
-                        visible: window.currentView === "trash"
-                        height: 40
-                        width: emptyTrashRow.implicitWidth + 24
-                        radius: 20
-                        color: emptyTrashHover.containsMouse
-                               ? Qt.alpha(ThemeManager.error, 0.16)
-                               : Qt.alpha(ThemeManager.error, 0.08)
-                        Behavior on color { ColorAnimation { duration: 80 } }
-
-                        RowLayout {
-                            id: emptyTrashRow
-                            anchors.centerIn: parent
-                            spacing: 6
-                            M3Icon {
-                                name: "delete_forever"
-                                size: 18
-                                color: ThemeManager.error
-                            }
-                            Label {
-                                text: I18n.t(Settings.language, "empty_trash")
-                                font.pixelSize: 14
-                                font.weight: Font.Medium
-                                color: ThemeManager.error
-                            }
-                        }
-
-                        MouseArea {
-                            id: emptyTrashHover
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                DB.emptyTrash()
-                                TimelineModel.refresh()
-                            }
-                        }
-                    }
-
                     // ── Sort button (pill matching the search bar) ────────────
                     Rectangle {
                         id: sortBtn
@@ -887,6 +847,51 @@ ApplicationWindow {
                 id: fabAddMa
                 anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                 onClicked: mainFolderPicker.open()
+            }
+        }
+    }
+
+    // Trash FAB — Empty trash (bottom-right, only in trash view)
+    Row {
+        id: trashFabRow
+        visible: !window.viewerOnlyMode && window.currentView === "trash"
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: 28
+        z: 10
+
+        Rectangle {
+            id: fabEmptyTrash
+            property bool hovered: fabEmptyTrashMa.containsMouse
+            height: 56
+            width: hovered ? 16 + 24 + 10 + emptyTrashLabel.implicitWidth + 16 : 56
+            radius: 16
+            color: ThemeManager.errorContainer
+            clip: true
+            Behavior on width { NumberAnimation { duration: 180; easing.type: Easing.OutQuint } }
+
+            M3Icon {
+                name: "delete_forever"; size: 24; color: ThemeManager.onErrorContainer
+                anchors.left: parent.left; anchors.leftMargin: 16
+                anchors.verticalCenter: parent.verticalCenter
+            }
+            Label {
+                id: emptyTrashLabel
+                anchors.left: parent.left; anchors.leftMargin: 16 + 24 + 10
+                anchors.verticalCenter: parent.verticalCenter
+                text: I18n.t(Settings.language, "empty_trash")
+                font.weight: Font.Medium; font.pixelSize: 14; color: ThemeManager.onErrorContainer
+                opacity: fabEmptyTrash.hovered ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 140 } }
+            }
+
+            MouseArea {
+                id: fabEmptyTrashMa
+                anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    DB.emptyTrash()
+                    TimelineModel.refresh()
+                }
             }
         }
     }
