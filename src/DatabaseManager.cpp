@@ -148,6 +148,7 @@ bool DatabaseManager::createTables() {
     migrate("media",  "is_favorite", "BOOLEAN DEFAULT 0");
     migrate("media",  "is_trashed",  "BOOLEAN DEFAULT 0");
     migrate("media",  "is_hidden",   "BOOLEAN DEFAULT 0");
+    migrate("media",  "is_ignored",  "BOOLEAN DEFAULT 0");
     migrate("media",  "latitude",      "REAL");
     migrate("media",  "longitude",     "REAL");
     migrate("media",  "modified_date", "INTEGER DEFAULT 0");
@@ -642,6 +643,8 @@ QVariantList DatabaseManager::getAllMedia(bool hideIgnored, SortRole role, SortO
 
     QVariantList list;
     QStringList conditions;
+    // Per-item ignored media are excluded from every timeline view, always.
+    conditions << "COALESCE(is_ignored,0) = 0";
     if (hideIgnored)
         conditions << "COALESCE(folder_path,'') NOT IN "
                       "(SELECT COALESCE(path_prefix,'') FROM albums WHERE is_ignored = 1)";
@@ -819,6 +822,32 @@ bool DatabaseManager::setHidden(int mediaId, bool hidden) {
     q.bindValue(":v", hidden ? 1 : 0);
     q.bindValue(":id", mediaId);
     return q.exec();
+}
+
+bool DatabaseManager::setIgnored(int mediaId, bool ignored) {
+    checkConnection();
+    QSqlQuery q(m_db);
+    q.prepare("UPDATE media SET is_ignored = :v WHERE id = :id");
+    q.bindValue(":v", ignored ? 1 : 0);
+    q.bindValue(":id", mediaId);
+    return q.exec();
+}
+
+QVariantList DatabaseManager::getIgnoredMedia() {
+    checkConnection();
+    QSqlQuery q(m_db);
+    q.exec("SELECT id, file_path FROM media WHERE is_ignored = 1 ORDER BY file_path");
+    QVariantList list;
+    while (q.next()) {
+        const QString path = q.value(1).toString();
+        QVariantMap map;
+        map["id"]      = q.value(0).toInt();
+        map["path"]    = path;
+        map["name"]    = QFileInfo(path).fileName();
+        map["isMedia"] = true;   // distinguishes single files from folder ignores
+        list.append(map);
+    }
+    return list;
 }
 
 bool DatabaseManager::hasHiddenPassword() {

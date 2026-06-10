@@ -64,6 +64,11 @@ public:
     // Returns [{path, name}] for all currently-ignored folders
     Q_INVOKABLE QVariantList getIgnoredFolders();
 
+    // Per-item ignore (independent of folder ignore). Ignored media never appear
+    // in any timeline view; manage/undo them via the Settings "ignored items" list.
+    Q_INVOKABLE bool         setIgnored(int mediaId, bool ignored);
+    Q_INVOKABLE QVariantList getIgnoredMedia();   // [{id, path, name, isMedia:true}]
+
     // Indexed Directories
     Q_INVOKABLE QVariantList getIndexedDirectories();
     QStringList getIndexedDirectoryPaths();

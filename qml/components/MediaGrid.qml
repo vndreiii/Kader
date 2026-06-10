@@ -423,6 +423,25 @@ Item {
                 }
             }
 
+            // Ignore — drop the items from the gallery (managed in Settings).
+            // Shown in normal browsing (All / Favorites), not in trash/hidden.
+            Rectangle {
+                width: 44; height: 44; radius: 22
+                visible: TimelineModel.filterMode === 0 || TimelineModel.filterMode === 1
+                color: selIgnoreMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
+                Behavior on color { ColorAnimation { duration: 80 } }
+                ToolTip.text: "Ignore"; ToolTip.visible: selIgnoreMa.containsMouse; ToolTip.delay: 400
+                M3Icon { anchors.centerIn: parent; name: "block"; size: 20; color: ThemeManager.inverseOnSurface }
+                MouseArea {
+                    id: selIgnoreMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        var ids = root.selectedIds()
+                        for (var i = 0; i < ids.length; i++) DB.setIgnored(ids[i], true)
+                        TimelineModel.refresh(); root.clearSelection()
+                    }
+                }
+            }
+
             // Unhide — only in the Hidden view
             Rectangle {
                 width: 44; height: 44; radius: 22

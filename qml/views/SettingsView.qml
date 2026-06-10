@@ -32,7 +32,12 @@ Item {
         root.ignoredSel = s
     }
     function unignore(paths) {
-        for (var i = 0; i < paths.length; i++) DB.ignoreAlbum(paths[i], false)
+        for (var i = 0; i < paths.length; i++) {
+            var p = paths[i]
+            var item = root.ignoredFolders.find(function(x) { return x.path === p })
+            if (item && item.isMedia) DB.setIgnored(item.id, false)  // single file
+            else                      DB.ignoreAlbum(p, false)        // whole folder
+        }
         root.clearIgnoredSel()
         root.refreshIgnored(); AlbumModel.refresh(); TimelineModel.refresh()
     }
@@ -42,7 +47,8 @@ Item {
     }
 
     function refreshIgnored() {
-        ignoredFolders = DB.getIgnoredFolders()
+        // Folder ignores + individual ignored files, shown together.
+        ignoredFolders = DB.getIgnoredFolders().concat(DB.getIgnoredMedia())
     }
 
     function refreshExclusions() {
@@ -158,7 +164,7 @@ Item {
                                         color: ignRow._sel ? ThemeManager.primary : ThemeManager.surfaceContainerHighest
                                         M3Icon {
                                             anchors.centerIn: parent
-                                            name: ignRow._sel ? "check" : "folder"
+                                            name: ignRow._sel ? "check" : (ignRow.modelData.isMedia ? "image" : "folder")
                                             size: 18
                                             color: ignRow._sel ? ThemeManager.onPrimary : ThemeManager.onSurfaceVariant
                                         }
