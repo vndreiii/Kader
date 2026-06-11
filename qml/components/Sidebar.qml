@@ -78,7 +78,7 @@ Rectangle {
                 anchors.left: parent.left
                 anchors.leftMargin: 72
                 Label { text: "Kader"; font.family: "Roboto Flex"; font.pixelSize: 18; font.weight: Font.Medium; color: ThemeManager.onSurface }
-                Label { text: "Gallery"; font.pixelSize: 12; color: ThemeManager.onSurfaceVariant; opacity: 0.6 }
+                Label { text: I18n.t(Settings.language, "timeline"); font.pixelSize: 12; color: ThemeManager.onSurfaceVariant; opacity: 0.6 }
             }
         }
 

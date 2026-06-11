@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import ".."
+import "../I18n.js" as I18n
 
 // Modal password prompt for the Hidden section.
 // Emits accepted() on correct password or first-time setup.
@@ -96,7 +97,7 @@ Rectangle {
                 id: confirmInput
                 visible: root._settingUp
                 Layout.fillWidth: true
-                placeholderText: "Confirm PIN"
+                placeholderText: I18n.t(Settings.language, "confirm_pin")
                 echoMode: TextInput.Password
                 font.pixelSize: 16
                 inputMethodHints: Qt.ImhDigitsOnly
@@ -137,7 +138,7 @@ Rectangle {
                     Layout.fillWidth: true
                     background: Rectangle { radius: 20; color: ThemeManager.surfaceContainerHighest }
                     contentItem: Label {
-                        text: "Cancel"; color: ThemeManager.onSurface; font.pixelSize: 14
+                        text: I18n.t(Settings.language, "cancel"); color: ThemeManager.onSurface; font.pixelSize: 14
                         horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
                         topPadding: 8; bottomPadding: 8
                     }

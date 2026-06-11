@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import ".."
+import "../I18n.js" as I18n
 
 Rectangle {
     id: root
@@ -33,9 +34,9 @@ Rectangle {
 
     function formatOrientation(w, h) {
         if (!w || !h) return "—"
-        if (w > h) return "Landscape"
-        if (w < h) return "Portrait"
-        return "Square"
+        if (w > h) return I18n.t(Settings.language, "orient_landscape")
+        if (w < h) return I18n.t(Settings.language, "orient_portrait")
+        return I18n.t(Settings.language, "orient_square")
     }
 
     function formatMegapixels(w, h) {
@@ -63,7 +64,7 @@ Rectangle {
         spacing: 20
 
         Label {
-            text: "Info"
+            text: I18n.t(Settings.language, "info_title")
             font.family: "Roboto Flex"
             font.pixelSize: 20
             font.weight: Font.Medium
@@ -80,19 +81,19 @@ Rectangle {
                     var d = root.mediaData
                     var isVideo = (d.mime_type || "").indexOf("video/") === 0
                     var rows = [
-                        { label: "File",        value: d.file_path ? d.file_path.split('/').pop() : "—", mono: true },
-                        { label: "Dimensions",  value: (d.width && d.height) ? d.width + " × " + d.height + " px" : "—", mono: false },
-                        { label: "Megapixels",  value: root.formatMegapixels(d.width, d.height), mono: false },
-                        { label: "Orientation", value: root.formatOrientation(d.width, d.height), mono: false }
+                        { label: I18n.t(Settings.language, "info_file"),        value: d.file_path ? d.file_path.split('/').pop() : "—", mono: true },
+                        { label: I18n.t(Settings.language, "k_dimensions"),  value: (d.width && d.height) ? d.width + " × " + d.height + " px" : "—", mono: false },
+                        { label: I18n.t(Settings.language, "info_megapixels"),  value: root.formatMegapixels(d.width, d.height), mono: false },
+                        { label: I18n.t(Settings.language, "k_orientation"), value: root.formatOrientation(d.width, d.height), mono: false }
                     ]
                     if (isVideo)
-                        rows.push({ label: "Duration", value: root.formatDuration(d.duration), mono: false })
+                        rows.push({ label: I18n.t(Settings.language, "info_duration"), value: root.formatDuration(d.duration), mono: false })
                     rows.push(
-                        { label: "File size",  value: root.formatSize(d.file_size), mono: false },
-                        { label: "Type",       value: d.mime_type || "—", mono: false },
-                        { label: "Date taken", value: d.creation_date ? Qt.formatDateTime(new Date(d.creation_date * 1000), "dd MMM yyyy · HH:mm") : "—", mono: false },
+                        { label: I18n.t(Settings.language, "info_file_size"),  value: root.formatSize(d.file_size), mono: false },
+                        { label: I18n.t(Settings.language, "k_type"),       value: d.mime_type || "—", mono: false },
+                        { label: I18n.t(Settings.language, "k_date_taken"), value: d.creation_date ? Qt.formatDateTime(new Date(d.creation_date * 1000), "dd MMM yyyy · HH:mm") : "—", mono: false },
                         { label: "GPS",        value: root.formatCoords(d.latitude, d.longitude), mono: false },
-                        { label: "Folder",     value: d.folder_path || "—", mono: true }
+                        { label: I18n.t(Settings.language, "info_folder"),     value: d.folder_path || "—", mono: true }
                     )
                     return rows
                 }

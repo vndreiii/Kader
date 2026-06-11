@@ -5,6 +5,7 @@ import QtQuick.Effects
 import QtLocation
 import QtPositioning
 import "../components"
+import "../I18n.js" as I18n
 
 Item {
     id: root
@@ -304,7 +305,7 @@ Item {
                                 color: ThemeManager.primary
                                 Label {
                                     anchors.centerIn: parent
-                                    text: "Open"; color: ThemeManager.onPrimary
+                                    text: I18n.t(Settings.language, "open_action"); color: ThemeManager.onPrimary
                                     font.pixelSize: 12; font.weight: Font.Medium
                                 }
                                 MouseArea {
@@ -359,7 +360,7 @@ Item {
                 spacing: 12
 
                 Label {
-                    text: "Places"
+                    text: I18n.t(Settings.language, "places")
                     font.family: "Roboto Flex"
                     font.pixelSize: 18
                     font.weight: Font.Medium
@@ -375,10 +376,10 @@ Item {
                     spacing: 12
                     Item { Layout.fillHeight: true }
                     M3Icon { Layout.alignment: Qt.AlignHCenter; name: "map"; size: 56; color: ThemeManager.onSurfaceVariant; opacity: 0.4 }
-                    Label { Layout.alignment: Qt.AlignHCenter; text: "No location data yet"; font.pixelSize: 15; font.weight: Font.Medium; color: ThemeManager.onSurface }
+                    Label { Layout.alignment: Qt.AlignHCenter; text: I18n.t(Settings.language, "empty_map"); font.pixelSize: 15; font.weight: Font.Medium; color: ThemeManager.onSurface }
                     Label {
                         Layout.alignment: Qt.AlignHCenter; Layout.fillWidth: true
-                        text: "Scan your library to extract GPS coordinates from photo EXIF data."
+                        text: I18n.t(Settings.language, "empty_map_sub")
                         font.pixelSize: 12; color: ThemeManager.onSurfaceVariant; wrapMode: Text.Wrap; horizontalAlignment: Text.AlignHCenter
                     }
                     Item { Layout.fillHeight: true }

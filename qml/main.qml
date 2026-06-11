@@ -549,7 +549,7 @@ ApplicationWindow {
                             }
                             Label {
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: "Sort by"
+                                text: I18n.t(Settings.language, "sort_by")
                                 font.pixelSize: 16
                                 color: sortMenu.opened ? ThemeManager.primary : ThemeManager.onSurface
                                 Behavior on color { ColorAnimation { duration: 120 } }
@@ -571,21 +571,21 @@ ApplicationWindow {
 
                             // Most views share one field set; albums get their own.
                             readonly property var _mediaFields: [
-                                { key: 0, label: "Date taken" },
-                                { key: 1, label: "Date modified" },
-                                { key: 2, label: "Name" },
-                                { key: 3, label: "Size" },
-                                { key: 5, label: "Type" },
-                                { key: 4, label: "Last viewed" },
-                                { key: 8, label: "Dimensions" },
-                                { key: 6, label: "Width" },
-                                { key: 7, label: "Height" },
-                                { key: 9, label: "Orientation" }
+                                { key: 0, label: I18n.t(Settings.language, "k_date_taken") },
+                                { key: 1, label: I18n.t(Settings.language, "k_date_modified") },
+                                { key: 2, label: I18n.t(Settings.language, "k_name") },
+                                { key: 3, label: I18n.t(Settings.language, "k_size") },
+                                { key: 5, label: I18n.t(Settings.language, "k_type") },
+                                { key: 4, label: I18n.t(Settings.language, "k_last_viewed") },
+                                { key: 8, label: I18n.t(Settings.language, "k_dimensions") },
+                                { key: 6, label: I18n.t(Settings.language, "k_width") },
+                                { key: 7, label: I18n.t(Settings.language, "k_height") },
+                                { key: 9, label: I18n.t(Settings.language, "k_orientation") }
                             ]
                             readonly property var _albumFields: [
-                                { key: 0, label: "Name" },
-                                { key: 1, label: "Item count" },
-                                { key: 2, label: "Size" }
+                                { key: 0, label: I18n.t(Settings.language, "k_name") },
+                                { key: 1, label: I18n.t(Settings.language, "k_item_count") },
+                                { key: 2, label: I18n.t(Settings.language, "k_size") }
                             ]
 
                             fields:     _alb ? _albumFields : _mediaFields
@@ -595,8 +595,8 @@ ApplicationWindow {
                             // Text fields read "A → Z / Z → A"; everything else Ascending/Descending.
                             readonly property bool _textKey: _alb ? (currentKey === 0)
                                                                   : (currentKey === 2 || currentKey === 5)
-                            ascLabel:  _textKey ? "A → Z" : "Ascending"
-                            descLabel: _textKey ? "Z → A" : "Descending"
+                            ascLabel:  _textKey ? I18n.t(Settings.language, "sort_az") : I18n.t(Settings.language, "sort_ascending")
+                            descLabel: _textKey ? I18n.t(Settings.language, "sort_za") : I18n.t(Settings.language, "sort_descending")
 
                             // Use property assignment (not setSortRole(): on TimelineModel
                             // that's a plain WRITE accessor, not Q_INVOKABLE, so calling it
@@ -622,13 +622,13 @@ ApplicationWindow {
                             }
                             Menu {
                                 id: typeMenu
-                                title: "Filter by type"
+                                title: I18n.t(Settings.language, "filter_by_type")
                                 enabled: ["timeline","favorites"].indexOf(window.currentView) >= 0
                                 property var _types: []
                                 onAboutToShow: _types = TimelineModel.getAvailableMimeTypes()
 
                                 MenuItem {
-                                    text: "All types"
+                                    text: I18n.t(Settings.language, "filter_all_types")
                                     checkable: true
                                     checked: TimelineModel.mimeFilter === ""
                                     onTriggered: TimelineModel.setMimeFilter("")

@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import QtQuick.Effects
 import Qcm.Material as MD
 import ".."
+import "../I18n.js" as I18n
 
 Item {
     id: root
@@ -45,11 +46,11 @@ Item {
                     onTriggered: { DB.pinAlbum(model.path, !model.pinned); AlbumModel.refresh() }
                 }
                 MD.MenuItem {
-                    text: "Add to Ignored"
+                    text: I18n.t(Settings.language, "ctx_add_ignored")
                     onTriggered: { DB.ignoreAlbum(model.path, true); AlbumModel.refresh(); TimelineModel.refresh() }
                 }
                 MD.MenuItem {
-                    text: "Move to Trash"
+                    text: I18n.t(Settings.language, "ctx_move_trash")
                     onTriggered: { DB.trashAlbum(model.path); AlbumModel.refresh(); TimelineModel.refresh() }
                 }
             }

@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Effects
 import Qcm.Material as MD
 import ".."
+import "../I18n.js" as I18n
 
 Item {
     id: root
@@ -189,7 +190,7 @@ Item {
         active: false
         sourceComponent: MD.Menu {
             MD.MenuItem {
-                text: "Select"
+                text: I18n.t(Settings.language, "ctx_select")
                 onTriggered: root.enterSelectionMode()
             }
             MD.MenuItem {
@@ -197,11 +198,11 @@ Item {
                 onTriggered: { if (root._mediaId) { DB.toggleFavorite(root._mediaId); TimelineModel.refresh() } }
             }
             MD.MenuItem {
-                text: "Open in Folder"
+                text: I18n.t(Settings.language, "ctx_open_folder")
                 onTriggered: { if (root._folderPath) Qt.openUrlExternally("file://" + root._folderPath) }
             }
             MD.MenuItem {
-                text: "Send to album..."
+                text: I18n.t(Settings.language, "ctx_send_album")
                 visible: TimelineModel.filterMode !== TimelineModel.HiddenMode
                 onTriggered: {
                     sendLoader.active = true
@@ -228,7 +229,7 @@ Item {
                 }
             }
             MD.MenuItem {
-                text: "Delete permanently"
+                text: I18n.t(Settings.language, "tip_delete_perm")
                 onTriggered: {
                     if (root._mediaId) { DB.deleteMediaPermanently(root._mediaId); TimelineModel.refresh() }
                 }
@@ -261,7 +262,7 @@ Item {
 
                 Label {
                     width: parent.width
-                    text: "Send to album"
+                    text: I18n.t(Settings.language, "ctx_send_album_title")
                     font.pixelSize: 13; font.weight: Font.Medium
                     color: ThemeManager.onSurfaceVariant
                     leftPadding: 8; topPadding: 4; bottomPadding: 8

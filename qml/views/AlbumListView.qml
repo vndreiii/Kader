@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import QtQuick.Effects
 import Qcm.Material as MD
 import "../components"
+import "../I18n.js" as I18n
 
 Item {
     id: root
@@ -63,11 +64,11 @@ Item {
             MD.Menu {
                 id: albumMenu
                 MD.MenuItem {
-                    text: "Select"
+                    text: I18n.t(Settings.language, "ctx_select")
                     onTriggered: { root.selectionMode = true; root.selectAlbum(albumItem._path) }
                 }
                 MD.MenuItem {
-                    text: "Edit album"
+                    text: I18n.t(Settings.language, "ctx_edit_album")
                     onTriggered: {
                         albumEditModal.folderPath = albumItem._path
                         albumEditModal.initName   = albumItem._name
@@ -81,11 +82,11 @@ Item {
                     onTriggered: { DB.pinAlbum(albumItem._path, !albumItem._pinned); AlbumModel.refresh() }
                 }
                 MD.MenuItem {
-                    text: "Add to Ignored"
+                    text: I18n.t(Settings.language, "ctx_add_ignored")
                     onTriggered: { DB.ignoreAlbum(albumItem._path, true); AlbumModel.refresh(); TimelineModel.refresh() }
                 }
                 MD.MenuItem {
-                    text: "Move to Trash"
+                    text: I18n.t(Settings.language, "ctx_move_trash")
                     onTriggered: { DB.trashAlbum(albumItem._path); AlbumModel.refresh(); TimelineModel.refresh() }
                 }
             }
@@ -333,7 +334,7 @@ Item {
         visible: gridView.count === 0
         spacing: 16
         M3Icon { Layout.alignment: Qt.AlignHCenter; name: "folder"; size: 96; color: ThemeManager.onSurfaceVariant; opacity: 0.5 }
-        Label { Layout.alignment: Qt.AlignHCenter; text: "No albums"; font.pixelSize: 24; font.weight: Font.Light; color: ThemeManager.onSurface }
+        Label { Layout.alignment: Qt.AlignHCenter; text: I18n.t(Settings.language, "empty_albums"); font.pixelSize: 24; font.weight: Font.Light; color: ThemeManager.onSurface }
     }
 
     AlbumEditModal {

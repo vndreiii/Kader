@@ -393,7 +393,7 @@ Item {
                 width: 44; height: 44; radius: 22
                 color: selFavMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
                 Behavior on color { ColorAnimation { duration: 80 } }
-                ToolTip.text: "Favorite"; ToolTip.visible: selFavMa.containsMouse; ToolTip.delay: 400
+                ToolTip.text: I18n.t(Settings.language, "tip_favorite"); ToolTip.visible: selFavMa.containsMouse; ToolTip.delay: 400
                 M3Icon { anchors.centerIn: parent; name: "favorite"; size: 20; color: ThemeManager.inverseOnSurface }
                 MouseArea {
                     id: selFavMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -412,7 +412,7 @@ Item {
                 visible: TimelineModel.filterMode !== 3
                 color: selHideMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
                 Behavior on color { ColorAnimation { duration: 80 } }
-                ToolTip.text: "Hide"; ToolTip.visible: selHideMa.containsMouse; ToolTip.delay: 400
+                ToolTip.text: I18n.t(Settings.language, "tip_hide"); ToolTip.visible: selHideMa.containsMouse; ToolTip.delay: 400
                 M3Icon { anchors.centerIn: parent; name: "visibility_off"; size: 20; color: ThemeManager.inverseOnSurface }
                 MouseArea {
                     id: selHideMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -431,7 +431,7 @@ Item {
                 visible: TimelineModel.filterMode === 0 || TimelineModel.filterMode === 1
                 color: selIgnoreMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
                 Behavior on color { ColorAnimation { duration: 80 } }
-                ToolTip.text: "Ignore"; ToolTip.visible: selIgnoreMa.containsMouse; ToolTip.delay: 400
+                ToolTip.text: I18n.t(Settings.language, "tip_ignore"); ToolTip.visible: selIgnoreMa.containsMouse; ToolTip.delay: 400
                 M3Icon { anchors.centerIn: parent; name: "block"; size: 20; color: ThemeManager.inverseOnSurface }
                 MouseArea {
                     id: selIgnoreMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -449,7 +449,7 @@ Item {
                 visible: TimelineModel.filterMode === 3
                 color: selUnhideMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
                 Behavior on color { ColorAnimation { duration: 80 } }
-                ToolTip.text: "Unhide"; ToolTip.visible: selUnhideMa.containsMouse; ToolTip.delay: 400
+                ToolTip.text: I18n.t(Settings.language, "tip_unhide"); ToolTip.visible: selUnhideMa.containsMouse; ToolTip.delay: 400
                 M3Icon { anchors.centerIn: parent; name: "visibility"; size: 20; color: ThemeManager.inverseOnSurface }
                 MouseArea {
                     id: selUnhideMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -469,7 +469,7 @@ Item {
                 visible: TimelineModel.filterMode !== 2
                 color: selTrashMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
                 Behavior on color { ColorAnimation { duration: 80 } }
-                ToolTip.text: "Move to trash"; ToolTip.visible: selTrashMa.containsMouse; ToolTip.delay: 400
+                ToolTip.text: I18n.t(Settings.language, "tip_move_trash"); ToolTip.visible: selTrashMa.containsMouse; ToolTip.delay: 400
                 M3Icon { anchors.centerIn: parent; name: "delete"; size: 20; color: ThemeManager.inverseOnSurface }
                 MouseArea {
                     id: selTrashMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -487,7 +487,7 @@ Item {
                 visible: TimelineModel.filterMode === 2
                 color: selPermDelMa.containsMouse ? Qt.alpha(ThemeManager.error, 0.22) : "transparent"
                 Behavior on color { ColorAnimation { duration: 80 } }
-                ToolTip.text: "Delete permanently"; ToolTip.visible: selPermDelMa.containsMouse; ToolTip.delay: 400
+                ToolTip.text: I18n.t(Settings.language, "tip_delete_perm"); ToolTip.visible: selPermDelMa.containsMouse; ToolTip.delay: 400
                 M3Icon { anchors.centerIn: parent; name: "delete_forever"; size: 20; color: ThemeManager.inverseOnSurface }
                 MouseArea {
                     id: selPermDelMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -506,7 +506,7 @@ Item {
                 width: 44; height: 44; radius: 22
                 color: selClearMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
                 Behavior on color { ColorAnimation { duration: 80 } }
-                ToolTip.text: "Clear selection"; ToolTip.visible: selClearMa.containsMouse; ToolTip.delay: 400
+                ToolTip.text: I18n.t(Settings.language, "tip_clear_selection"); ToolTip.visible: selClearMa.containsMouse; ToolTip.delay: 400
                 M3Icon { anchors.centerIn: parent; name: "close"; size: 20; color: Qt.alpha(ThemeManager.inverseOnSurface, 0.6) }
                 MouseArea {
                     id: selClearMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -540,19 +540,19 @@ Item {
             Layout.alignment: Qt.AlignHCenter
             text:  parent.aiIndexing ? I18n.t(Settings.language, "ai_lib_indexing")
                  : parent.isAI       ? I18n.t(Settings.language, "ai_no_matches")
-                 : parent.mode === 2 ? "Trash is empty"
-                 : parent.mode === 1 ? "No favorites yet"
-                 : parent.isVid      ? "No videos found"
-                 :                     "No photos found"
+                 : parent.mode === 2 ? I18n.t(Settings.language, "empty_trash_title")
+                 : parent.mode === 1 ? I18n.t(Settings.language, "empty_fav_title")
+                 : parent.isVid      ? I18n.t(Settings.language, "empty_videos_title")
+                 :                     I18n.t(Settings.language, "empty_photos_title")
             font.pixelSize: 24; font.weight: Font.Light; color: ThemeManager.onSurface
         }
         Label {
             Layout.alignment: Qt.AlignHCenter
             text:  parent.aiIndexing ? I18n.t(Settings.language, "ai_photos_embedded").arg(AI.indexedCount).arg(AI.indexTotal)
                  : parent.isAI       ? I18n.t(Settings.language, "ai_no_matches_sub")
-                 : parent.mode === 2 ? "Deleted photos will appear here."
-                 : parent.mode === 1 ? "Tap the heart on any photo to add it to Favorites."
-                 : parent.isVid      ? "Scan a directory containing video files."
+                 : parent.mode === 2 ? I18n.t(Settings.language, "empty_trash_sub")
+                 : parent.mode === 1 ? I18n.t(Settings.language, "empty_fav_sub")
+                 : parent.isVid      ? I18n.t(Settings.language, "empty_videos_sub")
                  :                     "Press \"Scan directory\" to discover your photo library."
             font.pixelSize: 14; color: ThemeManager.onSurfaceVariant
         }

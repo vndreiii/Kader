@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import ".."
+import "../I18n.js" as I18n
 
 Rectangle {
     id: root
@@ -73,7 +74,7 @@ Rectangle {
                 Layout.alignment: Qt.AlignRight
                 spacing: 8
                 Button {
-                    text: "Cancel"
+                    text: I18n.t(Settings.language, "cancel")
                     onClicked: root.closed()
                     flat: true
                 }
