@@ -19,7 +19,7 @@ Text {
     font.pixelSize: root.size
     
     font.weight: Font.Normal
-    renderType: Text.CurveRendering
+    renderType: Text.NativeRendering
     
     // Feed the fill value directly into the font renderer!
     font.variableAxes: { "FILL": root.fill }
