@@ -7,10 +7,7 @@ Text {
     property real size: 24
     
     // The raw fill target (0 or 1)
-    property real fill: 0 
-    
-    // Optimization: Round it to 1 decimal place (0.0, 0.1 ... 1.0)
-    property real truncatedFill: Number(fill.toFixed(1))
+    property real fill: 0
     
     FontLoader {
         id: msFont
@@ -22,10 +19,10 @@ Text {
     font.pixelSize: root.size
     
     font.weight: Font.Normal
-    renderType: Text.QtRendering
+    renderType: Text.CurveRendering
     
     // Feed the fill value directly into the font renderer!
-    font.variableAxes: { "FILL": root.truncatedFill }
+    font.variableAxes: { "FILL": root.fill }
     
     width: implicitWidth
     height: implicitHeight

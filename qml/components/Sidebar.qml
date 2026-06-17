@@ -116,7 +116,8 @@ Rectangle {
         case "favorites": return itFavorites
         case "hidden":    return itHidden
         case "trash":     return itTrash
-        default:          return itTimeline
+        case "settings":  return itSettings
+        default:          return null
         }
     }
 
@@ -247,6 +248,7 @@ Rectangle {
         }
 
         SidebarItem {
+            id: itSettings
             icon: "settings"; label: I18n.t(Settings.language, "settings")
             active: root.currentView === "settings"
             collapsed: root.collapsed
