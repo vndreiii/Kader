@@ -38,6 +38,7 @@ QVariant MediaModel::data(const QModelIndex &index, int role) const {
         case SelectedRole: return item.value("selected", false);
         case FavoriteRole: return item.value("is_favorite", 0).toBool();
         case TrashedRole: return item.value("is_trashed", 0).toBool();
+        case SizeRole: return item.value("file_size");
         default: return QVariant();
     }
 }
@@ -69,6 +70,7 @@ QHash<int, QByteArray> MediaModel::roleNames() const {
     roles[SelectedRole] = "isSelected";
     roles[FavoriteRole] = "isFavorite";
     roles[TrashedRole] = "isTrashed";
+    roles[SizeRole] = "fileSize";
     return roles;
 }
 

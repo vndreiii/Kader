@@ -13,6 +13,8 @@ class StorageManager : public QObject {
     Q_PROPERTY(double videoGb       READ videoGb       NOTIFY storageChanged)
     Q_PROPERTY(int    mediaPercent  READ mediaPercent  NOTIFY storageChanged)
     Q_PROPERTY(qint64 mediaSizeBytes READ mediaSizeBytes NOTIFY storageChanged)
+    Q_PROPERTY(int    photoCount    READ photoCount    NOTIFY storageChanged)
+    Q_PROPERTY(int    videoCount    READ videoCount    NOTIFY storageChanged)
 
 public:
     explicit StorageManager(DatabaseManager *db, QObject *parent = nullptr);
@@ -24,6 +26,8 @@ public:
     double videoGb()  const;
     int    mediaPercent() const;
     qint64 mediaSizeBytes() const { return m_mediaSizeBytes; }
+    int    photoCount() const { return m_photoCount; }
+    int    videoCount() const { return m_videoCount; }
 
     Q_INVOKABLE void refresh();
 
@@ -36,4 +40,6 @@ private:
     qint64           m_mediaSizeBytes = 0;
     qint64           m_photoSizeBytes = 0;
     qint64           m_videoSizeBytes = 0;
+    int              m_photoCount = 0;
+    int              m_videoCount = 0;
 };

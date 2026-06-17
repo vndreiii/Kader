@@ -621,6 +621,14 @@ int DatabaseManager::getPhotoCount() {
     return q.next() ? q.value(0).toInt() : 0;
 }
 
+int DatabaseManager::getVideoCount() {
+    checkConnection();
+    QSqlQuery q(m_db);
+    q.exec("SELECT COUNT(*) FROM media "
+           "WHERE is_trashed=0 AND is_hidden=0 AND mime_type LIKE 'video/%'");
+    return q.next() ? q.value(0).toInt() : 0;
+}
+
 void DatabaseManager::setRawFilter(int filter) {
     m_rawFilter = filter;
 }

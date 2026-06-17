@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import ".."
+import "../views"
 import "../I18n.js" as I18n
 
 Rectangle {
@@ -310,6 +311,7 @@ Rectangle {
                 NumberAnimation { property: "height"; from: dashboardModal.startH; to: dashboardModal.targetH; duration: 400; easing.type: Easing.OutExpo }
                 NumberAnimation { target: modalBg; property: "radius"; from: dashboardModal.startRadius; to: 24; duration: 400; easing.type: Easing.OutExpo }
                 NumberAnimation { target: modalContent; property: "opacity"; from: 0; to: 1; duration: 300; easing.type: Easing.OutExpo }
+                NumberAnimation { target: dashboardModal; property: "opacity"; from: 0; to: 1; duration: 150; easing.type: Easing.OutExpo }
             }
         }
         
@@ -321,6 +323,10 @@ Rectangle {
                 NumberAnimation { property: "height"; from: dashboardModal.targetH; to: dashboardModal.startH; duration: 300; easing.type: Easing.OutExpo }
                 NumberAnimation { target: modalBg; property: "radius"; from: 24; to: dashboardModal.startRadius; duration: 300; easing.type: Easing.OutExpo }
                 NumberAnimation { target: modalContent; property: "opacity"; from: 1; to: 0; duration: 150; easing.type: Easing.OutExpo }
+                SequentialAnimation {
+                    PauseAnimation { duration: 150 }
+                    NumberAnimation { target: dashboardModal; property: "opacity"; from: 1; to: 0; duration: 150; easing.type: Easing.OutExpo }
+                }
             }
         }
 
@@ -336,23 +342,10 @@ Rectangle {
         contentItem: Item {
             id: modalContent
             opacity: dashboardModal.opened ? 1 : 0
-            ColumnLayout {
-                anchors.centerIn: parent
-                spacing: 24
-                
-                Label {
-                    text: "im a dashboard"
-                    font.pixelSize: 24
-                    font.weight: Font.Medium
-                    color: ThemeManager.onSurface
-                    Layout.alignment: Qt.AlignHCenter
+                DashboardView {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
                 }
-                
-                Button {
-                    text: "Interactable Button"
-                    Layout.alignment: Qt.AlignHCenter
-                }
-            }
         }
 
         function openFrom(sourceItem) {

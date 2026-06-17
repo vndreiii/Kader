@@ -116,6 +116,7 @@ public:
     Q_INVOKABLE qint64 getPhotoSizeBytes();
     Q_INVOKABLE qint64 getVideoSizeBytes();
     Q_INVOKABLE int    getPhotoCount();
+    Q_INVOKABLE int    getVideoCount();
 
     // Scan exclusion patterns (substring match against full dir path)
     Q_INVOKABLE QStringList getScanExclusions();

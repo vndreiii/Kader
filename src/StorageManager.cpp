@@ -37,5 +37,7 @@ void StorageManager::refresh() {
     m_mediaSizeBytes = m_db->getTotalMediaSizeBytes();
     m_photoSizeBytes = m_db->getPhotoSizeBytes();
     m_videoSizeBytes = m_db->getVideoSizeBytes();
+    m_photoCount     = m_db->getPhotoCount();
+    m_videoCount     = m_db->getVideoCount();
     emit storageChanged();
 }
