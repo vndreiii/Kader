@@ -121,7 +121,8 @@ var _s = {
         "scan_exclusions": "Filtroh de escaneo", "scan_exclusions_sub": "Carpetah con estas cadenas se saltarán.",
         "edit_album": "Editá árbum", "field_name": "Nombre", "field_desc_optional": "Descrisión (osioná)",
         "cover_photo": "Foto de portá", "change_photo": "Cambiá foto",
-        "cancel": "Cancelá", "create_album": "Creá árbum", "save": "Guardá"
+        "cancel": "Cancelá", "create_album": "Creá árbum", "save": "Guardá",
+        "photos": "fotos", "video": "vídeos", "other": "otro", "free": "gratis", "total": "total", "resource_usage": "Uso de recursos", "resource_usage_sub": "Cuánta CPU y memoria puede usar Kader para escanear y crear miniaturas. ", "resource_low": "Bajo", "resource_balanced": "Equilibrado", "resource_full": "Lleno"
     },
     "ca": {
         "sort_by": "Ordena per",
@@ -243,7 +244,8 @@ var _s = {
         "scan_exclusions": "Filtres d'escaneig", "scan_exclusions_sub": "Les carpetes amb aquestes cadenes s'ometran.",
         "edit_album": "Edita l'àlbum", "field_name": "Nom", "field_desc_optional": "Descripció (opcional)",
         "cover_photo": "Foto de portada", "change_photo": "Canvia la foto",
-        "cancel": "Cancel·la", "create_album": "Crea l'àlbum", "save": "Desa"
+        "cancel": "Cancel·la", "create_album": "Crea l'àlbum", "save": "Desa",
+        "photos": "fotos", "video": "vídeos", "other": "altres", "free": "lliure", "total": "total", "resource_usage": "Ús de recursos", "resource_usage_sub": "Quanta CPU i memòria pot utilitzar Kader per escanejar i crear miniatures. ", "resource_low": "Baixa", "resource_balanced": "Equilibrat", "resource_full": "Complet"
     },
     "de": {
         "sort_by": "Sortieren nach",
@@ -365,7 +367,8 @@ var _s = {
         "scan_exclusions": "Scan-Ausschlüsse", "scan_exclusions_sub": "Ordner mit diesen Zeichenketten werden übersprungen.",
         "edit_album": "Album bearbeiten", "field_name": "Name", "field_desc_optional": "Beschreibung (optional)",
         "cover_photo": "Titelbild", "change_photo": "Foto ändern",
-        "cancel": "Abbrechen", "create_album": "Album erstellen", "save": "Speichern"
+        "cancel": "Abbrechen", "create_album": "Album erstellen", "save": "Speichern",
+        "photos": "Fotos", "video": "Videos", "other": "andere", "free": "frei", "total": "gesamt", "resource_usage": "Ressourcennutzung", "resource_usage_sub": "Wie viel CPU und Speicher darf Kader zum Scannen und Erstellen von Miniaturansichten verwenden? ", "resource_low": "Niedrig", "resource_balanced": "Ausgewogen", "resource_full": "Voll"
     },
     "en": {
         "timeline": "Gallery", "albums": "Albums", "videos": "Videos",
@@ -609,7 +612,8 @@ var _s = {
         "scan_exclusions": "Filtros de exploración", "scan_exclusions_sub": "Las carpetas que contengan estas cadenas se omitirán.",
         "edit_album": "Editar álbum", "field_name": "Nombre", "field_desc_optional": "Descripción (opcional)",
         "cover_photo": "Foto de portada", "change_photo": "Cambiar foto",
-        "cancel": "Cancelar", "create_album": "Crear álbum", "save": "Guardar"
+        "cancel": "Cancelar", "create_album": "Crear álbum", "save": "Guardar",
+        "photos": "fotos", "video": "vídeos", "other": "otro", "free": "gratis", "total": "total", "resource_usage": "Uso de recursos", "resource_usage_sub": "Cuánta CPU y memoria puede usar Kader para escanear y crear miniaturas. ", "resource_low": "Bajo", "resource_balanced": "Equilibrado", "resource_full": "Lleno"
     },
     "fil": {
         "sort_by": "Ayusin ayon sa",
@@ -731,7 +735,8 @@ var _s = {
         "scan_exclusions": "Mga filter sa pag-scan", "scan_exclusions_sub": "Ang mga folder na may ganitong text ay lalaktawan.",
         "edit_album": "I-edit ang album", "field_name": "Pangalan", "field_desc_optional": "Deskripsyon (opsyonal)",
         "cover_photo": "Cover photo", "change_photo": "Palitan ang larawan",
-        "cancel": "I-cancel", "create_album": "Gumawa ng album", "save": "I-save"
+        "cancel": "I-cancel", "create_album": "Gumawa ng album", "save": "I-save",
+        "photos": "mga larawan", "video": "mga video", "other": "iba pa", "free": "libre", "total": "kabuuan", "resource_usage": "Paggamit ng Resource", "resource_usage_sub": "Magkano ang CPU at memory na maaaring gamitin ni Kader para sa pag-scan at pagbuo ng mga thumbnail. ", "resource_low": "Mababa", "resource_balanced": "Balanseng", "resource_full": "Puno"
     },
     "fr": {
         "sort_by": "Trier par",
@@ -853,7 +858,8 @@ var _s = {
         "scan_exclusions": "Filtres d'analyse", "scan_exclusions_sub": "Les dossiers contenant ces chaînes seront ignorés.",
         "edit_album": "Modifier l'album", "field_name": "Nom", "field_desc_optional": "Description (facultatif)",
         "cover_photo": "Photo de couverture", "change_photo": "Changer la photo",
-        "cancel": "Annuler", "create_album": "Créer un album", "save": "Enregistrer"
+        "cancel": "Annuler", "create_album": "Créer un album", "save": "Enregistrer",
+        "photos": "des photos", "video": "vidéos", "other": "autre", "free": "gratuit", "total": "total", "resource_usage": "Utilisation des ressources", "resource_usage_sub": "Combien de CPU et de mémoire Kader peut utiliser pour numériser et créer des vignettes. ", "resource_low": "Faible", "resource_balanced": "Équilibré", "resource_full": "Complet"
     },
     "gl": {
         "sort_by": "Ordenar por",
@@ -975,7 +981,8 @@ var _s = {
         "scan_exclusions": "Filtros de exploración", "scan_exclusions_sub": "As carpetas con estas cadeas omitiranse.",
         "edit_album": "Editar álbum", "field_name": "Nome", "field_desc_optional": "Descrición (opcional)",
         "cover_photo": "Foto de portada", "change_photo": "Cambiar foto",
-        "cancel": "Cancelar", "create_album": "Crear álbum", "save": "Gardar"
+        "cancel": "Cancelar", "create_album": "Crear álbum", "save": "Gardar",
+        "photos": "fotos", "video": "vídeos", "other": "outro", "free": "gratuíto", "total": "total", "resource_usage": "Uso de recursos", "resource_usage_sub": "Canta CPU e memoria pode usar Kader para dixitalizar e construír miniaturas. ", "resource_low": "Baixo", "resource_balanced": "Equilibrado", "resource_full": "Cheo"
     },
     "hr": {
         "sort_by": "Sortiraj po",
@@ -1097,7 +1104,8 @@ var _s = {
         "scan_exclusions": "Filtri skeniranja", "scan_exclusions_sub": "Mape s ovim nizovima bit će preskočene.",
         "edit_album": "Uredi album", "field_name": "Ime", "field_desc_optional": "Opis (neobavezno)",
         "cover_photo": "Naslovna fotografija", "change_photo": "Promijeni fotografiju",
-        "cancel": "Odustani", "create_album": "Stvori album", "save": "Spremi"
+        "cancel": "Odustani", "create_album": "Stvori album", "save": "Spremi",
+        "photos": "fotografije", "video": "videa", "other": "drugo", "free": "besplatno", "total": "ukupno", "resource_usage": "Korištenje resursa", "resource_usage_sub": "Koliko CPU-a i memorije Kader može koristiti za skeniranje i izradu sličica. ", "resource_low": "Niska", "resource_balanced": "Uravnotežen", "resource_full": "puna"
     },
     "it": {
         "sort_by": "Ordina per",
@@ -1219,7 +1227,8 @@ var _s = {
         "scan_exclusions": "Filtri di scansione", "scan_exclusions_sub": "Le cartelle con queste stringhe verranno saltate.",
         "edit_album": "Modifica album", "field_name": "Nome", "field_desc_optional": "Descrizione (opzionale)",
         "cover_photo": "Foto di copertina", "change_photo": "Cambia foto",
-        "cancel": "Annulla", "create_album": "Crea album", "save": "Salva"
+        "cancel": "Annulla", "create_album": "Crea album", "save": "Salva",
+        "photos": "foto", "video": "video", "other": "altro", "free": "gratuito", "total": "totale", "resource_usage": "Utilizzo delle risorse", "resource_usage_sub": "Quanta CPU e memoria può utilizzare Kader per la scansione e la creazione di miniature. ", "resource_low": "Basso", "resource_balanced": "Equilibrato", "resource_full": "Pieno"
     },
     "ja": {
         "sort_by": "並べ替え",
@@ -1342,7 +1351,8 @@ var _s = {
         "edit_album": "アルバムを編集", "field_name": "名前", "field_desc_optional": "説明 (任意)",
         "cover_photo": "カバー写真", "change_photo": "写真を変更",
         "cancel": "キャンセル", "create_album": "アルバムを作成", "save": "保存",
-        "photos": "写真", "video": "動画", "other": "その他", "free": "空き", "total": "合計"
+        "photos": "写真", "video": "動画", "other": "その他", "free": "空き", "total": "合計",
+        "resource_usage": "リソースの使用量", "resource_usage_sub": "Kader がサムネイルのスキャンと作成に使用する CPU とメモリの量。", "resource_low": "低い", "resource_balanced": "バランスのとれた", "resource_full": "満杯"
     },
     "nl": {
         "sort_by": "Sorteren op",
@@ -1464,7 +1474,8 @@ var _s = {
         "scan_exclusions": "Scanuitsluitingen", "scan_exclusions_sub": "Mappen met deze teksten worden overgeslagen.",
         "edit_album": "Album bewerken", "field_name": "Naam", "field_desc_optional": "Beschrijving (optioneel)",
         "cover_photo": "Omslagfoto", "change_photo": "Foto wijzigen",
-        "cancel": "Annuleren", "create_album": "Album maken", "save": "Opslaan"
+        "cancel": "Annuleren", "create_album": "Album maken", "save": "Opslaan",
+        "photos": "foto's", "video": "video's", "other": "ander", "free": "vrij", "total": "totaal", "resource_usage": "Gebruik van hulpbronnen", "resource_usage_sub": "Hoeveel CPU en geheugen Kader mag gebruiken voor het scannen en maken van miniaturen. ", "resource_low": "Laag", "resource_balanced": "Evenwichtig", "resource_full": "Vol"
     },
     "pt": {
         "sort_by": "Ordenar por",
@@ -1586,7 +1597,8 @@ var _s = {
         "scan_exclusions": "Filtros de análise", "scan_exclusions_sub": "As pastas com estas cadeias serão ignoradas.",
         "edit_album": "Editar álbum", "field_name": "Nome", "field_desc_optional": "Descrição (opcional)",
         "cover_photo": "Foto de capa", "change_photo": "Alterar foto",
-        "cancel": "Cancelar", "create_album": "Criar álbum", "save": "Guardar"
+        "cancel": "Cancelar", "create_album": "Criar álbum", "save": "Guardar",
+        "photos": "fotos", "video": "vídeos", "other": "outro", "free": "livre", "total": "total", "resource_usage": "Uso de recursos", "resource_usage_sub": "Quanta CPU e memória Kader pode usar para digitalizar e construir miniaturas. ", "resource_low": "Baixo", "resource_balanced": "Equilibrado", "resource_full": "Completo"
     },
     "ro": {
         "sort_by": "Sortează după",
@@ -1708,7 +1720,8 @@ var _s = {
         "scan_exclusions": "Filtre de scanare", "scan_exclusions_sub": "Dosarele care conțin aceste șiruri vor fi omise.",
         "edit_album": "Editează albumul", "field_name": "Nume", "field_desc_optional": "Descriere (opțional)",
         "cover_photo": "Fotografie copertă", "change_photo": "Schimbă fotografia",
-        "cancel": "Anulează", "create_album": "Creează album", "save": "Salvează"
+        "cancel": "Anulează", "create_album": "Creează album", "save": "Salvează",
+        "photos": "fotografii", "video": "videoclipuri", "other": "alte", "free": "gratuit", "total": "total", "resource_usage": "Utilizarea resurselor", "resource_usage_sub": "Cât de mult CPU și memorie poate folosi Kader pentru scanarea și construirea de miniaturi. ", "resource_low": "Scăzut", "resource_balanced": "Echilibrat", "resource_full": "Deplin"
     },
     "ru": {
         "sort_by": "Сортировка",
@@ -1830,7 +1843,8 @@ var _s = {
         "scan_exclusions": "Фильтры сканирования", "scan_exclusions_sub": "Папки с этими строками будут пропущены.",
         "edit_album": "Редактировать альбом", "field_name": "Название", "field_desc_optional": "Описание (необязательно)",
         "cover_photo": "Обложка", "change_photo": "Изменить фото",
-        "cancel": "Отмена", "create_album": "Создать альбом", "save": "Сохранить"
+        "cancel": "Отмена", "create_album": "Создать альбом", "save": "Сохранить",
+        "photos": "фотографии", "video": "видео", "other": "другой", "free": "бесплатно", "total": "общий", "resource_usage": "Использование ресурсов", "resource_usage_sub": "Сколько процессора и памяти Kader может использовать для сканирования и создания миниатюр. ", "resource_low": "Низкий", "resource_balanced": "Сбалансированный", "resource_full": "Полный"
     },
     "sr": {
         "sort_by": "Сортирај по",
@@ -1952,7 +1966,8 @@ var _s = {
         "scan_exclusions": "Филтери скенирања", "scan_exclusions_sub": "Фасцикле са овим низовима биће прескочене.",
         "edit_album": "Уреди албум", "field_name": "Назив", "field_desc_optional": "Опис (опционо)",
         "cover_photo": "Насловна фотографија", "change_photo": "Промени фотографију",
-        "cancel": "Откажи", "create_album": "Направи албум", "save": "Сачувај"
+        "cancel": "Откажи", "create_album": "Направи албум", "save": "Сачувај",
+        "photos": "фотографије", "video": "видео снимци", "other": "друго", "free": "бесплатно", "total": "укупно", "resource_usage": "Коришћење ресурса", "resource_usage_sub": "Колико процесора и меморије Кадер може да искористи за скенирање и прављење сличица. ", "resource_low": "Ниско", "resource_balanced": "Баланцед", "resource_full": "Пун"
     },
     "tr": {
         "sort_by": "Sırala",
@@ -2074,7 +2089,8 @@ var _s = {
         "scan_exclusions": "Tarama filtreleri", "scan_exclusions_sub": "Bu dizeleri içeren klasörler atlanır.",
         "edit_album": "Albümü düzenle", "field_name": "Ad", "field_desc_optional": "Açıklama (isteğe bağlı)",
         "cover_photo": "Kapak fotoğrafı", "change_photo": "Fotoğrafı değiştir",
-        "cancel": "İptal", "create_album": "Albüm oluştur", "save": "Kaydet"
+        "cancel": "İptal", "create_album": "Albüm oluştur", "save": "Kaydet",
+        "photos": "fotoğraflar", "video": "videolar", "other": "diğer", "free": "özgür", "total": "toplam", "resource_usage": "Kaynak Kullanımı", "resource_usage_sub": "Kader'in küçük resimleri taramak ve oluşturmak için ne kadar CPU ve bellek kullanabileceği. ", "resource_low": "Düşük", "resource_balanced": "Dengeli", "resource_full": "Tam dolu"
     },
     "vi": {
         "sort_by": "Sắp xếp theo",
@@ -2196,7 +2212,8 @@ var _s = {
         "scan_exclusions": "Bộ lọc quét", "scan_exclusions_sub": "Thư mục chứa các chuỗi này sẽ bị bỏ qua.",
         "edit_album": "Chỉnh sửa album", "field_name": "Tên", "field_desc_optional": "Mô tả (tùy chọn)",
         "cover_photo": "Ảnh bìa", "change_photo": "Thay đổi ảnh",
-        "cancel": "Hủy", "create_album": "Tạo album", "save": "Lưu"
+        "cancel": "Hủy", "create_album": "Tạo album", "save": "Lưu",
+        "photos": "những bức ảnh", "video": "video", "other": "khác", "free": "miễn phí", "total": "tổng cộng", "resource_usage": "Sử dụng tài nguyên", "resource_usage_sub": "Kader có thể sử dụng bao nhiêu CPU và bộ nhớ để quét và tạo hình thu nhỏ. ", "resource_low": "Thấp", "resource_balanced": "Cân bằng", "resource_full": "Đầy"
     },
     "zh": {
         "sort_by": "排序方式",
@@ -2318,7 +2335,8 @@ var _s = {
         "scan_exclusions": "扫描排除过滤器", "scan_exclusions_sub": "路径包含这些字符串的目录将被跳过。",
         "edit_album": "编辑相册", "field_name": "名称", "field_desc_optional": "描述 (可选)",
         "cover_photo": "封面照片", "change_photo": "更换照片",
-        "cancel": "取消", "create_album": "创建相册", "save": "保存"
+        "cancel": "取消", "create_album": "创建相册", "save": "保存",
+        "photos": "照片", "video": "视频", "other": "其他", "free": "自由的", "total": "全部的", "resource_usage": "资源使用情况", "resource_usage_sub": "Kader 可能使用多少 CPU 和内存来扫描和构建缩略图。", "resource_low": "低的", "resource_balanced": "均衡", "resource_full": "满的"
     }
 }
 

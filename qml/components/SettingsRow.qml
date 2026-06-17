@@ -21,7 +21,7 @@ Item {
 
         Column {
             id: infoColumn
-            width: parent.width - (root.action ? root.action.width + 16 : 0)
+            width: parent.width - (root.action ? Math.max(root.action.width, root.action.implicitWidth) + 16 : 0)
             anchors.verticalCenter: parent.verticalCenter
             spacing: 2
             
@@ -44,7 +44,7 @@ Item {
         }
 
         Item {
-            width: root.action ? root.action.width : 0
+            width: root.action ? Math.max(root.action.width, root.action.implicitWidth) : 0
             height: parent.height
             data: [ root.action ]
             
