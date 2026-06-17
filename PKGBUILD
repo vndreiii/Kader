@@ -27,9 +27,8 @@ makedepends=(
 )
 source=(
     "$pkgname::git+ssh://git@code.milfs.party:2222/alex/Kader.git"
-    "QmlMaterial::git+https://github.com/hypengw/QmlMaterial"
 )
-sha256sums=('SKIP' 'SKIP')
+sha256sums=('SKIP')
 
 pkgver() {
     cd "$pkgname"
@@ -42,9 +41,6 @@ pkgver() {
 
 prepare() {
     cd "$pkgname"
-    mkdir -p lib
-    rm -rf lib/QmlMaterial
-    ln -sf "$srcdir/QmlMaterial" lib/QmlMaterial
 }
 
 build() {
@@ -62,16 +58,7 @@ package() {
     # Binary lives in /usr/lib/kader/
     install -Dm755 "build-pkg/kader" "$pkgdir/usr/lib/kader/kader"
 
-    # QML modules (like Qcm.Material)
-    if [ -d "build-pkg/qml_modules" ]; then
-        mkdir -p "$pkgdir/usr/lib/kader/qml_modules"
-        cp -r build-pkg/qml_modules/* "$pkgdir/usr/lib/kader/qml_modules/"
-    fi
 
-    # QmlMaterial shared library (plugin depends on it; patch RPATH so it's self-contained)
-    install -Dm755 "build-pkg/lib/QmlMaterial/libqml_material.so" "$pkgdir/usr/lib/kader/libqml_material.so"
-    patchelf --set-rpath '$ORIGIN/../../../' \
-        "$pkgdir/usr/lib/kader/qml_modules/Qcm/Material/libqml_materialplugin.so"
 
     # Wrapper script in PATH
     install -Dm755 /dev/stdin "$pkgdir/usr/bin/kader" <<'EOF'

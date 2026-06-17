@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Effects
-import Qcm.Material as MD
 import ".."
 import "../I18n.js" as I18n
 
@@ -39,17 +38,17 @@ Item {
             visible: _show
             height: _show ? gridView.cellHeight : 0
 
-            MD.Menu {
+            Menu {
                 id: albumMenu
-                MD.MenuItem {
+                MenuItem {
                     text: model.pinned ? "Unpin album" : "Pin album"
                     onTriggered: { DB.pinAlbum(model.path, !model.pinned); AlbumModel.refresh() }
                 }
-                MD.MenuItem {
+                MenuItem {
                     text: I18n.t(Settings.language, "ctx_add_ignored")
                     onTriggered: { DB.ignoreAlbum(model.path, true); AlbumModel.refresh(); TimelineModel.refresh() }
                 }
-                MD.MenuItem {
+                MenuItem {
                     text: I18n.t(Settings.language, "ctx_move_trash")
                     onTriggered: { DB.trashAlbum(model.path); AlbumModel.refresh(); TimelineModel.refresh() }
                 }

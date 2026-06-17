@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Effects
-import Qcm.Material as MD
 import ".."
 import "../I18n.js" as I18n
 
@@ -188,20 +187,20 @@ Item {
     Loader {
         id: menuLoader
         active: false
-        sourceComponent: MD.Menu {
-            MD.MenuItem {
+        sourceComponent: Menu {
+            MenuItem {
                 text: I18n.t(Settings.language, "ctx_select")
                 onTriggered: root.enterSelectionMode()
             }
-            MD.MenuItem {
+            MenuItem {
                 text: root._isFav ? "Unfavorite" : "Favorite"
                 onTriggered: { if (root._mediaId) { DB.toggleFavorite(root._mediaId); TimelineModel.refresh() } }
             }
-            MD.MenuItem {
+            MenuItem {
                 text: I18n.t(Settings.language, "ctx_open_folder")
                 onTriggered: { if (root._folderPath) Qt.openUrlExternally("file://" + root._folderPath) }
             }
-            MD.MenuItem {
+            MenuItem {
                 text: I18n.t(Settings.language, "ctx_send_album")
                 visible: TimelineModel.filterMode !== TimelineModel.HiddenMode
                 onTriggered: {
@@ -210,7 +209,7 @@ Item {
                     sendLoader.item.open()
                 }
             }
-            MD.MenuItem {
+            MenuItem {
                 text: root._isHidden ? "Unhide" : "Hide"
                 onTriggered: {
                     if (root._mediaId) {
@@ -219,7 +218,7 @@ Item {
                     }
                 }
             }
-            MD.MenuItem {
+            MenuItem {
                 text: root._isTrashed ? "Restore" : "Move to Trash"
                 onTriggered: {
                     if (root._mediaId) {
@@ -228,7 +227,7 @@ Item {
                     }
                 }
             }
-            MD.MenuItem {
+            MenuItem {
                 text: I18n.t(Settings.language, "tip_delete_perm")
                 onTriggered: {
                     if (root._mediaId) { DB.deleteMediaPermanently(root._mediaId); TimelineModel.refresh() }

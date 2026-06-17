@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Effects
-import Qcm.Material as MD
 import "../components"
 import "../I18n.js" as I18n
 
@@ -61,13 +60,13 @@ Item {
             property string _desc:      model.description || ""
             property string _coverPath: model.coverPath || ""
 
-            MD.Menu {
+            Menu {
                 id: albumMenu
-                MD.MenuItem {
+                MenuItem {
                     text: I18n.t(Settings.language, "ctx_select")
                     onTriggered: { root.selectionMode = true; root.selectAlbum(albumItem._path) }
                 }
-                MD.MenuItem {
+                MenuItem {
                     text: I18n.t(Settings.language, "ctx_edit_album")
                     onTriggered: {
                         albumEditModal.folderPath = albumItem._path
@@ -77,15 +76,15 @@ Item {
                         albumEditModal.open()
                     }
                 }
-                MD.MenuItem {
+                MenuItem {
                     text: albumItem._pinned ? "Unpin album" : "Pin album"
                     onTriggered: { DB.pinAlbum(albumItem._path, !albumItem._pinned); AlbumModel.refresh() }
                 }
-                MD.MenuItem {
+                MenuItem {
                     text: I18n.t(Settings.language, "ctx_add_ignored")
                     onTriggered: { DB.ignoreAlbum(albumItem._path, true); AlbumModel.refresh(); TimelineModel.refresh() }
                 }
-                MD.MenuItem {
+                MenuItem {
                     text: I18n.t(Settings.language, "ctx_move_trash")
                     onTriggered: { DB.trashAlbum(albumItem._path); AlbumModel.refresh(); TimelineModel.refresh() }
                 }

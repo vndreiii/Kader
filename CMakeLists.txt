@@ -27,8 +27,7 @@ set(QML_DIR ${CMAKE_CURRENT_SOURCE_DIR}/qml)
 # Include directories
 include_directories(${INCLUDE_DIR} ${VIPS_INCLUDE_DIRS} ${EXIV2_INCLUDE_DIRS} ${LIBRAW_INCLUDE_DIRS} ${POPPLER_INCLUDE_DIRS})
 
-# QmlMaterial Subdirectory
-add_subdirectory(lib/QmlMaterial)
+# QmlMaterial Subdirectory removed
 
 # Sources
 set(SOURCES
@@ -93,7 +92,6 @@ target_link_libraries(KaderLib PUBLIC
     Qt6::Network
     llama
     mtmd
-    qml_material
 )
 
 # QML Module setup
@@ -128,6 +126,7 @@ qt_add_qml_module(KaderApp
         qml/views/ViewerOverlay.qml
         qml/views/SettingsView.qml
         qml/views/MapView.qml
+        qml/views/DashboardView.qml
     RESOURCES
         "assets/Kader Logoicon.svg"
         assets/KaderPNGicon.png

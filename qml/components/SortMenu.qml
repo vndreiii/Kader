@@ -1,8 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
-import Qcm.Material
-import Qcm.Material as MD
 
 // Reusable, UI-agnostic sort dropdown.
 //
@@ -37,10 +35,10 @@ Menu {
 
     // Override the Menu's item delegate purely to swap the submenu arrow: the MD
     // icon-font glyph (arrow_right) renders as a tofu box in this build, so we use
-    // the SVG-path M3Icon instead. Mirrors MD.Menu's default delegate otherwise.
+    // the SVG-path M3Icon instead. Mirrors Menu's default delegate otherwise.
     // (Only submenu-trigger items use this delegate; field/order items are explicit
     // instances created elsewhere and keep their own behavior.)
-    delegate: MD.MenuItem {
+    delegate: MenuItem {
         id: m_item
         arrow: M3Icon {
             x: m_item.mirrored ? m_item.padding : m_item.width - width - m_item.padding
@@ -51,11 +49,11 @@ Menu {
             color: m_item.mdState.textColor
         }
         function clickedCB() {
-            if ((action as MD.Action)?.closeMenu || root.autoClose)
+            if ((action as Action)?.closeMenu || root.autoClose)
                 triggered();
         }
         Component.onCompleted: {
-            MD.Util.disconnectAll(m_item, "clicked()");
+             
             m_item.clicked.connect(clickedCB);
         }
     }

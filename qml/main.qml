@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
-import Qcm.Material
 import "components"
 import "views"
 import "I18n.js" as I18n

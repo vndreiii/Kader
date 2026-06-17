@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import Qcm.Material as MD
 import "../components"
 import "../I18n.js" as I18n
 
@@ -569,7 +568,7 @@ Item {
                                      I18n.t(Settings.language, "density_spacious")]
                         return names[Math.max(0, Math.min(Math.round(densitySlider.value) - 1, 3))]
                     }
-                    action: MD.Slider {
+                    action: Slider {
                         id: densitySlider
                         from: 1; to: 4; stepSize: 1
                         snapMode: Slider.SnapAlways
