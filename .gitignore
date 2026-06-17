@@ -2,6 +2,14 @@
 build/
 bin/
 
+# Built packages
+*.pkg.tar.zst
+pkg/
+src/kader/
+
+# Analysis / LLM scratch docs
+Kader_Analysis_*.md
+
 # IDEs
 .vscode/
 .idea/
