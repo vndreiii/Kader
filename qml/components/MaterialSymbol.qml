@@ -12,19 +12,17 @@ Text {
     // Optimization: Round it to 1 decimal place (0.0, 0.1 ... 1.0)
     property real truncatedFill: Number(fill.toFixed(1))
     
-    FontLoader {
-        id: msFont
-        source: "qrc:/Kader/assets/MaterialSymbolsRounded.ttf"
-    }
-    
     text: name
-    font.family: msFont.name
+    font.family: materialSymbolsFont.name
     font.pixelSize: root.size
     
-    font.weight: Font.Normal
-    renderType: Text.QtRendering
+    // Fallback if font weight or variable axes isn't perfectly supported in the QML version
+    font.weight: Font.Normal + (Font.DemiBold - Font.Normal) * root.truncatedFill
+    
+    font.styleName: "Regular" // Often needed to reset custom font styles
     
     // Feed the fill value directly into the font renderer!
+    // Requires Qt 6.7+ for variableAxes, but we can safely specify it.
     font.variableAxes: { "FILL": root.truncatedFill }
     
     width: implicitWidth
@@ -36,7 +34,7 @@ Text {
     Behavior on fill { 
         NumberAnimation {
             duration: ThemeManager.durShort
-            easing.type: Easing.OutCubic
+            easing.type: Easing.BezierSpline
         }
     }
 }
