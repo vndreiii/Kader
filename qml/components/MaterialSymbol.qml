@@ -25,7 +25,7 @@ Text {
     font.variableAxes: { "FILL": root.fill }
     
     width: implicitWidth
-    height: implicitHeight
+    height: root.size
     verticalAlignment: Text.AlignVCenter
     horizontalAlignment: Text.AlignHCenter
 
