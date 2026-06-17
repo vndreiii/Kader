@@ -28,6 +28,9 @@ public:
 
     void setThumbnailGenerator(ThumbnailGenerator *gen) { m_thumbGen = gen; }
 
+    // Cap the number of directory-traversal worker threads. 0 = auto (all cores).
+    void setMaxThreads(int n) { m_maxThreads.store(n > 0 ? n : 0); }
+
 signals:
     void scanStarted(const QString &rootPath);
     void scanFinished(const QStringList &paths, int dirsScanned, double duration, const QString &rootPath);
@@ -40,4 +43,5 @@ private:
     DatabaseManager      *m_db;
     ThumbnailGenerator   *m_thumbGen = nullptr;
     QFuture<void>         m_scanFuture;
+    std::atomic<int>      m_maxThreads{0};   // 0 = auto (all cores)
 };

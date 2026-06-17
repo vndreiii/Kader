@@ -136,7 +136,18 @@ int main(int argc, char *argv[]) {
         });
     });
 
-    // Apply saved parallel thumbnail mode
+    // Apply the resource budget: bounds CPU (scan threads, thumbnail concurrency)
+    // and RAM (libvips cache) so background work can't saturate the machine.
+    auto applyResourceBudget = [&]() {
+        int threads = settingsManager.workerThreads();
+        thumbGenerator.setResourceBudget(threads);
+        fileScanner.setMaxThreads(threads);
+    };
+    applyResourceBudget();
+    QObject::connect(&settingsManager, &SettingsManager::resourceModeChanged, &app, applyResourceBudget);
+
+    // Apply saved parallel thumbnail mode (must come after the budget so the
+    // libvips concurrency is sized correctly for the chosen mode).
     thumbGenerator.setParallelMode(settingsManager.parallelThumbnails());
     QObject::connect(&settingsManager, &SettingsManager::parallelThumbnailsChanged, [&]() {
         thumbGenerator.setParallelMode(settingsManager.parallelThumbnails());

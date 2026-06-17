@@ -1,4 +1,7 @@
 #include "SettingsManager.h"
+#include <QThread>
+#include <algorithm>
+#include <cmath>
 #include <QGuiApplication>
 #include <QClipboard>
 #include <QImage>
@@ -102,6 +105,36 @@ void SettingsManager::setParallelThumbnails(bool p) {
         save();
         emit parallelThumbnailsChanged();
     }
+}
+
+int SettingsManager::resourceMode() const {
+    return m_data.value("resourceMode").toInt(0);  // default: Low
+}
+void SettingsManager::setResourceMode(int m) {
+    m = std::max(0, std::min(m, 2));
+    if (resourceMode() != m) {
+        m_data["resourceMode"] = m;
+        save();
+        emit resourceModeChanged();
+    }
+}
+
+int SettingsManager::workerThreads() const {
+    int cores = QThread::idealThreadCount();
+    if (cores < 1) cores = 1;
+
+    double frac;
+    switch (resourceMode()) {
+        case 2:  frac = 0.85; break;  // Full
+        case 1:  frac = 0.60; break;  // Balanced
+        default: frac = 0.35; break;  // Low (default)
+    }
+
+    int n = static_cast<int>(std::lround(cores * frac));
+    n = std::max(1, n);
+    // Never claim every core, even in Full mode, so the desktop stays usable.
+    n = std::min(n, std::max(1, cores - 1));
+    return n;
 }
 
 bool SettingsManager::copyImageToClipboard(const QString &filePath) {

@@ -41,9 +41,14 @@ Rectangle {
 
         Behavior on width { NumberAnimation { duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
 
-        // Animate y with a spring — gives the "physical" bounce effect
+        // Animate y with M3 Expressive Spatial curve for a bouncy native feel
         Behavior on y {
-            SpringAnimation { spring: 600; damping: 28; mass: 1.0 }
+            NumberAnimation {
+                duration: 500 // Gives it enough time to feel the bounce
+                easing.type: Easing.BezierSpline
+                // M3 Expressive Spatial curve approximation with overshoot for bounce
+                easing.bezierCurve: [0.175, 0.885, 0.32, 1.275]
+            }
         }
     }
 

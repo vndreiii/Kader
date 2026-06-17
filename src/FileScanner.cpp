@@ -161,7 +161,10 @@ void FileScanner::runScan(const std::string &rootPath, const std::vector<std::st
     };
     QList<FoundFileInfo> foundFiles;
     
-    int numThreads = std::thread::hardware_concurrency();
+    int numThreads = m_maxThreads.load();
+    if (numThreads <= 0)
+        numThreads = std::thread::hardware_concurrency();
+    numThreads = std::max(1, numThreads);
     std::vector<std::thread> workers;
 
     for (int i = 0; i < numThreads; ++i) {

@@ -13,28 +13,10 @@ Item {
     width: parent ? parent.width : 0
     height: 56
 
-    // 0=bottom-up  1=top-down  2=left-right  3=right-left
-    property int  _fillDir: 0
-    property real _progress: 0   // 0=outline, 1=filled; driven by animations below
-
-    NumberAnimation { id: fillIn;  target: root; property: "_progress"; to: 1; duration: 320; easing.type: Easing.OutQuint }
-    NumberAnimation { id: fillOut; target: root; property: "_progress"; to: 0; duration: 200; easing.type: Easing.InQuint }
-
-    property bool _ready: false
-    Component.onCompleted: {
-        _progress = active ? 1 : 0
-        _ready = true
-    }
-
-    onActiveChanged: {
-        if (!_ready) return
-        if (active) {
-            _fillDir = Math.floor(Math.random() * 4)
-            fillOut.stop(); fillIn.restart()
-        } else {
-            fillIn.stop(); fillOut.restart()
-        }
-    }
+    // No progress vars needed anymore! MaterialSymbol handles fill inherently.
+    
+    // Active background grows out based on fill? We can just use standard opacity here
+    Behavior on opacity { NumberAnimation { duration: ThemeManager.durShort; easing.type: Easing.OutQuint } }
 
     // ── Active background ─────────────────────────────────────────────────
     Rectangle {
@@ -42,7 +24,8 @@ Item {
         anchors.leftMargin: 12; anchors.rightMargin: 12
         radius: 28
         color: ThemeManager.secondaryContainer
-        opacity: root._progress
+        opacity: root.active ? 1.0 : 0.0
+        Behavior on opacity { NumberAnimation { duration: ThemeManager.durShort; easing.type: Easing.OutQuint } }
     }
 
     Row {
@@ -56,35 +39,13 @@ Item {
             width: 24; height: 24
             anchors.verticalCenter: parent.verticalCenter
 
-            // Outline — fades out as fill reveals
-            M3Icon {
-                anchors.fill: parent
+            MaterialSymbol {
+                anchors.centerIn: parent
                 name: root.icon
                 size: 24
                 color: root.active ? ThemeManager.onSecondaryContainer : ThemeManager.onSurfaceVariant
-                opacity: 1 - root._progress
+                fill: root.active ? 1.0 : 0.0
                 Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
-            }
-
-            // Fill icon — single clip item, directional reveal via _progress + _fillDir
-            Item {
-                id: fillClip
-                clip: true
-                // x: right-to-left starts from the right and grows left
-                x: root._fillDir === 3 ? (1 - root._progress) * 24 : 0
-                // y: bottom-up starts from the bottom and grows up
-                y: root._fillDir === 0 ? (1 - root._progress) * 24 : 0
-                width:  (root._fillDir === 2 || root._fillDir === 3) ? root._progress * 24 : 24
-                height: (root._fillDir === 0 || root._fillDir === 1) ? root._progress * 24 : 24
-
-                M3Icon {
-                    // Compensate for clip movement so the icon stays visually fixed
-                    x: root._fillDir === 3 ? -(24 - fillClip.width) : 0
-                    y: root._fillDir === 0 ? -(24 - fillClip.height) : 0
-                    name: root.icon + "_fill"
-                    size: 24
-                    color: ThemeManager.onSecondaryContainer
-                }
             }
         }
 

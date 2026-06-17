@@ -11,6 +11,7 @@ class SettingsManager : public QObject {
     Q_PROPERTY(int  rawFilter READ rawFilter WRITE setRawFilter NOTIFY rawFilterChanged)
     Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY languageChanged)
     Q_PROPERTY(bool parallelThumbnails READ parallelThumbnails WRITE setParallelThumbnails NOTIFY parallelThumbnailsChanged)
+    Q_PROPERTY(int  resourceMode READ resourceMode WRITE setResourceMode NOTIFY resourceModeChanged)
     Q_PROPERTY(QString homePath READ homePath CONSTANT)
 
 public:
@@ -35,6 +36,17 @@ public:
     bool parallelThumbnails() const;
     void setParallelThumbnails(bool p);
 
+    // Resource budget: 0 = Low (~35% of cores, default), 1 = Balanced (~60%),
+    // 2 = Full (~85%, never the whole machine). Controls scan threads, thumbnail
+    // concurrency, and the libvips cache ceiling.
+    int  resourceMode() const;
+    void setResourceMode(int m);
+
+    // Number of worker threads to use for the current resource mode, derived
+    // from the CPU core count. Always >= 1 and capped below the core count so
+    // the desktop stays responsive.
+    Q_INVOKABLE int workerThreads() const;
+
     Q_INVOKABLE bool copyImageToClipboard(const QString &filePath);
     Q_INVOKABLE void openImageFilePicker(const QString &title = QString());
 
@@ -47,6 +59,7 @@ signals:
     void rawFilterChanged();
     void languageChanged();
     void parallelThumbnailsChanged();
+    void resourceModeChanged();
     void imageFilePicked(const QString &path);
 
 private:

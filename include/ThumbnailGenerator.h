@@ -24,6 +24,11 @@ public:
     void setParallelMode(bool enabled);
     bool parallelMode() const { return m_parallelMode.load(); }
 
+    // Apply a resource budget (worker-thread count). Caps the global thread pool
+    // that serves on-demand thumbnails and cache building, sizes libvips per-op
+    // concurrency, and bounds the libvips operation cache so RAM stays in check.
+    void setResourceBudget(int threads);
+
     // Legacy file-based path (used by AlbumModel CoverRole synchronously).
     Q_INVOKABLE QString getOrCreateThumbnail(const QString &filePath, int size = 256);
 
@@ -62,9 +67,11 @@ signals:
 private:
     static QByteArray deriveKey();
     QString generateHash(const QString &filePath);
+    void applyVipsConcurrency();   // sets vips_concurrency from mode + budget
     QString m_cacheDir;
     QMutex m_genMutex;         // serializes vips/ffmpeg calls in legacy mode
     std::atomic<bool> m_parallelMode{false};
+    std::atomic<int>  m_budgetThreads{1};  // worker-thread budget (see setResourceBudget)
 
     std::atomic<bool> m_thumbCaching{false};
     std::atomic<bool> m_cancelCache{false};

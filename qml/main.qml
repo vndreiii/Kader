@@ -59,7 +59,11 @@ ApplicationWindow {
     }
 
     property var _aiDocResults: []
-
+    
+    FontLoader {
+        id: materialSymbolsFont
+        source: "qrc:/Kader/assets/MaterialSymbolsRounded.ttf"
+    }
     Connections {
         target: AI
         function onSearchFinished(results) {

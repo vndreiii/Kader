@@ -923,6 +923,37 @@ Item {
             SettingsSection {
                 title: I18n.t(Settings.language, "section_performance")
                 SettingsRow {
+                    label: I18n.t(Settings.language, "resource_usage")
+                    sub: I18n.t(Settings.language, "resource_usage_sub")
+                    action: Row {
+                        spacing: 4
+                        Repeater {
+                            model: [[I18n.t(Settings.language, "resource_low"), 0],
+                                    [I18n.t(Settings.language, "resource_balanced"), 1],
+                                    [I18n.t(Settings.language, "resource_full"), 2]]
+                            delegate: Button {
+                                required property var modelData
+                                text: modelData[0]
+                                checkable: true
+                                checked: Settings.resourceMode === modelData[1]
+                                onClicked: Settings.resourceMode = modelData[1]
+                                implicitWidth: 84; implicitHeight: 34
+                                background: Rectangle {
+                                    radius: 17
+                                    color: parent.checked ? ThemeManager.secondaryContainer : ThemeManager.surfaceContainerHighest
+                                    border.color: ThemeManager.outline; border.width: 1
+                                }
+                                contentItem: Label {
+                                    text: parent.text; font.pixelSize: 12
+                                    color: parent.checked ? ThemeManager.onSecondaryContainer : ThemeManager.onSurface
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+                            }
+                        }
+                    }
+                }
+                SettingsRow {
                     label: I18n.t(Settings.language, "parallel_thumbs")
                     sub: I18n.t(Settings.language, "parallel_thumbs_sub")
                     last: true

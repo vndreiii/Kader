@@ -110,6 +110,7 @@ qt_add_qml_module(KaderApp
         qml/components/SidebarItem.qml
         qml/components/ImagePanner.qml
         qml/components/ExifModal.qml
+        qml/components/MaterialSymbol.qml
         qml/components/M3Icon.qml
         qml/components/M3Switch.qml
         qml/components/SettingsRow.qml
@@ -130,6 +131,7 @@ qt_add_qml_module(KaderApp
     RESOURCES
         "assets/Kader Logoicon.svg"
         assets/KaderPNGicon.png
+        assets/MaterialSymbolsRounded.ttf
 )
 
 add_executable(kader

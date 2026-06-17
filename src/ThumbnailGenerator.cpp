@@ -7,6 +7,8 @@
 #include <QProcess>
 #include <QDebug>
 #include <QtConcurrent>
+#include <QThreadPool>
+#include <algorithm>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <libraw/libraw.h>
@@ -50,11 +52,38 @@ QString ThumbnailGenerator::thumbnailUrl(const QString &filePath) {
 
 void ThumbnailGenerator::setParallelMode(bool enabled) {
     m_parallelMode.store(enabled);
-    // When parallel: limit each vips task to 1 thread so multiple concurrent
-    // calls don't create a thread explosion (N tasks × M vips threads).
-    // When legacy: restore auto mode so the single serialized task uses all cores.
-    vips_concurrency_set(enabled ? 1 : 0);
+    applyVipsConcurrency();
     qDebug() << "ThumbnailGenerator: parallel mode" << (enabled ? "ON" : "OFF");
+}
+
+void ThumbnailGenerator::applyVipsConcurrency() {
+    // Keep total CPU usage bounded by the worker budget regardless of mode:
+    //   parallel  → many tasks, each pinned to 1 libvips thread
+    //               (the global thread pool caps how many run at once)
+    //   legacy    → one serialized task at a time, allowed to use the full
+    //               budget of libvips threads
+    const int budget = std::max(1, m_budgetThreads.load());
+    vips_concurrency_set(m_parallelMode.load() ? 1 : budget);
+}
+
+void ThumbnailGenerator::setResourceBudget(int threads) {
+    threads = std::max(1, threads);
+    m_budgetThreads.store(threads);
+
+    // The global pool serves both QtConcurrent cache building and the async
+    // image provider's on-demand requests; capping it bounds how many
+    // thumbnails decode in parallel (CPU) and how many large buffers live at
+    // once (RAM).
+    QThreadPool::globalInstance()->setMaxThreadCount(threads);
+
+    // Bound the libvips operation cache. It scales with the budget but stays
+    // modest so a big library can't balloon resident memory.
+    vips_cache_set_max(std::min(64, threads * 8));            // cached operations
+    vips_cache_set_max_mem(static_cast<size_t>(threads) * 24 * 1024 * 1024);  // ~24 MB/worker
+    vips_cache_set_max_files(std::min(64, threads * 8));
+
+    applyVipsConcurrency();
+    qDebug() << "ThumbnailGenerator: resource budget" << threads << "worker threads";
 }
 
 // Legacy: generate thumbnail and save as plain .jpg file on disk.
