@@ -741,7 +741,7 @@ Item {
                          ? (AI.ready ? I18n.t(Settings.language, "ai_model_loaded") : I18n.t(Settings.language, "ai_models_available"))
                          : I18n.t(Settings.language, "ai_download_model")
 
-                    action: RowLayout {
+                    action: Row {
                         spacing: 8
 
                         // Load / unload
@@ -836,7 +836,7 @@ Item {
                             return I18n.t(Settings.language, "ai_photos_done").arg(AI.indexedCount)
                         return I18n.t(Settings.language, "ai_index_gallery_sub")
                     }
-                    action: ColumnLayout {
+                    action: Column {
                         spacing: 6
 
                         // Progress bar shown while indexing
@@ -894,7 +894,7 @@ Item {
                         return I18n.t(Settings.language, "ai_docs_ready")
                     }
                     last: true
-                    action: RowLayout {
+                    action: Row {
                         spacing: 8
 
                         // Progress bar while doc indexing

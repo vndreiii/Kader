@@ -281,6 +281,12 @@ void SemanticWorker::indexPendingMedia()
         }
         QMutexLocker lk(&m_mutex);
         if (!m_model) { m_idxRunning = false; return; }
+
+        if (m_resourceMode < 2) {
+            int delayMs = m_resourceMode == 0 ? 500 : 150;
+            QThread::msleep(delayMs);
+        }
+
         auto embd = embedImage(path);
         // Always store — failed files get a 1-byte sentinel so they are never retried.
         // The search cosine scan skips blobs whose size ≠ nEmbd*4, so sentinels are
@@ -377,6 +383,12 @@ void SemanticWorker::indexPendingDocs(QStringList rootDirs)
             for (int ci = 0; ci < chunks.size(); ++ci) {
                 QMutexLocker lk(&m_mutex);
                 if (!m_model) { m_docRunning = false; return; }
+
+                if (m_resourceMode < 2) {
+                    int delayMs = m_resourceMode == 0 ? 200 : 50;
+                    QThread::msleep(delayMs);
+                }
+
                 auto embd = embedText(chunks[ci]);
                 if (!embd.empty()) {
                     QSqlQuery ins(db);
@@ -794,4 +806,12 @@ void SemanticSearchEngine::searchByText(const QString &query)
     QMetaObject::invokeMethod(m_worker, [this, query, qid]{
         m_worker->generateTextEmbedding(query, qid);
     }, Qt::QueuedConnection);
+}
+
+void SemanticSearchEngine::setResourceBudget(int mode)
+{
+    if (m_worker)
+        QMetaObject::invokeMethod(m_worker, [this, mode]{
+            m_worker->setResourceBudget(mode);
+        }, Qt::QueuedConnection);
 }

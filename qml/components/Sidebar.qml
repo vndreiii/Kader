@@ -257,7 +257,7 @@ Rectangle {
                 id: mouseAreaStorage
                 anchors.fill: parent
                 hoverEnabled: true
-                onClicked: dashboardModal.open()
+                onClicked: dashboardModal.openFrom(storageCard)
             }
         }
 
@@ -275,40 +275,94 @@ Rectangle {
     Popup {
         id: dashboardModal
         parent: Overlay.overlay
-        width: parent ? parent.width * 0.85 : 800
-        height: parent ? parent.height * 0.85 : 600
-        anchors.centerIn: parent
+        
+        property real targetW: parent ? parent.width * 0.85 : 800
+        property real targetH: parent ? parent.height * 0.85 : 600
+        property real targetX: parent ? (parent.width - targetW) / 2 : 0
+        property real targetY: parent ? (parent.height - targetH) / 2 : 0
+
+        property real startX: 0
+        property real startY: 0
+        property real startW: 0
+        property real startH: 0
+        property real startRadius: 0
+
+        x: targetX
+        y: targetY
+        width: targetW
+        height: targetH
+
         modal: true
         dim: true
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         
         Overlay.modal: Rectangle {
             color: Qt.rgba(0, 0, 0, 0.5)
+            opacity: dashboardModal.opened ? 1.0 : 0.0
+            Behavior on opacity { NumberAnimation { duration: 400; easing.type: Easing.OutExpo } }
         }
         
+        enter: Transition {
+            ParallelAnimation {
+                NumberAnimation { property: "x"; from: dashboardModal.startX; to: dashboardModal.targetX; duration: 400; easing.type: Easing.OutExpo }
+                NumberAnimation { property: "y"; from: dashboardModal.startY; to: dashboardModal.targetY; duration: 400; easing.type: Easing.OutExpo }
+                NumberAnimation { property: "width"; from: dashboardModal.startW; to: dashboardModal.targetW; duration: 400; easing.type: Easing.OutExpo }
+                NumberAnimation { property: "height"; from: dashboardModal.startH; to: dashboardModal.targetH; duration: 400; easing.type: Easing.OutExpo }
+                NumberAnimation { target: modalBg; property: "radius"; from: dashboardModal.startRadius; to: 24; duration: 400; easing.type: Easing.OutExpo }
+                NumberAnimation { target: modalContent; property: "opacity"; from: 0; to: 1; duration: 300; easing.type: Easing.OutExpo }
+            }
+        }
+        
+        exit: Transition {
+            ParallelAnimation {
+                NumberAnimation { property: "x"; from: dashboardModal.targetX; to: dashboardModal.startX; duration: 300; easing.type: Easing.OutExpo }
+                NumberAnimation { property: "y"; from: dashboardModal.targetY; to: dashboardModal.startY; duration: 300; easing.type: Easing.OutExpo }
+                NumberAnimation { property: "width"; from: dashboardModal.targetW; to: dashboardModal.startW; duration: 300; easing.type: Easing.OutExpo }
+                NumberAnimation { property: "height"; from: dashboardModal.targetH; to: dashboardModal.startH; duration: 300; easing.type: Easing.OutExpo }
+                NumberAnimation { target: modalBg; property: "radius"; from: 24; to: dashboardModal.startRadius; duration: 300; easing.type: Easing.OutExpo }
+                NumberAnimation { target: modalContent; property: "opacity"; from: 1; to: 0; duration: 150; easing.type: Easing.OutExpo }
+            }
+        }
+
         background: Rectangle {
+            id: modalBg
             color: ThemeManager.surface
             radius: 24
             border.color: ThemeManager.outlineVariant
             border.width: 1
+            clip: true
         }
         
-        ColumnLayout {
-            anchors.centerIn: parent
-            spacing: 24
-            
-            Label {
-                text: "im a dashboard"
-                font.pixelSize: 24
-                font.weight: Font.Medium
-                color: ThemeManager.onSurface
-                Layout.alignment: Qt.AlignHCenter
+        contentItem: Item {
+            id: modalContent
+            opacity: dashboardModal.opened ? 1 : 0
+            ColumnLayout {
+                anchors.centerIn: parent
+                spacing: 24
+                
+                Label {
+                    text: "im a dashboard"
+                    font.pixelSize: 24
+                    font.weight: Font.Medium
+                    color: ThemeManager.onSurface
+                    Layout.alignment: Qt.AlignHCenter
+                }
+                
+                Button {
+                    text: "Interactable Button"
+                    Layout.alignment: Qt.AlignHCenter
+                }
             }
-            
-            Button {
-                text: "Interactable Button"
-                Layout.alignment: Qt.AlignHCenter
-            }
+        }
+
+        function openFrom(sourceItem) {
+            var pt = sourceItem.mapToItem(dashboardModal.parent, 0, 0)
+            startX = pt.x
+            startY = pt.y
+            startW = sourceItem.width
+            startH = sourceItem.height
+            startRadius = sourceItem.radius || 0
+            open()
         }
     }
 }

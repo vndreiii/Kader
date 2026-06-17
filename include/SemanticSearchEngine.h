@@ -25,6 +25,7 @@ public slots:
     void generateTextEmbedding(const QString &text, int queryId);
     void indexPendingMedia();
     void indexPendingDocs(QStringList rootDirs);
+    void setResourceBudget(int mode) { m_resourceMode = mode; }
 
 signals:
     void loaded(bool ok);
@@ -58,6 +59,8 @@ private:
     int  m_docDone    = 0;
     int  m_docTotal   = 0;
     bool m_docRunning = false;
+
+    std::atomic<int> m_resourceMode{0};
 };
 
 // Public API — lives on the main thread
@@ -107,6 +110,7 @@ public:
     Q_INVOKABLE void indexAllMedia();
     Q_INVOKABLE void setDocsEnabled(bool enabled);
     Q_INVOKABLE void indexAllDocs();
+    void setResourceBudget(int mode);
 
     // Async cosine-similarity search; emits searchFinished([{id,score,type}]) when done
     Q_INVOKABLE void searchByText(const QString &query);

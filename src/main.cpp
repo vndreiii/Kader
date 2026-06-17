@@ -140,8 +140,10 @@ int main(int argc, char *argv[]) {
     // and RAM (libvips cache) so background work can't saturate the machine.
     auto applyResourceBudget = [&]() {
         int threads = settingsManager.workerThreads();
+        int mode = settingsManager.resourceMode();
         thumbGenerator.setResourceBudget(threads);
         fileScanner.setMaxThreads(threads);
+        semanticSearch.setResourceBudget(mode);
     };
     applyResourceBudget();
     QObject::connect(&settingsManager, &SettingsManager::resourceModeChanged, &app, applyResourceBudget);
