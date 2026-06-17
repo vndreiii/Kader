@@ -41,13 +41,12 @@ Rectangle {
 
         Behavior on width { NumberAnimation { duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
 
-        // Animate y with M3 Expressive Spatial curve for a bouncy native feel
+        // Animate y with a snappy bounce curve
         Behavior on y {
             NumberAnimation {
-                duration: 500 // Gives it enough time to feel the bounce
-                easing.type: Easing.BezierSpline
-                // M3 Expressive Spatial curve approximation with overshoot for bounce
-                easing.bezierCurve: [0.175, 0.885, 0.32, 1.275]
+                duration: 300 // Snappy and fast
+                easing.type: Easing.OutBack
+                easing.overshoot: 1.2
             }
         }
     }

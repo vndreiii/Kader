@@ -18,15 +18,7 @@ Item {
     // Active background grows out based on fill? We can just use standard opacity here
     Behavior on opacity { NumberAnimation { duration: ThemeManager.durShort; easing.type: Easing.OutQuint } }
 
-    // ── Active background ─────────────────────────────────────────────────
-    Rectangle {
-        anchors.fill: parent
-        anchors.leftMargin: 12; anchors.rightMargin: 12
-        radius: 28
-        color: ThemeManager.secondaryContainer
-        opacity: root.active ? 1.0 : 0.0
-        Behavior on opacity { NumberAnimation { duration: ThemeManager.durShort; easing.type: Easing.OutQuint } }
-    }
+
 
     Row {
         anchors.fill: parent
