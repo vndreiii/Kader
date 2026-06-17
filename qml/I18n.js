@@ -486,7 +486,8 @@ var _s = {
         "scan_exclusions": "Scan exclusion filters", "scan_exclusions_sub": "Directories whose path contains any of these substrings will be skipped.",
         "edit_album": "Edit album", "field_name": "Name", "field_desc_optional": "Description (optional)",
         "cover_photo": "Cover photo", "change_photo": "Change photo",
-        "cancel": "Cancel", "create_album": "Create album", "save": "Save"
+        "cancel": "Cancel", "create_album": "Create album", "save": "Save",
+        "photos": "photos", "video": "video", "other": "other", "free": "free", "total": "total"
     },
     "es": {
         "sort_by": "Ordenar por",
@@ -1340,7 +1341,8 @@ var _s = {
         "scan_exclusions": "スキャン除外フィルター", "scan_exclusions_sub": "これらの文字列を含むフォルダはスキップされます。",
         "edit_album": "アルバムを編集", "field_name": "名前", "field_desc_optional": "説明 (任意)",
         "cover_photo": "カバー写真", "change_photo": "写真を変更",
-        "cancel": "キャンセル", "create_album": "アルバムを作成", "save": "保存"
+        "cancel": "キャンセル", "create_album": "アルバムを作成", "save": "保存",
+        "photos": "写真", "video": "動画", "other": "その他", "free": "空き", "total": "合計"
     },
     "nl": {
         "sort_by": "Sorteren op",

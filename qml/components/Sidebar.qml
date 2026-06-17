@@ -192,17 +192,17 @@ Rectangle {
                 Row {
                     width: parent.width; spacing: 8
                     Rectangle { width: 8; height: 8; radius: 4; color: ThemeManager.primary; anchors.verticalCenter: parent.verticalCenter }
-                    Label { text: StorageManager.photoGb.toFixed(1) + " GB photos"; font.pixelSize: 11; color: ThemeManager.onSurfaceVariant }
+                    Label { text: StorageManager.photoGb.toFixed(1) + " GB " + I18n.t(Settings.language, "photos"); font.pixelSize: 11; color: ThemeManager.onSurfaceVariant }
                     Rectangle { width: 8; height: 8; radius: 4; color: ThemeManager.tertiary; anchors.verticalCenter: parent.verticalCenter }
-                    Label { text: StorageManager.videoGb.toFixed(1) + " GB video"; font.pixelSize: 11; color: ThemeManager.onSurfaceVariant }
+                    Label { text: StorageManager.videoGb.toFixed(1) + " GB " + I18n.t(Settings.language, "video"); font.pixelSize: 11; color: ThemeManager.onSurfaceVariant }
                 }
                 // Other + free/total on one line
                 Row {
                     width: parent.width; spacing: 6
                     Rectangle { width: 8; height: 8; radius: 4; color: ThemeManager.secondary; opacity: 0.7; anchors.verticalCenter: parent.verticalCenter }
-                    Label { text: parent._otherGb.toFixed(1) + " GB other"; font.pixelSize: 10; color: Qt.alpha(ThemeManager.onSurfaceVariant, 0.7) }
+                    Label { text: parent._otherGb.toFixed(1) + " GB " + I18n.t(Settings.language, "other"); font.pixelSize: 10; color: Qt.alpha(ThemeManager.onSurfaceVariant, 0.7) }
                     Label {
-                        text: StorageManager.freeGb.toFixed(1) + " GB free  " + StorageManager.totalGb.toFixed(0) + " GB total"
+                        text: StorageManager.freeGb.toFixed(1) + " GB " + I18n.t(Settings.language, "free") + "  " + StorageManager.totalGb.toFixed(0) + " GB " + I18n.t(Settings.language, "total")
                         font.pixelSize: 10; color: Qt.alpha(ThemeManager.onSurfaceVariant, 0.5)
                         elide: Text.ElideRight
                         width: parent.width - parent.children[0].width - parent.children[1].implicitWidth - parent.spacing * 2
@@ -245,6 +245,20 @@ Rectangle {
                     anchors.horizontalCenter: parent.horizontalCenter
                 }
             }
+            
+            Rectangle {
+                anchors.fill: parent
+                radius: parent.radius
+                color: ThemeManager.onSurface
+                opacity: mouseAreaStorage.pressed ? 0.12 : (mouseAreaStorage.containsMouse ? 0.08 : 0.0)
+                Behavior on opacity { NumberAnimation { duration: ThemeManager.durShort } }
+            }
+            MouseArea {
+                id: mouseAreaStorage
+                anchors.fill: parent
+                hoverEnabled: true
+                onClicked: dashboardModal.open()
+            }
         }
 
         SidebarItem {
@@ -256,5 +270,45 @@ Rectangle {
         }
 
         Item { width: 1; height: 8 }
+    }
+
+    Popup {
+        id: dashboardModal
+        parent: Overlay.overlay
+        width: parent ? parent.width * 0.85 : 800
+        height: parent ? parent.height * 0.85 : 600
+        anchors.centerIn: parent
+        modal: true
+        dim: true
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        
+        Overlay.modal: Rectangle {
+            color: Qt.rgba(0, 0, 0, 0.5)
+        }
+        
+        background: Rectangle {
+            color: ThemeManager.surface
+            radius: 24
+            border.color: ThemeManager.outlineVariant
+            border.width: 1
+        }
+        
+        ColumnLayout {
+            anchors.centerIn: parent
+            spacing: 24
+            
+            Label {
+                text: "im a dashboard"
+                font.pixelSize: 24
+                font.weight: Font.Medium
+                color: ThemeManager.onSurface
+                Layout.alignment: Qt.AlignHCenter
+            }
+            
+            Button {
+                text: "Interactable Button"
+                Layout.alignment: Qt.AlignHCenter
+            }
+        }
     }
 }
