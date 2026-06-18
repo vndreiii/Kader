@@ -47,7 +47,11 @@ M3Menu {
         onObjectRemoved: (index, object) => root.removeItem(object)
     }
 
-    M3MenuSeparator {}
+    // Only divides fields from order when there actually are fields above it.
+    M3MenuSeparator {
+        visible: root.fields.length > 0
+        height: visible ? implicitHeight : 0
+    }
 
     // ── Order ────────────────────────────────────────────────────────────────
     M3MenuItem {

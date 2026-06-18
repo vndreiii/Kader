@@ -9,9 +9,19 @@ Item {
     id: root
     anchors.fill: parent
 
-    // Populate the flat media list when the dashboard appears (and on reopen).
-    Component.onCompleted: MediaModel.refresh(Settings.hideIgnoredInTimeline)
-    onVisibleChanged: if (visible) MediaModel.refresh(Settings.hideIgnoredInTimeline)
+    // Current sort: field 0=Name 1=Date 2=Size 3=Format. Default newest-first.
+    property int  sortKey: 1
+    property bool sortAsc: false
+
+    // Reload the flat list from the DB and (re)apply the active sort.
+    function reload() {
+        MediaModel.refresh(Settings.hideIgnoredInTimeline)
+        MediaModel.sortBy(sortKey, sortAsc)
+    }
+
+    // Populate the list when the dashboard appears (and on reopen).
+    Component.onCompleted: reload()
+    onVisibleChanged: if (visible) reload()
 
     function formatSize(bytes) {
         if (bytes === 0) return "0 B"
@@ -100,10 +110,19 @@ Item {
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
-                onClicked: sortMenu.open()
+                onClicked: sortMenu.popup(sortBtn, 0, sortBtn.height + 4)
                 SortMenu {
                     id: sortMenu
-                    // Optional: bind to MediaModel.sortRole and sortOrder if available
+                    fields: [
+                        { key: 0, label: "Name" },
+                        { key: 1, label: "Date" },
+                        { key: 2, label: "Size" },
+                        { key: 3, label: "Format" }
+                    ]
+                    currentKey: root.sortKey
+                    ascending:  root.sortAsc
+                    onPick: (key) => { root.sortKey = key; MediaModel.sortBy(key, root.sortAsc) }
+                    onOrderPicked: (asc) => { root.sortAsc = asc; MediaModel.sortBy(root.sortKey, asc) }
                 }
             }
 

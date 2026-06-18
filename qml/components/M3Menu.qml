@@ -19,10 +19,14 @@ T.Menu {
 
     margins: 0
     padding: 0
-    // Slightly larger than 8 so the first/last row fill clears the (now larger)
-    // corner radius instead of poking into it.
-    verticalPadding: 12
+    // Match the corner radius so the first/last row's full-width fill (selection /
+    // hover state layer) sits entirely in the straight-edge zone and never pokes
+    // into the rounded corners.
+    verticalPadding: cornerRadius
     overlap: 0
+
+    // Single source of truth for the rounded corner (see background).
+    property int cornerRadius: 20
 
     // Render in-scene so the elevation shadow isn't clipped by a tight popup window.
     popupType: T.Popup.Item
@@ -67,8 +71,8 @@ T.Menu {
     background: Rectangle {
         implicitWidth: 220
         implicitHeight: 44
-        // Rounded to match the "Ordenar por" pill button (radius 24).
-        radius: 20
+        // Rounded to match the "Ordenar por" pill button.
+        radius: control.cornerRadius
         color: ThemeManager.surfaceContainer
 
         // Elevation level-2 drop shadow (QmlMaterial ElevationRectangle equivalent).

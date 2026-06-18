@@ -35,6 +35,8 @@ public:
     Q_INVOKABLE void refresh(bool hideIgnored = true);
     Q_INVOKABLE void clearSelection();
     Q_INVOKABLE void selectAll();
+    // field: 0=Name 1=Date 2=Size 3=Format
+    Q_INVOKABLE void sortBy(int field, bool ascending);
     Q_INVOKABLE QStringList getSelectedPaths() const;
 
 private:

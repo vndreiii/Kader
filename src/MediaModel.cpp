@@ -1,6 +1,9 @@
 #include "MediaModel.h"
 #include "DatabaseManager.h"
 #include "ThumbnailGenerator.h"
+#include <algorithm>
+#include <QDateTime>
+#include <QString>
 
 MediaModel::MediaModel(DatabaseManager *db, ThumbnailGenerator *thumb, QObject *parent)
     : QAbstractListModel(parent), m_db(db), m_thumb(thumb) {
@@ -94,6 +97,44 @@ void MediaModel::selectAll() {
             emit dataChanged(index(i, 0), index(i, 0), {SelectedRole});
         }
     }
+}
+
+void MediaModel::sortBy(int field, bool ascending) {
+    beginResetModel();
+    std::stable_sort(m_data.begin(), m_data.end(),
+                     [field, ascending](const QVariant &a, const QVariant &b) {
+        const QVariantMap ma = a.toMap();
+        const QVariantMap mb = b.toMap();
+        int cmp = 0;
+        switch (field) {
+            case 0: { // Name (file name, case-insensitive)
+                const QString na = ma.value("file_path").toString().section('/', -1).toLower();
+                const QString nb = mb.value("file_path").toString().section('/', -1).toLower();
+                cmp = QString::compare(na, nb);
+                break;
+            }
+            case 2: { // Size
+                const qint64 sa = ma.value("file_size").toLongLong();
+                const qint64 sb = mb.value("file_size").toLongLong();
+                cmp = (sa < sb) ? -1 : (sa > sb) ? 1 : 0;
+                break;
+            }
+            case 3: { // Format (mime type)
+                cmp = QString::compare(ma.value("mime_type").toString(),
+                                       mb.value("mime_type").toString());
+                break;
+            }
+            case 1:
+            default: { // Date
+                const qint64 da = ma.value("creation_date").toLongLong();
+                const qint64 db = mb.value("creation_date").toLongLong();
+                cmp = (da < db) ? -1 : (da > db) ? 1 : 0;
+                break;
+            }
+        }
+        return ascending ? (cmp < 0) : (cmp > 0);
+    });
+    endResetModel();
 }
 
 QStringList MediaModel::getSelectedPaths() const {
