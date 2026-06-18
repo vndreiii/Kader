@@ -177,7 +177,6 @@ int main(int argc, char *argv[]) {
 
     engine.addImportPath("qrc:/");
     engine.addImportPath(app.applicationDirPath() + "/qml_modules");
-    engine.addImportPath(QString(CMAKE_SOURCE_DIR) + "/lib/QmlMaterial");
 
     engine.rootContext()->setContextProperty("ThemeManager", &themeManager);
     engine.rootContext()->setContextProperty("StorageManager", &storageManager);
