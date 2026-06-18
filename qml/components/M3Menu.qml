@@ -19,7 +19,9 @@ T.Menu {
 
     margins: 0
     padding: 0
-    verticalPadding: 8
+    // Slightly larger than 8 so the first/last row fill clears the (now larger)
+    // corner radius instead of poking into it.
+    verticalPadding: 12
     overlap: 0
 
     // Render in-scene so the elevation shadow isn't clipped by a tight popup window.
@@ -65,7 +67,8 @@ T.Menu {
     background: Rectangle {
         implicitWidth: 220
         implicitHeight: 44
-        radius: 4
+        // Rounded to match the "Ordenar por" pill button (radius 24).
+        radius: 20
         color: ThemeManager.surfaceContainer
 
         // Elevation level-2 drop shadow (QmlMaterial ElevationRectangle equivalent).
