@@ -109,6 +109,8 @@ qt_add_qml_module(KaderApp
         qml/components/ImagePanner.qml
         qml/components/ExifModal.qml
         qml/components/MaterialSymbol.qml
+        qml/components/M3Menu.qml
+        qml/components/M3MenuItem.qml
         qml/components/M3Icon.qml
         qml/components/M3Switch.qml
         qml/components/SettingsRow.qml

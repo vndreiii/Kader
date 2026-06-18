@@ -2,7 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 
-// Reusable, UI-agnostic sort dropdown.
+// Reusable, UI-agnostic sort dropdown. Themed via M3Menu/M3MenuItem.
 //
 // Feed it a declarative `fields` list and bind the current selection; it emits
 // which field/order the user picked. Any view — or a future dashboard — reuses
@@ -18,7 +18,7 @@ import QtQuick.Controls
 //
 // Extra items (e.g. a type filter) may be nested in the instance; they appear
 // after the order rows.
-Menu {
+M3Menu {
     id: root
 
     property var    fields: []             // [{ key: int, label: string }]
@@ -33,35 +33,10 @@ Menu {
     // Cascade submenus (e.g. the type filter) open to the side as one focus unit.
     cascade: true
 
-    // Override the Menu's item delegate purely to swap the submenu arrow: the MD
-    // icon-font glyph (arrow_right) renders as a tofu box in this build, so we use
-    // the SVG-path M3Icon instead. Mirrors Menu's default delegate otherwise.
-    // (Only submenu-trigger items use this delegate; field/order items are explicit
-    // instances created elsewhere and keep their own behavior.)
-    delegate: MenuItem {
-        id: m_item
-        arrow: M3Icon {
-            x: m_item.mirrored ? m_item.padding : m_item.width - width - m_item.padding
-            y: m_item.topPadding + (m_item.availableHeight - height) / 2
-            visible: !!m_item.subMenu
-            size: 18
-            name: "chevron_right"
-            color: m_item.mdState.textColor
-        }
-        function clickedCB() {
-            if ((action as Action)?.closeMenu || root.autoClose)
-                triggered();
-        }
-        Component.onCompleted: {
-             
-            m_item.clicked.connect(clickedCB);
-        }
-    }
-
     // ── Sort fields ──────────────────────────────────────────────────────────
     Instantiator {
         model: root.fields
-        delegate: MenuItem {
+        delegate: M3MenuItem {
             required property var modelData
             text: modelData.label
             checkable: true
@@ -75,13 +50,13 @@ Menu {
     MenuSeparator {}
 
     // ── Order ────────────────────────────────────────────────────────────────
-    MenuItem {
+    M3MenuItem {
         text: root.ascLabel
         checkable: true
         checked: root.ascending
         onTriggered: root.orderPicked(true)
     }
-    MenuItem {
+    M3MenuItem {
         text: root.descLabel
         checkable: true
         checked: !root.ascending

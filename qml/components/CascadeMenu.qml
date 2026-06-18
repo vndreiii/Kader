@@ -23,7 +23,7 @@ import QtQuick.Templates as T
 //       MenuItem { text: "Granny Smith" }
 //   }
 
-Menu {
+M3Menu {
     id: root
 
     // Open anchored to the right side of triggerItem (a CascadeMenuItem).

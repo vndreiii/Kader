@@ -10,7 +10,7 @@ import QtQuick.Controls
 //   CascadeMenuItem { text: "Fruits with A"; submenu: fruitsMenu }
 //   CascadeMenu { id: fruitsMenu; ... }
 
-MenuItem {
+M3MenuItem {
     id: root
 
     property CascadeMenu submenu: null
@@ -20,9 +20,9 @@ MenuItem {
         x: root.mirrored ? root.padding : root.width - width - root.padding
         y: root.topPadding + (root.availableHeight - height) / 2
         visible: !!root.submenu
-        size: 24
+        size: 22
         name: "chevron_right"
-        color: ThemeManager.onSurface
+        color: ThemeManager.onSurfaceVariant
     }
 
     // Open submenu on hover (desktop — feels instant and natural)

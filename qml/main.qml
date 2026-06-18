@@ -511,12 +511,12 @@ ApplicationWindow {
                             onClicked: densityMenu.popup(densityBtn, 0, densityBtn.height + 4)
                         }
 
-                        Menu {
+                        M3Menu {
                             id: densityMenu
-                            MenuItem { text: I18n.t(Settings.language, "density_dense");       checkable: true; checked: Settings.mosaicDensity === 1; onTriggered: Settings.mosaicDensity = 1 }
-                            MenuItem { text: I18n.t(Settings.language, "density_compact");     checkable: true; checked: Settings.mosaicDensity === 2; onTriggered: Settings.mosaicDensity = 2 }
-                            MenuItem { text: I18n.t(Settings.language, "density_comfortable"); checkable: true; checked: Settings.mosaicDensity === 3; onTriggered: Settings.mosaicDensity = 3 }
-                            MenuItem { text: I18n.t(Settings.language, "density_spacious");    checkable: true; checked: Settings.mosaicDensity === 4; onTriggered: Settings.mosaicDensity = 4 }
+                            M3MenuItem { text: I18n.t(Settings.language, "density_dense");       checkable: true; checked: Settings.mosaicDensity === 1; onTriggered: Settings.mosaicDensity = 1 }
+                            M3MenuItem { text: I18n.t(Settings.language, "density_compact");     checkable: true; checked: Settings.mosaicDensity === 2; onTriggered: Settings.mosaicDensity = 2 }
+                            M3MenuItem { text: I18n.t(Settings.language, "density_comfortable"); checkable: true; checked: Settings.mosaicDensity === 3; onTriggered: Settings.mosaicDensity = 3 }
+                            M3MenuItem { text: I18n.t(Settings.language, "density_spacious");    checkable: true; checked: Settings.mosaicDensity === 4; onTriggered: Settings.mosaicDensity = 4 }
                         }
                     }
 
@@ -623,14 +623,14 @@ ApplicationWindow {
                                 visible: ["timeline","favorites"].indexOf(window.currentView) >= 0
                                 height: visible ? implicitHeight : 0
                             }
-                            Menu {
+                            M3Menu {
                                 id: typeMenu
                                 title: I18n.t(Settings.language, "filter_by_type")
                                 enabled: ["timeline","favorites"].indexOf(window.currentView) >= 0
                                 property var _types: []
                                 onAboutToShow: _types = TimelineModel.getAvailableMimeTypes()
 
-                                MenuItem {
+                                M3MenuItem {
                                     text: I18n.t(Settings.language, "filter_all_types")
                                     checkable: true
                                     checked: TimelineModel.mimeFilter === ""
@@ -640,7 +640,7 @@ ApplicationWindow {
 
                                 Instantiator {
                                     model: typeMenu._types
-                                    delegate: MenuItem {
+                                    delegate: M3MenuItem {
                                         required property string modelData
                                         text: {
                                             var m = {

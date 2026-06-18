@@ -187,20 +187,20 @@ Item {
     Loader {
         id: menuLoader
         active: false
-        sourceComponent: Menu {
-            MenuItem {
+        sourceComponent: M3Menu {
+            M3MenuItem {
                 text: I18n.t(Settings.language, "ctx_select")
                 onTriggered: root.enterSelectionMode()
             }
-            MenuItem {
+            M3MenuItem {
                 text: root._isFav ? "Unfavorite" : "Favorite"
                 onTriggered: { if (root._mediaId) { DB.toggleFavorite(root._mediaId); TimelineModel.refresh() } }
             }
-            MenuItem {
+            M3MenuItem {
                 text: I18n.t(Settings.language, "ctx_open_folder")
                 onTriggered: { if (root._folderPath) Qt.openUrlExternally("file://" + root._folderPath) }
             }
-            MenuItem {
+            M3MenuItem {
                 text: I18n.t(Settings.language, "ctx_send_album")
                 visible: TimelineModel.filterMode !== TimelineModel.HiddenMode
                 onTriggered: {
@@ -209,7 +209,7 @@ Item {
                     sendLoader.item.open()
                 }
             }
-            MenuItem {
+            M3MenuItem {
                 text: root._isHidden ? "Unhide" : "Hide"
                 onTriggered: {
                     if (root._mediaId) {
@@ -218,7 +218,7 @@ Item {
                     }
                 }
             }
-            MenuItem {
+            M3MenuItem {
                 text: root._isTrashed ? "Restore" : "Move to Trash"
                 onTriggered: {
                     if (root._mediaId) {
@@ -227,7 +227,7 @@ Item {
                     }
                 }
             }
-            MenuItem {
+            M3MenuItem {
                 text: I18n.t(Settings.language, "tip_delete_perm")
                 onTriggered: {
                     if (root._mediaId) { DB.deleteMediaPermanently(root._mediaId); TimelineModel.refresh() }

@@ -60,13 +60,13 @@ Item {
             property string _desc:      model.description || ""
             property string _coverPath: model.coverPath || ""
 
-            Menu {
+            M3Menu {
                 id: albumMenu
-                MenuItem {
+                M3MenuItem {
                     text: I18n.t(Settings.language, "ctx_select")
                     onTriggered: { root.selectionMode = true; root.selectAlbum(albumItem._path) }
                 }
-                MenuItem {
+                M3MenuItem {
                     text: I18n.t(Settings.language, "ctx_edit_album")
                     onTriggered: {
                         albumEditModal.folderPath = albumItem._path
@@ -76,15 +76,15 @@ Item {
                         albumEditModal.open()
                     }
                 }
-                MenuItem {
+                M3MenuItem {
                     text: albumItem._pinned ? "Unpin album" : "Pin album"
                     onTriggered: { DB.pinAlbum(albumItem._path, !albumItem._pinned); AlbumModel.refresh() }
                 }
-                MenuItem {
+                M3MenuItem {
                     text: I18n.t(Settings.language, "ctx_add_ignored")
                     onTriggered: { DB.ignoreAlbum(albumItem._path, true); AlbumModel.refresh(); TimelineModel.refresh() }
                 }
-                MenuItem {
+                M3MenuItem {
                     text: I18n.t(Settings.language, "ctx_move_trash")
                     onTriggered: { DB.trashAlbum(albumItem._path); AlbumModel.refresh(); TimelineModel.refresh() }
                 }
