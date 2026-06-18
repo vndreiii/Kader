@@ -85,6 +85,17 @@ void MediaModel::clearSelection() {
     }
 }
 
+void MediaModel::selectAll() {
+    for (int i = 0; i < m_data.count(); ++i) {
+        QVariantMap map = m_data.at(i).toMap();
+        if (!map.value("selected", false).toBool()) {
+            map["selected"] = true;
+            m_data[i] = map;
+            emit dataChanged(index(i, 0), index(i, 0), {SelectedRole});
+        }
+    }
+}
+
 QStringList MediaModel::getSelectedPaths() const {
     QStringList paths;
     for (const auto& v : m_data) {

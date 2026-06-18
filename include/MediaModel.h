@@ -34,6 +34,7 @@ public:
 
     Q_INVOKABLE void refresh(bool hideIgnored = true);
     Q_INVOKABLE void clearSelection();
+    Q_INVOKABLE void selectAll();
     Q_INVOKABLE QStringList getSelectedPaths() const;
 
 private:

@@ -9,6 +9,10 @@ Item {
     id: root
     anchors.fill: parent
 
+    // Populate the flat media list when the dashboard appears (and on reopen).
+    Component.onCompleted: MediaModel.refresh(Settings.hideIgnoredInTimeline)
+    onVisibleChanged: if (visible) MediaModel.refresh(Settings.hideIgnoredInTimeline)
+
     function formatSize(bytes) {
         if (bytes === 0) return "0 B"
         let k = 1024, dm = 2, sizes = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"],
@@ -81,43 +85,70 @@ Item {
             spacing: 8
 
             Button {
+                id: sortBtn
                 text: "Sort"
+                leftPadding: 20; rightPadding: 20; topPadding: 10; bottomPadding: 10
+                background: Rectangle {
+                    radius: 20
+                    color: sortBtn.down ? Qt.darker(ThemeManager.secondaryContainer, 1.1)
+                                        : ThemeManager.secondaryContainer
+                }
+                contentItem: Label {
+                    text: sortBtn.text
+                    color: ThemeManager.onSecondaryContainer
+                    font.pixelSize: 14
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
                 onClicked: sortMenu.open()
                 SortMenu {
                     id: sortMenu
-                    // Optional: bind to mediaModel.sortRole and sortOrder if available
+                    // Optional: bind to MediaModel.sortRole and sortOrder if available
                 }
             }
 
             Item { Layout.fillWidth: true } // Spacer
 
             Button {
+                id: selectAllBtn
                 text: "Select All"
-                onClicked: {
-                    for (let i = 0; i < mediaModel.rowCount(); i++) {
-                        mediaModel.setData(mediaModel.index(i, 0), true, mediaModel.SelectedRole)
-                    }
-                }
-            }
-            
-            Button {
-                text: "Delete Selected"
+                leftPadding: 20; rightPadding: 20; topPadding: 10; bottomPadding: 10
                 background: Rectangle {
                     radius: 20
-                    color: ThemeManager.error
+                    color: selectAllBtn.down ? Qt.darker(ThemeManager.secondaryContainer, 1.1)
+                                             : ThemeManager.secondaryContainer
                 }
                 contentItem: Label {
-                    text: parent.text
+                    text: selectAllBtn.text
+                    color: ThemeManager.onSecondaryContainer
+                    font.pixelSize: 14
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+                onClicked: MediaModel.selectAll()
+            }
+
+            Button {
+                id: deleteBtn
+                text: "Delete Selected"
+                leftPadding: 20; rightPadding: 20; topPadding: 10; bottomPadding: 10
+                background: Rectangle {
+                    radius: 20
+                    color: deleteBtn.down ? Qt.darker(ThemeManager.error, 1.1) : ThemeManager.error
+                }
+                contentItem: Label {
+                    text: deleteBtn.text
                     color: ThemeManager.onError
+                    font.pixelSize: 14
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
                 onClicked: {
-                    let paths = mediaModel.getSelectedPaths()
+                    let paths = MediaModel.getSelectedPaths()
                     for (let i = 0; i < paths.length; i++) {
-                        DbManager.trashMedia(paths[i])
+                        DB.trashMedia(paths[i])
                     }
-                    mediaModel.refresh(Settings.hideIgnoredInTimeline)
+                    MediaModel.refresh(Settings.hideIgnoredInTimeline)
                 }
             }
         }
@@ -142,7 +173,7 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
-            model: mediaModel
+            model: MediaModel
             spacing: 8
 
             delegate: Item {
@@ -231,8 +262,8 @@ Item {
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
-                                DbManager.trashMedia(path)
-                                mediaModel.refresh(Settings.hideIgnoredInTimeline)
+                                DB.trashMedia(path)
+                                MediaModel.refresh(Settings.hideIgnoredInTimeline)
                             }
                         }
                     }
