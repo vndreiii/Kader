@@ -1,7 +1,9 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 
 import "../components"
+import "../I18n.js" as I18n
 
 Item {
     id: root
