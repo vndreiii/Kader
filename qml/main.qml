@@ -636,7 +636,7 @@ ApplicationWindow {
                                     checked: TimelineModel.mimeFilter === ""
                                     onTriggered: TimelineModel.setMimeFilter("")
                                 }
-                                MenuSeparator {}
+                                M3MenuSeparator {}
 
                                 Instantiator {
                                     model: typeMenu._types

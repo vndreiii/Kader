@@ -47,7 +47,7 @@ M3Menu {
         onObjectRemoved: (index, object) => root.removeItem(object)
     }
 
-    MenuSeparator {}
+    M3MenuSeparator {}
 
     // ── Order ────────────────────────────────────────────────────────────────
     M3MenuItem {

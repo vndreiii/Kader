@@ -2,13 +2,12 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Templates as T
 
-// Material 3 styled menu item — the local replacement for QmlMaterial's
-// MD.MenuItem + StateMenuItem. Fully themed from ThemeManager tokens so menus
-// stop falling back to Qt's unstyled Basic look.
+// 1:1 local port of QmlMaterial's MD.MenuItem + StateMenuItem — no Qcm.Material
+// dependency. Driven by ThemeManager tokens.
 //
-// Mirrors M3 spec: 48px row, label-large text, on_surface foreground, a
-// translucent state layer for hover/press (instead of a solid highlight), and
-// a leading check indicator for checkable rows.
+//   row height 48 · padding 16 · spacing 16 · label-large (14 / Medium / +0.1)
+//   text on_surface · selected row = secondary_container fill
+//   hover/press = on_surface state layer (8% / 10%) + center ripple
 T.MenuItem {
     id: control
 
@@ -16,50 +15,31 @@ T.MenuItem {
                             implicitContentWidth + leftPadding + rightPadding,
                             implicitIndicatorWidth + leftPadding + rightPadding)
     implicitHeight: Math.max(implicitBackgroundHeight + topInset + bottomInset,
-                             implicitContentHeight + topPadding + bottomPadding,
-                             implicitIndicatorHeight + topPadding + bottomPadding)
+                             implicitContentHeight + topPadding + bottomPadding)
 
-    padding: 12
-    spacing: 12
+    padding: 16
+    verticalPadding: 0
+    spacing: 16
 
     icon.width: 24
     icon.height: 24
 
-    // M3 "label large"
+    // label_large
     font.pixelSize: 14
     font.weight: Font.Medium
     font.letterSpacing: 0.1
 
-    // Leading check indicator — only for checkable rows (sort order, type filter).
-    indicator: Rectangle {
-        x: control.mirrored ? control.width - width - control.leftPadding : control.leftPadding
-        y: control.topPadding + (control.availableHeight - height) / 2
-        implicitWidth: control.checkable ? 20 : 0
-        implicitHeight: 20
-        visible: control.checkable
-        radius: 6
-        color: control.checked ? ThemeManager.primary : "transparent"
-        border.width: control.checked ? 0 : 2
-        border.color: ThemeManager.onSurfaceVariant
-        Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
-
-        M3Icon {
-            anchors.centerIn: parent
-            name: "check"
-            size: 14
-            color: ThemeManager.onPrimary
-            visible: control.checked
-        }
-    }
+    // QmlMaterial's MenuItem had its CheckIndicator disabled; selection is shown
+    // by the secondary_container row fill (see background), so no leading box.
+    indicator: null
 
     contentItem: Text {
-        readonly property real _lead: control.checkable ? (20 + control.spacing) : 0
         readonly property real _trail: control.subMenu ? (22 + control.spacing) : 0
-        leftPadding: control.mirrored ? _trail : _lead
-        rightPadding: control.mirrored ? _lead : _trail
+        leftPadding: control.mirrored ? _trail : 0
+        rightPadding: control.mirrored ? 0 : _trail
         text: control.text
         font: control.font
-        color: control.enabled ? ThemeManager.onSurface : ThemeManager.onSurfaceVariant
+        color: ThemeManager.onSurface
         opacity: control.enabled ? 1.0 : 0.38
         elide: Text.ElideRight
         horizontalAlignment: Text.AlignLeft
@@ -77,19 +57,40 @@ T.MenuItem {
 
     background: Rectangle {
         implicitWidth: 224
-        implicitHeight: 44
-        color: "transparent"
+        implicitHeight: 48
+        // Selected row fill (StateMenuItem.backgroundColor).
+        color: control.checked ? ThemeManager.secondaryContainer : "transparent"
+        Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
 
-        // M3 state layer: translucent on_surface overlay for hover / press /
-        // keyboard highlight — replaces Basic's harsh solid accent fill.
-        Rectangle {
+        // State + ripple layer, clipped to the row.
+        Item {
             anchors.fill: parent
-            color: ThemeManager.onSurface
-            opacity: !control.enabled ? 0
-                   : control.down ? 0.10
-                   : (control.hovered || control.highlighted) ? 0.08
-                   : 0
-            Behavior on opacity { NumberAnimation { duration: ThemeManager.durShort } }
+            clip: true
+
+            // Hover / focus / press state layer (on_surface).
+            Rectangle {
+                anchors.fill: parent
+                color: ThemeManager.onSurface
+                opacity: !control.enabled ? 0
+                       : control.down ? 0.10
+                       : (control.hovered || control.highlighted) ? 0.08
+                       : 0
+                Behavior on opacity { NumberAnimation { duration: ThemeManager.durShort } }
+            }
+
+            // Press ripple — expands from centre, fades on release.
+            Rectangle {
+                id: ripple
+                anchors.centerIn: parent
+                width: parent.width * 1.8
+                height: width
+                radius: width / 2
+                color: ThemeManager.onSurface
+                opacity: control.down ? 0.10 : 0.0
+                scale: control.down ? 1.0 : 0.0
+                Behavior on opacity { NumberAnimation { duration: ThemeManager.durMed; easing.type: Easing.OutCubic } }
+                Behavior on scale  { NumberAnimation { duration: ThemeManager.durMed; easing.type: Easing.OutCubic } }
+            }
         }
     }
 }
