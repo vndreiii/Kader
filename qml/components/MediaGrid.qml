@@ -41,11 +41,17 @@ Item {
         onTriggered: TimelineModel.setContentWidth(Math.round(root.contentW))
     }
     onContentWChanged: widthDebounce.restart()
-    Component.onCompleted: TimelineModel.setContentWidth(Math.round(contentW))
+    Component.onCompleted: {
+        TimelineModel.setLayoutMetrics(Math.round(gap), 56)
+        TimelineModel.setContentWidth(Math.round(contentW))
+    }
 
     // ── Preserve scroll position across model rebuilds ───────────────────
     property real _savedY: 0
     property bool _pendingRestore: false
+    // Bumped on every relayout so recycled cell bindings (rowY/rowH/rowData)
+    // re-evaluate even when a slot keeps the same rowIndex.
+    property int  _layoutRev: 0
 
     // Smooth wheel scroll target — accumulates delta across rapid wheel events.
     property real _scrollTarget: 0
@@ -54,15 +60,7 @@ Item {
         target: TimelineModel
         function onModelAboutToBeReset() {
             root._savedY = listView.contentY
-        }
-        function onModelReset() {
-            if (root._savedY > 0) {
-                Qt.callLater(function() {
-                    var newY = Math.min(root._savedY, Math.max(0, listView.contentHeight - listView.height))
-                    listView.contentY = newY
-                    root._scrollTarget = newY
-                })
-            }
+            root._pendingRestore = true
         }
     }
 
@@ -96,21 +94,24 @@ Item {
         }
     }
 
-    ListView {
+    // Exact-layout virtualized grid. The model knows every row's precise Y/height
+    // (TimelineModel.rowY/rowH/totalContentHeight), so we drive a plain Flickable
+    // with an EXACT contentHeight — no ListView height estimation, hence no
+    // bottom spring-back / jump on large libraries. A fixed pool of row delegates
+    // is recycled (ring buffer keyed by rowIndex % poolSize) as the view scrolls.
+    Flickable {
         id: listView
         anchors.fill: parent
-        model: TimelineModel
         clip: true
-        spacing: root.gap
-        leftMargin: hMargin
-        rightMargin: hMargin
-        topMargin: 0
-        bottomMargin: root.selectionMode ? 88 : 40
-        cacheBuffer: Math.round(height * 1.5)
-        reuseItems: true
-        visible: count > 0
+        contentWidth: width
+        contentHeight: (root._layoutRev, TimelineModel.totalContentHeight())
+                       + (root.selectionMode ? 88 : 40)
+        boundsBehavior: Flickable.StopAtBounds
+        flickDeceleration: 3000
+        maximumFlickVelocity: 4000
+        pixelAligned: true
+        visible: contentHeight > (root.selectionMode ? 88 : 40)
 
-        // WheelHandler inside ListView takes priority over Flickable's built-in wheel scroll.
         WheelHandler {
             id: wheelHandler
             acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
@@ -121,79 +122,122 @@ Item {
                     ? event.pixelDelta.y
                     : event.angleDelta.y / 120.0 * 100
                 var maxY = Math.max(0, listView.contentHeight - listView.height)
-                // If a previous glide already finished, resync the target to the
-                // real position so we don't accumulate drift.
                 if (!scrollSmooth.running) root._scrollTarget = listView.contentY
                 root._scrollTarget = Math.max(0, Math.min(maxY, root._scrollTarget - dy))
                 scrollSmooth.running = true
             }
         }
 
-        pixelAligned: true
-        boundsBehavior: Flickable.StopAtBounds
-        flickDeceleration: 3000
-        maximumFlickVelocity: 4000
-
-        // Keep _scrollTarget in sync when scrubber drags contentY directly.
         onContentYChanged: {
-            if (scrubber._dragging)
-                root._scrollTarget = listView.contentY
+            if (scrubber._dragging) root._scrollTarget = listView.contentY
+            recycler.update()
         }
+        onHeightChanged: recycler.update()
+        Component.onCompleted: recycler.update()
 
-        delegate: Item {
-            id: rowItem
-            readonly property bool   _isHeader: model.isHeader   || false
-            readonly property string _month:    model.monthName  || ""
-            readonly property var    _items:    model.items      || []
-            // heightMult carries the actual row pixel height from aspect-ratio packing
-            readonly property real   _rowH:     model.heightMult || 200
+        Item {
+            id: recycler
+            width: listView.width
+            height: listView.contentHeight
 
-            width:  listView.width - root.hMargin * 2
-            height: _isHeader ? 56 : Math.round(_rowH)
+            // Realize one extra half-viewport above and below the visible area.
+            property int buffer: Math.round(listView.height * 0.5)
+            // Pool big enough to cover the window even with minimum-height rows.
+            property int poolSize: Math.max(12, Math.ceil((listView.height + 2 * buffer) / 48) + 6)
 
-            Rectangle {
-                visible: rowItem._isHeader
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: 10
-                height: 30
-                width: dateLabel.implicitWidth + 20
-                radius: 15
-                color: ThemeManager.surfaceContainerHigh
-                Label {
-                    id: dateLabel
-                    anchors.centerIn: parent
-                    text: rowItem._month
-                    font.family: "Roboto Flex"
-                    font.pixelSize: 13
-                    font.weight: Font.Medium
-                    color: ThemeManager.onSurface
+            function update() {
+                if (TimelineModel.totalContentHeight() <= 0) return
+                var top = Math.max(0, listView.contentY - buffer)
+                var bot = listView.contentY + listView.height + buffer
+                var f = TimelineModel.firstRowAtY(top)
+                var l = TimelineModel.firstRowAtY(bot)
+                for (var r = f; r <= l; r++) {
+                    var it = pool.itemAt(r % pool.count)
+                    if (it) it.rowIndex = r
                 }
             }
 
-            Row {
-                visible: !rowItem._isHeader
-                spacing: root.gap
+            Connections {
+                target: TimelineModel
+                function onLayoutChanged() {
+                    root._layoutRev++
+                    Qt.callLater(function() {
+                        if (root._pendingRestore) {
+                            var maxY = Math.max(0, listView.contentHeight - listView.height)
+                            listView.contentY = Math.min(root._savedY, maxY)
+                            root._scrollTarget = listView.contentY
+                            root._pendingRestore = false
+                        }
+                        recycler.update()
+                    })
+                }
+            }
 
-                Repeater {
-                    model: rowItem._items
+            Repeater {
+                id: pool
+                model: recycler.poolSize
 
-                    Tile {
-                        width:  modelData ? (modelData.item_width  || Math.round(rowItem._rowH * 1.33)) : Math.round(rowItem._rowH * 1.33)
-                        height: rowItem._rowH
-                        tileData: modelData
-                        selectable: root.selectionMode
-                        selected: modelData ? root.isSelected(modelData.id) : false
-                        onOpen: {
-                            if (modelData) root.openViewer(modelData, modelData._flat_index || 0)
+                delegate: Item {
+                    id: rowItem
+                    property int rowIndex: -1
+
+                    readonly property var    _d:        rowIndex >= 0 ? (root._layoutRev, TimelineModel.rowData(rowIndex)) : ({})
+                    readonly property bool   _isHeader: _d.isHeader  || false
+                    readonly property string _month:    _d.monthName || ""
+                    readonly property var    _items:    _d.items     || []
+                    readonly property real   _rowH:     _d.heightMult || 200
+
+                    x: root.hMargin
+                    width:  listView.width - root.hMargin * 2
+                    y:      rowIndex >= 0 ? (root._layoutRev, TimelineModel.rowY(rowIndex)) : 0
+                    height: rowIndex >= 0 ? (root._layoutRev, TimelineModel.rowH(rowIndex)) : 0
+                    visible: rowIndex >= 0 && height > 0
+
+                    Rectangle {
+                        visible: rowItem._isHeader
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: 10
+                        height: 30
+                        width: dateLabel.implicitWidth + 20
+                        radius: 15
+                        color: ThemeManager.surfaceContainerHigh
+                        Label {
+                            id: dateLabel
+                            anchors.centerIn: parent
+                            text: rowItem._month
+                            font.family: "Roboto Flex"
+                            font.pixelSize: 13
+                            font.weight: Font.Medium
+                            color: ThemeManager.onSurface
                         }
-                        onToggleFav: {
-                            if (modelData) { DB.toggleFavorite(modelData.id); TimelineModel.refresh() }
-                        }
-                        onSelectToggle: {
-                            if (modelData) root.toggleSelect(modelData.id)
-                        }
-                        onEnterSelectionMode: {
-                            if (modelData) { root.selectionMode = true; root.selectId(modelData.id) }
+                    }
+
+                    Row {
+                        visible: !rowItem._isHeader
+                        spacing: root.gap
+
+                        Repeater {
+                            model: rowItem._items
+
+                            Tile {
+                                width:  modelData ? (modelData.item_width  || Math.round(rowItem._rowH * 1.33)) : Math.round(rowItem._rowH * 1.33)
+                                height: rowItem._rowH
+                                tileData: modelData
+                                selectable: root.selectionMode
+                                selected: modelData ? root.isSelected(modelData.id) : false
+                                onOpen: {
+                                    if (modelData) root.openViewer(modelData, modelData._flat_index || 0)
+                                }
+                                onToggleFav: {
+                                    if (modelData) { DB.toggleFavorite(modelData.id); TimelineModel.refresh() }
+                                }
+                                onSelectToggle: {
+                                    if (modelData) root.toggleSelect(modelData.id)
+                                }
+                                onEnterSelectionMode: {
+                                    if (modelData) { root.selectionMode = true; root.selectId(modelData.id) }
+                                }
+                            }
                         }
                     }
                 }
@@ -204,7 +248,7 @@ Item {
     // ── Fast-scroll date scrubber ────────────────────────────────────────
     Rectangle {
         id: scrubber
-        visible: listView.count > 0 && listView.contentHeight > listView.height * 1.5
+        visible: listView.contentHeight > listView.height * 1.5
         anchors.right: parent.right
         anchors.rightMargin: 4
         anchors.top: parent.top
@@ -219,8 +263,7 @@ Item {
         // monthAtRow() scans upward from the estimated row to the nearest header.
         readonly property string _currentMonth: {
             if (!_dragging) return ""
-            var idx = Math.floor(listView.visibleArea.yPosition * listView.count)
-            idx = Math.max(0, Math.min(listView.count - 1, idx))
+            var idx = TimelineModel.firstRowAtY(listView.contentY + listView.height / 2)
             return TimelineModel.monthAtRow(idx) || ""
         }
 
@@ -292,9 +335,8 @@ Item {
             onPressed: (mouse) => {
                 listView.cancelFlick()
                 scrollSmooth.running = false   // hand control to the drag
-                var idx = Math.round(listView.visibleArea.yPosition * listView.count)
-                idx = Math.max(0, Math.min(listView.count - 1, idx))
-                scrubber._startMonth = TimelineModel.data(TimelineModel.index(idx, 0), 258) || ""
+                var idx = TimelineModel.firstRowAtY(listView.contentY + listView.height / 2)
+                scrubber._startMonth = TimelineModel.monthAtRow(idx) || ""
                 scrubber._dragging = true
                 _applyScroll(mouse.y)
             }
@@ -332,16 +374,20 @@ Item {
         }
 
         function _tileAtPos(mx, my, selectOnly) {
-            var pt = selOverlay.mapToItem(listView.contentItem, mx, my)
-            var delegate = listView.itemAt(pt.x, pt.y)
-            if (!delegate || delegate._isHeader || !delegate._items || !delegate._items.length) return
-            var delPt = selOverlay.mapToItem(delegate, mx, my)
+            // Model-based hit test (no realized-delegate lookup): content Y → row,
+            // then walk that row's items by their packed widths.
+            var contentY = listView.contentY + my
+            var row = TimelineModel.firstRowAtY(contentY)
+            var d = TimelineModel.rowData(row)
+            if (!d || d.isHeader || !d.items || !d.items.length) return
+            var localX = mx - root.hMargin
+            if (localX < 0) return
             var rowX = 0
-            for (var i = 0; i < delegate._items.length; i++) {
-                var item = delegate._items[i]
-                var w = item.item_width || Math.round(delegate._rowH * 1.33)
-                if (delPt.x >= rowX && delPt.x < rowX + w) {
-                    if (item.id) {
+            for (var i = 0; i < d.items.length; i++) {
+                var item = d.items[i]
+                var w = item.item_width || Math.round((d.heightMult || 200) * 1.33)
+                if (localX >= rowX && localX < rowX + w) {
+                    if (item.id !== undefined) {
                         if (selectOnly) root.selectId(item.id)
                         else root.toggleSelect(item.id)
                     }
@@ -519,7 +565,7 @@ Item {
     // Empty state
     ColumnLayout {
         anchors.centerIn: parent
-        visible: listView.count === 0
+        visible: (root._layoutRev, TimelineModel.totalContentHeight()) <= 0
         spacing: 16
 
         readonly property int    mode:    TimelineModel.filterMode

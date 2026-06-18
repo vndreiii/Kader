@@ -158,6 +158,61 @@ QVariantList TimelineModel::getFlatMediaList() const {
     return flat;
 }
 
+void TimelineModel::rebuildLayout() {
+    m_rowY.resize(m_rows.size());
+    int y = 0;
+    for (int i = 0; i < m_rows.size(); ++i) {
+        m_rowY[i] = y;
+        const int h = m_rows[i].isHeader ? m_headerHeight
+                                         : qRound(m_rows[i].heightMult);
+        y += h;
+        if (i < m_rows.size() - 1) y += m_rowSpacing;
+    }
+    m_totalHeight = y;
+    emit layoutChanged();
+}
+
+void TimelineModel::setLayoutMetrics(int rowSpacing, int headerHeight) {
+    if (rowSpacing == m_rowSpacing && headerHeight == m_headerHeight) return;
+    m_rowSpacing = rowSpacing;
+    m_headerHeight = headerHeight;
+    rebuildLayout();
+}
+
+int TimelineModel::rowY(int row) const {
+    if (row < 0 || row >= m_rowY.size()) return 0;
+    return m_rowY[row];
+}
+
+int TimelineModel::rowH(int row) const {
+    if (row < 0 || row >= m_rows.size()) return 0;
+    return m_rows[row].isHeader ? m_headerHeight : qRound(m_rows[row].heightMult);
+}
+
+int TimelineModel::firstRowAtY(int y) const {
+    if (m_rowY.isEmpty()) return 0;
+    if (y <= 0) return 0;
+    // Largest row whose top Y is <= y (binary search over cumulative offsets).
+    int lo = 0, hi = m_rowY.size() - 1, ans = 0;
+    while (lo <= hi) {
+        const int mid = (lo + hi) / 2;
+        if (m_rowY[mid] <= y) { ans = mid; lo = mid + 1; }
+        else                  { hi = mid - 1; }
+    }
+    return ans;
+}
+
+QVariantMap TimelineModel::rowData(int row) const {
+    QVariantMap m;
+    if (row < 0 || row >= m_rows.size()) return m;
+    const Row &r = m_rows.at(row);
+    m["isHeader"]   = r.isHeader;
+    m["monthName"]  = r.monthName;
+    m["items"]      = r.items;
+    m["heightMult"] = r.heightMult;
+    return m;
+}
+
 void TimelineModel::refresh(bool hideIgnored) {
     beginResetModel();
     m_rows.clear();
@@ -342,6 +397,7 @@ void TimelineModel::refresh(bool hideIgnored) {
     qDebug() << "Timeline refresh:" << m_rows.size() << "rows ("
              << allMedia.size() << "items," << m_numColumns << "cols)";
     endResetModel();
+    rebuildLayout();
 }
 
 QString TimelineModel::monthAtRow(int row) const {

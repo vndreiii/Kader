@@ -68,7 +68,17 @@ public:
     Q_INVOKABLE void markAsViewed(int mediaId);
     Q_INVOKABLE QStringList getAvailableMimeTypes() const;
 
+    // Exact layout — the grid uses these instead of ListView's estimated
+    // contentHeight, so large libraries scroll precisely (no bottom spring-back).
+    Q_INVOKABLE void setLayoutMetrics(int rowSpacing, int headerHeight);
+    Q_INVOKABLE int  totalContentHeight() const { return m_totalHeight; }
+    Q_INVOKABLE int  rowY(int row) const;        // top Y of a row
+    Q_INVOKABLE int  rowH(int row) const;        // pixel height of a row
+    Q_INVOKABLE int  firstRowAtY(int y) const;   // row whose band contains Y
+    Q_INVOKABLE QVariantMap rowData(int row) const;
+
 signals:
+    void layoutChanged();
     void filterModeChanged();
     void numColumnsChanged();
     void folderFilterChanged();
@@ -88,8 +98,14 @@ private:
         float        heightMult = 1.0f;
     };
 
+    void rebuildLayout();
+
     DatabaseManager *m_db;
     QList<Row>       m_rows;
+    QList<int>       m_rowY;             // cumulative top Y per row
+    int              m_totalHeight = 0;
+    int              m_rowSpacing  = 6;
+    int              m_headerHeight = 56;
     FilterMode       m_filterMode = AllMode;
     int              m_numColumns = 4;
     int              m_contentWidth = 1200;
