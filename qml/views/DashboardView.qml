@@ -135,7 +135,7 @@ Item {
             Item { Layout.preferredWidth: 40; Layout.preferredHeight: 20 } // Action space
         }
 
-        Divider { Layout.fillWidth: true; Layout.topMargin: -16 }
+        Rectangle { Layout.fillWidth: true; Layout.topMargin: -16; height: 1; color: ThemeManager.outlineVariant }
 
         // List
         ListView {
@@ -222,12 +222,18 @@ Item {
                         Layout.alignment: Qt.AlignVCenter
                     }
 
-                    IconButton {
-                        icon: "delete"
+                    MaterialSymbol {
+                        name: "delete"
+                        size: 22
+                        color: ThemeManager.onSurfaceVariant
                         Layout.alignment: Qt.AlignVCenter
-                        onClicked: {
-                            DbManager.trashMedia(path)
-                            mediaModel.refresh(Settings.hideIgnoredInTimeline)
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                DbManager.trashMedia(path)
+                                mediaModel.refresh(Settings.hideIgnoredInTimeline)
+                            }
                         }
                     }
                 }
