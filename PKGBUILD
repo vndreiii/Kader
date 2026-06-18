@@ -49,7 +49,7 @@ build() {
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/usr \
         -DBUILD_TESTING=OFF
-    cmake --build build-pkg
+    cmake --build build-pkg -j4
 }
 
 package() {
