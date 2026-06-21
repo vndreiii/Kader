@@ -218,9 +218,9 @@ Item {
                     anchors.margins: 8
                     spacing: 16
 
-                    CheckBox {
+                    M3CheckBox {
                         checked: isSelected
-                        onClicked: isSelected = checked
+                        onToggled: (v) => isSelected = v
                         Layout.alignment: Qt.AlignVCenter
                     }
 

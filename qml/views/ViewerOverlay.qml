@@ -188,15 +188,37 @@ Rectangle {
             onMouseYChanged: { root._controlsVisible = true; controlsHideTimer.restart() }
             cursorShape: (root._vidFs && !root._controlsVisible) ? Qt.BlankCursor : Qt.ArrowCursor
         }
-        // Double-click toggles video fullscreen
+        // Double-click toggles video fullscreen; drag pans when zoomed in
         MouseArea {
+            id: videoMouseArea
             anchors.fill: parent
             visible: root._isVideo
             acceptedButtons: Qt.LeftButton
             z: 9
             propagateComposedEvents: true
+
+            property real _dragStartX:    0
+            property real _dragStartY:    0
+            property real _dragStartPanX: 0
+            property real _dragStartPanY: 0
+
             onDoubleClicked: root.toggleVideoFullscreen()
+
+            onPressed: {
+                if (root._zoom > 1.05) {
+                    _dragStartX    = mouseX; _dragStartY    = mouseY
+                    _dragStartPanX = root._panX; _dragStartPanY = root._panY
+                }
+            }
+            onPositionChanged: {
+                if (pressed && root._zoom > 1.05) {
+                    root._panX = _dragStartPanX + (mouseX - _dragStartX)
+                    root._panY = _dragStartPanY + (mouseY - _dragStartY)
+                }
+            }
             onClicked: (m) => m.accepted = false
+
+            cursorShape: root._zoom > 1.05 ? Qt.OpenHandCursor : Qt.ArrowCursor
         }
 
         // Outgoing image — sits on top (z:5), fades out as crossfade over the incoming image
@@ -878,7 +900,7 @@ Rectangle {
             scale: folderMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: 80 } }
             M3Icon { anchors.centerIn: parent; name: "folder_open"; size: 22; color: "white" }
             MouseArea { id: folderMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                onClicked: { if (root.mediaData) Qt.openUrlExternally("file://" + root.mediaData.folder_path) } }
+                onClicked: { if (root.mediaData && root.mediaData.file_path) DB.revealInFolder(root.mediaData.file_path) } }
         }
         Rectangle {
             width: 48; height: 48; radius: 24

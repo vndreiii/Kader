@@ -198,7 +198,7 @@ Item {
             }
             M3MenuItem {
                 text: I18n.t(Settings.language, "ctx_open_folder")
-                onTriggered: { if (root._folderPath) Qt.openUrlExternally("file://" + root._folderPath) }
+                onTriggered: { if (root._filePath) DB.revealInFolder(root._filePath) }
             }
             M3MenuItem {
                 text: I18n.t(Settings.language, "ctx_send_album")

@@ -86,6 +86,7 @@ public:
     // Media actions
     Q_INVOKABLE bool toggleFavorite(int mediaId);
     Q_INVOKABLE bool setTrashed(int mediaId, bool trashed);
+    Q_INVOKABLE bool trashMedia(const QString &filePath);   // move to trash by path (dashboard list)
     Q_INVOKABLE bool deleteMediaPermanently(int mediaId);
     Q_INVOKABLE QVariantMap getMediaById(int mediaId);
 
@@ -101,6 +102,11 @@ public:
 
     // Move a media file physically to a target folder, updating the DB record.
     Q_INVOKABLE bool moveMediaToAlbum(int mediaId, const QString &targetFolderPath);
+
+    // Open the system file manager with the given file pre-selected, via the
+    // portable org.freedesktop.FileManager1 D-Bus interface (Dolphin, Nautilus,
+    // Nemo, …). Falls back to opening the containing folder if unavailable.
+    Q_INVOKABLE void revealInFolder(const QString &filePath);
 
     // Simple flat list of {path, name} for all non-ignored folder albums — used by "Send to" UI.
     Q_INVOKABLE QVariantList getAlbumList();

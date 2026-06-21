@@ -12,6 +12,11 @@
 #include <QThread>
 #include <QCoreApplication>
 #include <QCryptographicHash>
+#include <QUrl>
+#include <QDesktopServices>
+#include <QDBusConnection>
+#include <QDBusInterface>
+#include <QDBusReply>
 
 DatabaseManager::DatabaseManager(QObject *parent) : QObject(parent) {
     m_dbPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/gallery.db";
@@ -525,6 +530,15 @@ bool DatabaseManager::setTrashed(int mediaId, bool trashed) {
     return q.exec();
 }
 
+bool DatabaseManager::trashMedia(const QString &filePath) {
+    if (filePath.isEmpty()) return false;
+    checkConnection();
+    QSqlQuery q(m_db);
+    q.prepare("UPDATE media SET is_trashed = 1 WHERE file_path = :path");
+    q.bindValue(":path", filePath);
+    return q.exec();
+}
+
 bool DatabaseManager::deleteMediaPermanently(int mediaId) {
     checkConnection();
     QSqlQuery pathQ(m_db);
@@ -904,6 +918,27 @@ QString DatabaseManager::getRandomPhotoPath() {
     q.exec("SELECT file_path FROM media WHERE is_trashed=0 AND mime_type NOT LIKE 'video/%' "
            "ORDER BY RANDOM() LIMIT 1");
     return q.next() ? q.value(0).toString() : QString();
+}
+
+void DatabaseManager::revealInFolder(const QString &filePath) {
+    if (filePath.isEmpty()) return;
+
+    const QString uri = QUrl::fromLocalFile(filePath).toString();
+
+    // Preferred: portable freedesktop file-manager interface — selects the file
+    // in whatever file manager is the session default (Dolphin on KDE, etc.).
+    QDBusInterface fm(QStringLiteral("org.freedesktop.FileManager1"),
+                      QStringLiteral("/org/freedesktop/FileManager1"),
+                      QStringLiteral("org.freedesktop.FileManager1"),
+                      QDBusConnection::sessionBus());
+    QDBusReply<void> reply = fm.call(QStringLiteral("ShowItems"),
+                                     QStringList{uri}, QString());
+    if (reply.isValid()) return;
+
+    // Fallback: no FileManager1 provider — just open the containing folder.
+    qWarning() << "revealInFolder: FileManager1 unavailable, opening parent dir."
+               << reply.error().message();
+    QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(filePath).absolutePath()));
 }
 
 QString DatabaseManager::createVirtualAlbum(const QString &name, const QString &desc,

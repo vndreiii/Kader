@@ -9,7 +9,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Qml Quick QuickDialogs2 Sql Positioning Location Concurrent Multimedia Test QuickTest)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Qml Quick QuickDialogs2 Sql Positioning Location Concurrent Multimedia DBus Test QuickTest)
 find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(VIPS REQUIRED vips-cpp)
@@ -84,6 +84,7 @@ target_link_libraries(KaderLib PUBLIC
     Qt6::Location
     Qt6::Concurrent
     Qt6::Multimedia
+    Qt6::DBus
     OpenSSL::Crypto
     ${VIPS_LIBRARIES}
     ${EXIV2_LIBRARIES}
@@ -114,6 +115,7 @@ qt_add_qml_module(KaderApp
         qml/components/M3MenuSeparator.qml
         qml/components/M3Icon.qml
         qml/components/M3Switch.qml
+        qml/components/M3CheckBox.qml
         qml/components/SettingsRow.qml
         qml/components/SettingsSection.qml
         qml/components/Sidebar.qml
