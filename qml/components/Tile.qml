@@ -166,7 +166,7 @@ Item {
         Rectangle {
             id: privacyCover
             z: 5
-            visible: root._isHidden && TimelineModel.filterMode !== TimelineModel.HiddenMode
+            visible: root._isHidden && TimelineModel.filterMode !== 3 /* HiddenMode */
             anchors.fill: parent
             radius: 16
             color: "black"
@@ -231,7 +231,7 @@ Item {
             }
             M3MenuItem {
                 text: I18n.t(Settings.language, "ctx_send_album")
-                visible: TimelineModel.filterMode !== TimelineModel.HiddenMode
+                visible: TimelineModel.filterMode !== 3 /* HiddenMode */
                 onTriggered: {
                     sendLoader.active = true
                     sendLoader.item.albumList = DB.getAlbumList()
