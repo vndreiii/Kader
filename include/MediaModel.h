@@ -22,7 +22,9 @@ public:
         SelectedRole,
         FavoriteRole,
         TrashedRole,
-        SizeRole
+        SizeRole,
+        HiddenRole,
+        IgnoredRole
     };
 
     explicit MediaModel(DatabaseManager *db, ThumbnailGenerator *thumb, QObject *parent = nullptr);
@@ -38,6 +40,12 @@ public:
     // field: 0=Name 1=Date 2=Size 3=Format
     Q_INVOKABLE void sortBy(int field, bool ascending);
     Q_INVOKABLE QStringList getSelectedPaths() const;
+
+    // Granular removal — removes a single row (matched by path, file://-prefixed or not)
+    // without a full model reset, preserving scroll position/selection of other rows.
+    Q_INVOKABLE void removeByPath(const QString &path);
+    // Removes all currently-selected rows in one shot (single reset-free batch removal).
+    Q_INVOKABLE void removeSelected();
 
 private:
     DatabaseManager *m_db;

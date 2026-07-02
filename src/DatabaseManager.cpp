@@ -533,9 +533,14 @@ bool DatabaseManager::setTrashed(int mediaId, bool trashed) {
 bool DatabaseManager::trashMedia(const QString &filePath) {
     if (filePath.isEmpty()) return false;
     checkConnection();
+    // Callers may pass a file:// URL (e.g. straight from a QML model's path role);
+    // normalize to a plain local path since file_path is stored unprefixed.
+    const QString normalized = filePath.startsWith(QLatin1String("file://"))
+                                    ? QUrl(filePath).toLocalFile()
+                                    : filePath;
     QSqlQuery q(m_db);
     q.prepare("UPDATE media SET is_trashed = 1 WHERE file_path = :path");
-    q.bindValue(":path", filePath);
+    q.bindValue(":path", normalized);
     return q.exec();
 }
 
@@ -660,7 +665,8 @@ static QString rawGlobClause(bool invert) {
     return invert ? ("NOT " + combined) : combined;
 }
 
-QVariantList DatabaseManager::getAllMedia(bool hideIgnored, SortRole role, SortOrder order) {
+QVariantList DatabaseManager::getAllMedia(bool hideIgnored, SortRole role, SortOrder order,
+                                           bool excludeTrashed, bool excludeHidden) {
     checkConnection();
 
     // Resolve the thread-local connection by name to avoid sharing m_db across threads.
@@ -680,6 +686,10 @@ QVariantList DatabaseManager::getAllMedia(bool hideIgnored, SortRole role, SortO
         conditions << rawGlobClause(true);
     else if (m_rawFilter == 2)
         conditions << rawGlobClause(false);
+    if (excludeTrashed)
+        conditions << "COALESCE(is_trashed,0) = 0";
+    if (excludeHidden)
+        conditions << "COALESCE(is_hidden,0) = 0";
 
     const QString orderClause = Sort::mediaOrderClause(role, order == Ascending);
 

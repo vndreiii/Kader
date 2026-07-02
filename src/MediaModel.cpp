@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <QDateTime>
 #include <QString>
+#include <QUrl>
 
 MediaModel::MediaModel(DatabaseManager *db, ThumbnailGenerator *thumb, QObject *parent)
     : QAbstractListModel(parent), m_db(db), m_thumb(thumb) {
@@ -42,6 +43,8 @@ QVariant MediaModel::data(const QModelIndex &index, int role) const {
         case FavoriteRole: return item.value("is_favorite", 0).toBool();
         case TrashedRole: return item.value("is_trashed", 0).toBool();
         case SizeRole: return item.value("file_size");
+        case HiddenRole: return item.value("is_hidden", 0).toBool();
+        case IgnoredRole: return item.value("is_ignored", 0).toBool();
         default: return QVariant();
     }
 }
@@ -74,6 +77,8 @@ QHash<int, QByteArray> MediaModel::roleNames() const {
     roles[FavoriteRole] = "isFavorite";
     roles[TrashedRole] = "isTrashed";
     roles[SizeRole] = "fileSize";
+    roles[HiddenRole] = "isHidden";
+    roles[IgnoredRole] = "isIgnored";
     return roles;
 }
 
@@ -150,6 +155,40 @@ QStringList MediaModel::getSelectedPaths() const {
 
 void MediaModel::refresh(bool hideIgnored) {
     beginResetModel();
-    m_data = m_db->getAllMedia(hideIgnored);
+    // Dashboard's flat list must never show trashed/hidden rows, and must never
+    // let them reappear after a delete — filter both out at the source.
+    m_data = m_db->getAllMedia(hideIgnored, DatabaseManager::ByCreated,
+                                DatabaseManager::Descending,
+                                /*excludeTrashed=*/true, /*excludeHidden=*/true);
     endResetModel();
+}
+
+// Normalize a "file://"-prefixed path (as returned by PathRole) to a plain
+// local path so it can be compared against the stored file_path values.
+static QString normalizedLocalPath(const QString &path) {
+    return path.startsWith(QLatin1String("file://")) ? QUrl(path).toLocalFile() : path;
+}
+
+void MediaModel::removeByPath(const QString &path) {
+    const QString target = normalizedLocalPath(path);
+    for (int i = 0; i < m_data.count(); ++i) {
+        const QVariantMap map = m_data.at(i).toMap();
+        if (map.value("file_path").toString() == target) {
+            beginRemoveRows(QModelIndex(), i, i);
+            m_data.removeAt(i);
+            endRemoveRows();
+            return;
+        }
+    }
+}
+
+void MediaModel::removeSelected() {
+    for (int i = m_data.count() - 1; i >= 0; --i) {
+        const QVariantMap map = m_data.at(i).toMap();
+        if (map.value("selected", false).toBool()) {
+            beginRemoveRows(QModelIndex(), i, i);
+            m_data.removeAt(i);
+            endRemoveRows();
+        }
+    }
 }

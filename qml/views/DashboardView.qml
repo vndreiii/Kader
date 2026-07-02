@@ -96,7 +96,7 @@ Item {
 
             Button {
                 id: sortBtn
-                text: "Sort"
+                text: I18n.t(Settings.language, "sort_by") || "Sort"
                 leftPadding: 20; rightPadding: 20; topPadding: 10; bottomPadding: 10
                 background: Rectangle {
                     radius: 20
@@ -114,10 +114,10 @@ Item {
                 SortMenu {
                     id: sortMenu
                     fields: [
-                        { key: 0, label: "Name" },
-                        { key: 1, label: "Date" },
-                        { key: 2, label: "Size" },
-                        { key: 3, label: "Format" }
+                        { key: 0, label: I18n.t(Settings.language, "k_name") || "Name" },
+                        { key: 1, label: I18n.t(Settings.language, "k_date_taken") || "Date" },
+                        { key: 2, label: I18n.t(Settings.language, "k_size") || "Size" },
+                        { key: 3, label: I18n.t(Settings.language, "k_type") || "Format" }
                     ]
                     currentKey: root.sortKey
                     ascending:  root.sortAsc
@@ -130,7 +130,7 @@ Item {
 
             Button {
                 id: selectAllBtn
-                text: "Select All"
+                text: I18n.t(Settings.language, "select_all") || "Select All"
                 leftPadding: 20; rightPadding: 20; topPadding: 10; bottomPadding: 10
                 background: Rectangle {
                     radius: 20
@@ -149,7 +149,7 @@ Item {
 
             Button {
                 id: deleteBtn
-                text: "Delete Selected"
+                text: I18n.t(Settings.language, "delete_selected") || "Delete Selected"
                 leftPadding: 20; rightPadding: 20; topPadding: 10; bottomPadding: 10
                 background: Rectangle {
                     radius: 20
@@ -167,7 +167,7 @@ Item {
                     for (let i = 0; i < paths.length; i++) {
                         DB.trashMedia(paths[i])
                     }
-                    MediaModel.refresh(Settings.hideIgnoredInTimeline)
+                    MediaModel.removeSelected()
                 }
             }
         }
@@ -178,10 +178,10 @@ Item {
             spacing: 16
             Item { Layout.preferredWidth: 40; Layout.preferredHeight: 20 } // Checkbox space
             Item { Layout.preferredWidth: 60; Layout.preferredHeight: 20 } // Thumb
-            Label { text: "Name"; font.pixelSize: 12; font.weight: Font.Medium; color: ThemeManager.onSurfaceVariant; Layout.fillWidth: true }
-            Label { text: "Date"; font.pixelSize: 12; font.weight: Font.Medium; color: ThemeManager.onSurfaceVariant; Layout.preferredWidth: 150 }
-            Label { text: "Size"; font.pixelSize: 12; font.weight: Font.Medium; color: ThemeManager.onSurfaceVariant; Layout.preferredWidth: 80; horizontalAlignment: Text.AlignRight }
-            Label { text: "Format"; font.pixelSize: 12; font.weight: Font.Medium; color: ThemeManager.onSurfaceVariant; Layout.preferredWidth: 100 }
+            Label { text: I18n.t(Settings.language, "k_name") || "Name"; font.pixelSize: 12; font.weight: Font.Medium; color: ThemeManager.onSurfaceVariant; Layout.fillWidth: true }
+            Label { text: I18n.t(Settings.language, "k_date_taken") || "Date"; font.pixelSize: 12; font.weight: Font.Medium; color: ThemeManager.onSurfaceVariant; Layout.preferredWidth: 150 }
+            Label { text: I18n.t(Settings.language, "k_size") || "Size"; font.pixelSize: 12; font.weight: Font.Medium; color: ThemeManager.onSurfaceVariant; Layout.preferredWidth: 80; horizontalAlignment: Text.AlignRight }
+            Label { text: I18n.t(Settings.language, "k_type") || "Format"; font.pixelSize: 12; font.weight: Font.Medium; color: ThemeManager.onSurfaceVariant; Layout.preferredWidth: 100 }
             Item { Layout.preferredWidth: 40; Layout.preferredHeight: 20 } // Action space
         }
 
@@ -282,7 +282,7 @@ Item {
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 DB.trashMedia(path)
-                                MediaModel.refresh(Settings.hideIgnoredInTimeline)
+                                MediaModel.removeByPath(path)
                             }
                         }
                     }

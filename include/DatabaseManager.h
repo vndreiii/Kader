@@ -43,9 +43,13 @@ public:
 
     // Get all media for the models.
     // rawFilter: 0=all, 1=JPEG-only (exclude RAW), 2=RAW-only
+    // excludeTrashed/excludeHidden: when true, also filter out is_trashed/is_hidden rows.
+    // Defaulted to false so existing callers (TimelineModel's Trash/Hidden filter modes) are unaffected.
     QVariantList getAllMedia(bool hideIgnored = true,
                              SortRole role   = ByCreated,
-                             SortOrder order = Descending);
+                             SortOrder order = Descending,
+                             bool excludeTrashed = false,
+                             bool excludeHidden = false);
 
     // Returns all non-trashed file paths (for background thumbnail pre-generation).
     QStringList getAllMediaPaths();
