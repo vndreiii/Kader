@@ -96,14 +96,14 @@ Item {
 
                 Label {
                     text: I18n.t(Settings.language, "ignored_folders_title")
-                    font.pixelSize: 22
+                    font.pixelSize: ThemeManager.fontTitle
                     font.weight: Font.Medium
                     color: ThemeManager.onSurface
                     bottomPadding: 4
                 }
                 Label {
                     text: I18n.t(Settings.language, "ignored_folders_sub")
-                    font.pixelSize: 13
+                    font.pixelSize: ThemeManager.fontLabelL
                     color: ThemeManager.onSurfaceVariant
                     wrapMode: Text.Wrap
                     Layout.fillWidth: true
@@ -322,7 +322,7 @@ Item {
 
                     Label {
                         text: I18n.t(Settings.language, "indexed_dirs")
-                        font.pixelSize: 13
+                        font.pixelSize: ThemeManager.fontLabelL
                         font.weight: Font.Medium
                         color: ThemeManager.onSurfaceVariant
                         topPadding: 16
@@ -357,7 +357,7 @@ Item {
                                         width: parent.width
                                         text: modelData.path
                                         font.family: "JetBrains Mono"
-                                        font.pixelSize: 13; font.weight: Font.Medium
+                                        font.pixelSize: ThemeManager.fontLabelL; font.weight: Font.Medium
                                         color: ThemeManager.onSurface; elide: Text.ElideRight
                                     }
                                     Row {
@@ -419,7 +419,7 @@ Item {
                     // Scan exclusion patterns
                     Label {
                         text: I18n.t(Settings.language, "scan_exclusions")
-                        font.pixelSize: 13
+                        font.pixelSize: ThemeManager.fontLabelL
                         font.weight: Font.Medium
                         color: ThemeManager.onSurfaceVariant
                         topPadding: 16
@@ -455,7 +455,7 @@ Item {
                                     Layout.fillWidth: true
                                     text: modelData
                                     font.family: "JetBrains Mono"
-                                    font.pixelSize: 13
+                                    font.pixelSize: ThemeManager.fontLabelL
                                     color: ThemeManager.onSurface
                                     elide: Text.ElideRight
                                 }
@@ -483,7 +483,7 @@ Item {
                             Layout.fillWidth: true
                             placeholderText: "e.g.  /src/  or  node_modules"
                             font.family: "JetBrains Mono"
-                            font.pixelSize: 13
+                            font.pixelSize: ThemeManager.fontLabelL
                             background: Rectangle { radius: 8; color: ThemeManager.surfaceContainerHighest; border.color: ThemeManager.outline; border.width: 1 }
                             color: ThemeManager.onSurface
                             leftPadding: 12; rightPadding: 12
@@ -626,7 +626,7 @@ Item {
                                    : (langCombo.hovered ? Qt.alpha(ThemeManager.onSurface, 0.06) : ThemeManager.surfaceContainerHighest)
                             border.color: langCombo.pressed ? ThemeManager.primary : ThemeManager.outline
                             border.width: 1
-                            Behavior on color { ColorAnimation { duration: 80 } }
+                            Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                         }
                         contentItem: Label {
                             leftPadding: 14; rightPadding: 36
@@ -753,7 +753,7 @@ Item {
                                 id: btn
                                 anchors.centerIn: parent
                                 text: AI.ready ? I18n.t(Settings.language, "ai_unload") : I18n.t(Settings.language, "ai_load")
-                                font.pixelSize: 13; font.weight: Font.Medium
+                                font.pixelSize: ThemeManager.fontLabelL; font.weight: Font.Medium
                                 color: AI.ready ? ThemeManager.error : ThemeManager.onPrimaryContainer
                             }
                             MouseArea {
@@ -778,7 +778,7 @@ Item {
                                 id: dlLabel
                                 anchors.centerIn: parent
                                 text: I18n.t(Settings.language, "ai_download")
-                                font.pixelSize: 13; font.weight: Font.Medium
+                                font.pixelSize: ThemeManager.fontLabelL; font.weight: Font.Medium
                                 color: ThemeManager.onPrimaryContainer
                             }
                             MouseArea {
@@ -796,7 +796,7 @@ Item {
                                 id: cancelLabel
                                 anchors.centerIn: parent
                                 text: I18n.t(Settings.language, "cancel")
-                                font.pixelSize: 13; font.weight: Font.Medium
+                                font.pixelSize: ThemeManager.fontLabelL; font.weight: Font.Medium
                                 color: ThemeManager.error
                             }
                             MouseArea {
@@ -863,7 +863,7 @@ Item {
                                 id: idxLabel
                                 anchors.centerIn: parent
                                 text: AI.indexing ? I18n.t(Settings.language, "ai_indexing") : I18n.t(Settings.language, "ai_start_indexing")
-                                font.pixelSize: 13; font.weight: Font.Medium
+                                font.pixelSize: ThemeManager.fontLabelL; font.weight: Font.Medium
                                 color: AI.indexing
                                     ? ThemeManager.onSurfaceVariant
                                     : ThemeManager.onSecondaryContainer

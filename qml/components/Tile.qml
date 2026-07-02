@@ -111,24 +111,31 @@ Item {
             width: 24; height: 24; radius: 12
             color: ThemeManager.primary
             opacity: (root.selectable || root.selected) ? 1 : 0
-            M3Icon { anchors.centerIn: parent; name: "check"; size: 16; color: "white" }
+            M3Icon { anchors.centerIn: parent; name: "check"; size: 16; color: ThemeManager.onPrimary }
         }
 
-        // Favorite button
-        Rectangle {
-            id: favButton
-            anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 8
-            width: 28; height: 28; radius: 14
-            color: Qt.alpha("black", 0.45)
-            opacity: (mouseArea.containsMouse || (root._d.is_favorite ? true : false)) ? 1 : 0
-            Behavior on opacity { NumberAnimation { duration: ThemeManager.durShort } }
-            M3Icon {
+        // Favorite button — 28dp visual chip inside a 48dp hit area (centered).
+        // Reveal-on-hover still follows the whole-tile MouseArea (below), only
+        // the click target itself is enlarged.
+        Item {
+            anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 8 - (48 - 28) / 2
+            width: 48; height: 48
+
+            Rectangle {
+                id: favButton
                 anchors.centerIn: parent
-                name: (root._d.is_favorite ? true : false) ? "favorite_fill" : "favorite"
-                size: 16
-                color: (root._d.is_favorite ? true : false) ? "#ffd8e4" : "white"
+                width: 28; height: 28; radius: 14
+                color: Qt.alpha("black", 0.45)
+                opacity: (mouseArea.containsMouse || (root._d.is_favorite ? true : false)) ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: ThemeManager.durShort } }
+                M3Icon {
+                    anchors.centerIn: parent
+                    name: (root._d.is_favorite ? true : false) ? "favorite_fill" : "favorite"
+                    size: 16
+                    color: (root._d.is_favorite ? true : false) ? ThemeManager.tertiaryContainer : "white"
+                }
             }
-            MouseArea { anchors.fill: parent; onClicked: root.toggleFav() }
+            MouseArea { anchors.fill: parent; hoverEnabled: true; onClicked: root.toggleFav() }
         }
 
         // Date meta on hover
@@ -146,7 +153,7 @@ Item {
                         if (!d) return ""
                         return Qt.formatDateTime(new Date(d * 1000), "dd MMM")
                     }
-                    color: "white"; font.pixelSize: 11; font.weight: Font.Medium
+                    color: "white"; font.pixelSize: ThemeManager.fontLabelS; font.weight: Font.Medium
                 }
             }
         }
@@ -293,7 +300,7 @@ Item {
                 Label {
                     width: parent.width
                     text: I18n.t(Settings.language, "ctx_send_album_title")
-                    font.pixelSize: 13; font.weight: Font.Medium
+                    font.pixelSize: ThemeManager.fontLabelL; font.weight: Font.Medium
                     color: ThemeManager.onSurfaceVariant
                     leftPadding: 8; topPadding: 4; bottomPadding: 8
                 }
@@ -301,9 +308,9 @@ Item {
                 Repeater {
                     model: parent.parent.albumList
                     delegate: Rectangle {
-                        width: parent.width; height: 44; radius: 10
+                        width: parent.width; height: 44; radius: ThemeManager.radiusSm
                         color: sendMa.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
-                        Behavior on color { ColorAnimation { duration: 60 } }
+                        Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                         Row {
                             anchors.left: parent.left; anchors.leftMargin: 10
                             anchors.verticalCenter: parent.verticalCenter
@@ -311,7 +318,7 @@ Item {
                             M3Icon { name: "folder"; size: 16; color: ThemeManager.onSurfaceVariant; anchors.verticalCenter: parent.verticalCenter }
                             Label {
                                 text: modelData.name || ""
-                                font.pixelSize: 14; color: ThemeManager.onSurface
+                                font.pixelSize: ThemeManager.fontLabelL; color: ThemeManager.onSurface
                                 elide: Text.ElideRight
                                 width: 200
                             }

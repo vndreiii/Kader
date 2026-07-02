@@ -135,7 +135,7 @@ ApplicationWindow {
         anchors.bottomMargin: 12
         z: 200
         height: visible ? 96 : 0
-        radius: 16
+        radius: ThemeManager.radiusLg
         color: ThemeManager.surfaceContainerHigh
 
         Behavior on height { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
@@ -147,7 +147,7 @@ ApplicationWindow {
 
             Label {
                 text: I18n.t(Settings.language, "documents_count").arg(window._aiDocResults.length)
-                font.pixelSize: 11; font.weight: Font.Medium
+                font.pixelSize: ThemeManager.fontLabelS; font.weight: Font.Medium
                 color: ThemeManager.onSurfaceVariant
             }
 
@@ -163,11 +163,11 @@ ApplicationWindow {
                     required property var modelData
                     width: Math.min(220, docResultsPanel.width / 3 - 12)
                     height: 44
-                    radius: 10
+                    radius: ThemeManager.radiusMd
                     color: docHover.containsMouse
                         ? Qt.alpha(ThemeManager.primary, 0.12)
                         : Qt.alpha(ThemeManager.primary, 0.06)
-                    Behavior on color { ColorAnimation { duration: 80 } }
+                    Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
 
                     RowLayout {
                         anchors.fill: parent
@@ -185,7 +185,7 @@ ApplicationWindow {
                             Label {
                                 Layout.fillWidth: true
                                 text: modelData.name || ""
-                                font.pixelSize: 12; font.weight: Font.Medium
+                                font.pixelSize: ThemeManager.fontLabelM; font.weight: Font.Medium
                                 color: ThemeManager.onSurface
                                 elide: Text.ElideRight
                             }
@@ -219,13 +219,13 @@ ApplicationWindow {
         anchors.bottomMargin: 32
         z: 9999
         width: Math.min(aiErrorLabel.implicitWidth + 48, parent.width * 0.85)
-        height: 48; radius: 8
+        height: 48; radius: ThemeManager.radiusSm
         color: ThemeManager.inverseSurface
         Label {
             id: aiErrorLabel
             anchors.centerIn: parent
             text: aiErrorToast.message
-            font.pixelSize: 14
+            font.pixelSize: ThemeManager.fontBodyM
             color: ThemeManager.inverseOnSurface
         }
         Timer {
@@ -313,7 +313,7 @@ ApplicationWindow {
 
     background: Rectangle {
         color: window.viewerOnlyMode ? "black" : ThemeManager.surface
-        radius: window.viewerOnlyMode ? 0 : 14
+        radius: window.viewerOnlyMode ? 0 : ThemeManager.radiusLg
         border.color: window.viewerOnlyMode ? "transparent" : Qt.alpha("black", 0.1)
         border.width: window.viewerOnlyMode ? 0 : 1
     }
@@ -425,7 +425,7 @@ ApplicationWindow {
                     Rectangle {
                         width: 40; height: 40; radius: 20
                         color: foldHover.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
-                        Behavior on color { ColorAnimation { duration: 80 } }
+                        Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                         M3Icon { anchors.centerIn: parent; name: window.sidebarCollapsed ? "menu" : "sidebar"; size: 24; color: ThemeManager.onSurfaceVariant }
                         MouseArea { id: foldHover; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: window.sidebarCollapsed = !window.sidebarCollapsed }
                     }
@@ -435,7 +435,7 @@ ApplicationWindow {
                         width: 40; height: 40; radius: 20
                         visible: mainStack.depth > 1
                         color: backHover.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
-                        Behavior on color { ColorAnimation { duration: 80 } }
+                        Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                         M3Icon { anchors.centerIn: parent; name: "arrow_back"; size: 24; color: ThemeManager.onSurfaceVariant }
                         MouseArea {
                             id: backHover
@@ -491,7 +491,7 @@ ApplicationWindow {
                         visible: _views.indexOf(window.currentView) >= 0
                         height: 48; width: 48
                         Layout.rightMargin: -8   // match the sort↔search gap (equal spacing)
-                        radius: densityMenu.opened ? 14 : 24
+                        radius: densityMenu.opened ? ThemeManager.radiusLg : 24
                         Behavior on radius { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
                         color: densityMenu.opened
                                ? Qt.alpha(ThemeManager.primary, 0.10)
@@ -531,7 +531,7 @@ ApplicationWindow {
                         visible: _sortableViews.indexOf(window.currentView) >= 0
                         height: 48
                         // Squares off when active/open (a pressed-in "toggled on" look).
-                        radius: sortMenu.opened ? 14 : 24
+                        radius: sortMenu.opened ? ThemeManager.radiusLg : 24
                         Behavior on radius { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
                         width: sortRow.implicitWidth + 36
                         // Sit closer to the search bar (trim the inter-item gap).
@@ -741,7 +741,7 @@ ApplicationWindow {
                                 visible: searchField.text !== ""
                                 width: 28; height: 28; radius: 14
                                 color: clearHover.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
-                                Behavior on color { ColorAnimation { duration: 80 } }
+                                Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                                 M3Icon { anchors.centerIn: parent; name: "close"; size: 18; color: ThemeManager.onSurfaceVariant }
                                 MouseArea {
                                     id: clearHover
@@ -805,12 +805,12 @@ ApplicationWindow {
                 Layout.fillHeight: true
                 initialItem: timelineView
                 
-                pushEnter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
-                pushExit: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
-                popEnter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
-                popExit: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
-                replaceEnter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
-                replaceExit: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
+                pushEnter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: ThemeManager.durMed; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
+                pushExit: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: ThemeManager.durMed; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
+                popEnter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: ThemeManager.durMed; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
+                popExit: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: ThemeManager.durMed; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
+                replaceEnter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: ThemeManager.durMed; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
+                replaceExit: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: ThemeManager.durMed; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
             }
         }
     }
@@ -846,7 +846,7 @@ ApplicationWindow {
                 anchors.left: parent.left; anchors.leftMargin: 16 + 24 + 10
                 anchors.verticalCenter: parent.verticalCenter
                 text: I18n.t(Settings.language, "refresh_library")
-                font.weight: Font.Medium; font.pixelSize: 14; color: ThemeManager.onPrimaryContainer
+                font.weight: Font.Medium; font.pixelSize: ThemeManager.fontBodyM; color: ThemeManager.onPrimaryContainer
                 opacity: fabRefresh.hovered ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: 140 } }
             }
@@ -885,7 +885,7 @@ ApplicationWindow {
                 anchors.left: parent.left; anchors.leftMargin: 16 + 24 + 10
                 anchors.verticalCenter: parent.verticalCenter
                 text: I18n.t(Settings.language, "add_directory")
-                font.weight: Font.Medium; font.pixelSize: 14; color: ThemeManager.onPrimaryContainer
+                font.weight: Font.Medium; font.pixelSize: ThemeManager.fontBodyM; color: ThemeManager.onPrimaryContainer
                 opacity: fabAdd.hovered ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: 140 } }
             }
@@ -927,7 +927,7 @@ ApplicationWindow {
                 anchors.left: parent.left; anchors.leftMargin: 16 + 24 + 10
                 anchors.verticalCenter: parent.verticalCenter
                 text: I18n.t(Settings.language, "empty_trash")
-                font.weight: Font.Medium; font.pixelSize: 14; color: ThemeManager.onErrorContainer
+                font.weight: Font.Medium; font.pixelSize: ThemeManager.fontBodyM; color: ThemeManager.onErrorContainer
                 opacity: fabEmptyTrash.hovered ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: 140 } }
             }
@@ -973,7 +973,7 @@ ApplicationWindow {
                 anchors.left: parent.left; anchors.leftMargin: 16 + 24 + 10
                 anchors.verticalCenter: parent.verticalCenter
                 text: I18n.t(Settings.language, "refresh_library")
-                font.weight: Font.Medium; font.pixelSize: 14; color: ThemeManager.onPrimaryContainer
+                font.weight: Font.Medium; font.pixelSize: ThemeManager.fontBodyM; color: ThemeManager.onPrimaryContainer
                 opacity: fabAlbumRefresh.hovered ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: 140 } }
             }
@@ -1004,7 +1004,7 @@ ApplicationWindow {
                 anchors.left: parent.left; anchors.leftMargin: 16 + 24 + 10
                 anchors.verticalCenter: parent.verticalCenter
                 text: I18n.t(Settings.language, "new_album")
-                font.weight: Font.Medium; font.pixelSize: 14; color: ThemeManager.onPrimaryContainer
+                font.weight: Font.Medium; font.pixelSize: ThemeManager.fontBodyM; color: ThemeManager.onPrimaryContainer
                 opacity: fabAlbumNew.hovered ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: 140 } }
             }
@@ -1103,7 +1103,7 @@ ApplicationWindow {
         color: window.scanDone ? ThemeManager.primaryContainer : ThemeManager.inverseSurface
 
         opacity: visible ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
+        Behavior on opacity { NumberAnimation { duration: ThemeManager.durMed; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
         transform: Translate { y: scanBanner.visible ? 0 : 24 }
 
         // Animated scan indicator bar (only while scanning)
@@ -1155,7 +1155,7 @@ ApplicationWindow {
                         ? "Scan complete — " + window.scanFileCount.toLocaleString() + " files found"
                         : "Scanning " + window.scanFolder.replace(Settings.homePath, "~")
                     color: window.scanDone ? ThemeManager.onPrimaryContainer : ThemeManager.inverseOnSurface
-                    font.pixelSize: 13
+                    font.pixelSize: ThemeManager.fontLabelL
                     font.weight: Font.Medium
                     elide: Text.ElideRight
                     width: parent.width
@@ -1184,7 +1184,7 @@ ApplicationWindow {
         color: window.thumbCacheDoneFlag ? ThemeManager.primaryContainer : ThemeManager.inverseSurface
 
         opacity: visible ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
+        Behavior on opacity { NumberAnimation { duration: ThemeManager.durMed; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
         transform: Translate { y: thumbCacheBanner.visible ? 0 : 24 }
 
         // Deterministic progress bar (fills left → right)
@@ -1227,7 +1227,7 @@ ApplicationWindow {
                         ? "Thumbnail cache ready"
                         : "Generating thumbnail cache"
                     color: window.thumbCacheDoneFlag ? ThemeManager.onPrimaryContainer : ThemeManager.inverseOnSurface
-                    font.pixelSize: 13; font.weight: Font.Medium
+                    font.pixelSize: ThemeManager.fontLabelL; font.weight: Font.Medium
                     elide: Text.ElideRight; width: parent.width
                 }
                 Label {

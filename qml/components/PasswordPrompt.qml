@@ -70,7 +70,7 @@ Rectangle {
                 text: root._settingUp
                       ? "Set a PIN to protect your hidden photos."
                       : "Enter your PIN to view hidden photos."
-                font.pixelSize: 13; color: ThemeManager.onSurfaceVariant
+                font.pixelSize: ThemeManager.fontLabelL; color: ThemeManager.onSurfaceVariant
                 wrapMode: Text.Wrap
                 horizontalAlignment: Text.AlignHCenter
             }
@@ -118,7 +118,7 @@ Rectangle {
                 text: ""
                 visible: text !== ""
                 color: ThemeManager.error
-                font.pixelSize: 13
+                font.pixelSize: ThemeManager.fontLabelL
                 horizontalAlignment: Text.AlignHCenter
 
                 SequentialAnimation {

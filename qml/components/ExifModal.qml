@@ -43,7 +43,7 @@ Rectangle {
             Label {
                 text: root.isAll ? "Strip all photos from EXIF data?" : "Strip EXIF data from this photo?"
                 font.family: "Roboto Flex"
-                font.pixelSize: 24
+                font.pixelSize: ThemeManager.fontHeadlineS
                 font.weight: Font.Normal
                 color: ThemeManager.onSurface
                 horizontalAlignment: Text.AlignHCenter
@@ -64,9 +64,9 @@ Rectangle {
                 Column {
                     anchors.centerIn: parent
                     spacing: 4
-                    Label { text: "· GPS coordinates"; color: ThemeManager.onSurfaceVariant; font.pixelSize: 13 }
-                    Label { text: "· Camera make & model"; color: ThemeManager.onSurfaceVariant; font.pixelSize: 13 }
-                    Label { text: "· Capture date & time"; color: ThemeManager.onSurfaceVariant; font.pixelSize: 13 }
+                    Label { text: "· GPS coordinates"; color: ThemeManager.onSurfaceVariant; font.pixelSize: ThemeManager.fontLabelL }
+                    Label { text: "· Camera make & model"; color: ThemeManager.onSurfaceVariant; font.pixelSize: ThemeManager.fontLabelL }
+                    Label { text: "· Capture date & time"; color: ThemeManager.onSurfaceVariant; font.pixelSize: ThemeManager.fontLabelL }
                 }
             }
             

@@ -14,7 +14,7 @@ Rectangle {
     width: collapsed ? 84 : 280
     implicitWidth: width
     color: ThemeManager.surfaceContainer
-    radius: 16
+    radius: ThemeManager.radiusLg
     clip: true
 
     // Flatten left side
@@ -36,7 +36,7 @@ Rectangle {
         x: 12
         width: root.width - 24
         height: 56
-        radius: 28
+        radius: ThemeManager.radiusXxl
         color: ThemeManager.secondaryContainer
         z: 0
 
@@ -83,7 +83,7 @@ Rectangle {
                 anchors.left: parent.left
                 anchors.leftMargin: 72
                 Label { text: "Kader"; font.family: "Roboto Flex"; font.pixelSize: 18; font.weight: Font.Medium; color: ThemeManager.onSurface }
-                Label { text: I18n.t(Settings.language, "timeline"); font.pixelSize: 12; color: ThemeManager.onSurfaceVariant; opacity: 0.6 }
+                Label { text: I18n.t(Settings.language, "timeline"); font.pixelSize: ThemeManager.fontLabelM; color: ThemeManager.onSurfaceVariant; opacity: 0.6 }
             }
         }
 
@@ -150,7 +150,7 @@ Rectangle {
             anchors.left: parent.left; anchors.right: parent.right
             anchors.leftMargin: 12; anchors.rightMargin: 12
             height: root.collapsed ? 160 : expandedCol.implicitHeight + 28
-            radius: root.collapsed ? 22 : 16
+            radius: root.collapsed ? ThemeManager.radiusXl : ThemeManager.radiusLg
             color: ThemeManager.surfaceContainerLow
             clip: true
 
@@ -168,7 +168,7 @@ Rectangle {
                 Row {
                     spacing: 8
                     M3Icon { name: "computer"; size: 18; color: ThemeManager.primary }
-                    Label { text: I18n.t(Settings.language, "this_pc"); font.pixelSize: 12; font.weight: Font.Medium; color: ThemeManager.onSurface }
+                    Label { text: I18n.t(Settings.language, "this_pc"); font.pixelSize: ThemeManager.fontLabelM; font.weight: Font.Medium; color: ThemeManager.onSurface }
                 }
                 Rectangle {
                     width: parent.width; height: 6; radius: 3
@@ -193,9 +193,9 @@ Rectangle {
                 Row {
                     width: parent.width; spacing: 8
                     Rectangle { width: 8; height: 8; radius: 4; color: ThemeManager.primary; anchors.verticalCenter: parent.verticalCenter }
-                    Label { text: StorageManager.photoGb.toFixed(1) + " GB " + I18n.t(Settings.language, "photos"); font.pixelSize: 11; color: ThemeManager.onSurfaceVariant }
+                    Label { text: StorageManager.photoGb.toFixed(1) + " GB " + I18n.t(Settings.language, "photos"); font.pixelSize: ThemeManager.fontLabelS; color: ThemeManager.onSurfaceVariant }
                     Rectangle { width: 8; height: 8; radius: 4; color: ThemeManager.tertiary; anchors.verticalCenter: parent.verticalCenter }
-                    Label { text: StorageManager.videoGb.toFixed(1) + " GB " + I18n.t(Settings.language, "video"); font.pixelSize: 11; color: ThemeManager.onSurfaceVariant }
+                    Label { text: StorageManager.videoGb.toFixed(1) + " GB " + I18n.t(Settings.language, "video"); font.pixelSize: ThemeManager.fontLabelS; color: ThemeManager.onSurfaceVariant }
                 }
                 // Other + free/total on one line
                 Row {
@@ -241,7 +241,7 @@ Rectangle {
                 }
                 Label {
                     text: StorageManager.mediaPercent + "%"
-                    font.pixelSize: 14; font.weight: Font.Bold
+                    font.pixelSize: ThemeManager.fontLabelL; font.weight: Font.Bold
                     color: ThemeManager.onSurfaceVariant
                     anchors.horizontalCenter: parent.horizontalCenter
                 }
@@ -251,7 +251,7 @@ Rectangle {
                 anchors.fill: parent
                 radius: parent.radius
                 color: ThemeManager.onSurface
-                opacity: mouseAreaStorage.pressed ? 0.12 : (mouseAreaStorage.containsMouse ? 0.08 : 0.0)
+                opacity: mouseAreaStorage.pressed ? ThemeManager.pressOpacity : (mouseAreaStorage.containsMouse ? ThemeManager.hoverOpacity : 0.0)
                 Behavior on opacity { NumberAnimation { duration: ThemeManager.durShort } }
             }
             MouseArea {
@@ -300,32 +300,32 @@ Rectangle {
         Overlay.modal: Rectangle {
             color: Qt.rgba(0, 0, 0, 0.5)
             opacity: dashboardModal.opened ? 1.0 : 0.0
-            Behavior on opacity { NumberAnimation { duration: 400; easing.type: Easing.OutExpo } }
+            Behavior on opacity { NumberAnimation { duration: 400; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
         }
         
         enter: Transition {
             ParallelAnimation {
-                NumberAnimation { property: "x"; from: dashboardModal.startX; to: dashboardModal.targetX; duration: 400; easing.type: Easing.OutExpo }
-                NumberAnimation { property: "y"; from: dashboardModal.startY; to: dashboardModal.targetY; duration: 400; easing.type: Easing.OutExpo }
-                NumberAnimation { property: "width"; from: dashboardModal.startW; to: dashboardModal.targetW; duration: 400; easing.type: Easing.OutExpo }
-                NumberAnimation { property: "height"; from: dashboardModal.startH; to: dashboardModal.targetH; duration: 400; easing.type: Easing.OutExpo }
-                NumberAnimation { target: modalBg; property: "radius"; from: dashboardModal.startRadius; to: 24; duration: 400; easing.type: Easing.OutExpo }
-                NumberAnimation { target: modalContent; property: "opacity"; from: 0; to: 1; duration: 300; easing.type: Easing.OutExpo }
-                NumberAnimation { target: dashboardModal; property: "opacity"; from: 0; to: 1; duration: 150; easing.type: Easing.OutExpo }
+                NumberAnimation { property: "x"; from: dashboardModal.startX; to: dashboardModal.targetX; duration: 400; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] }
+                NumberAnimation { property: "y"; from: dashboardModal.startY; to: dashboardModal.targetY; duration: 400; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] }
+                NumberAnimation { property: "width"; from: dashboardModal.startW; to: dashboardModal.targetW; duration: 400; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] }
+                NumberAnimation { property: "height"; from: dashboardModal.startH; to: dashboardModal.targetH; duration: 400; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] }
+                NumberAnimation { target: modalBg; property: "radius"; from: dashboardModal.startRadius; to: ThemeManager.radiusXl; duration: 400; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] }
+                NumberAnimation { target: modalContent; property: "opacity"; from: 0; to: 1; duration: 300; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] }
+                NumberAnimation { target: dashboardModal; property: "opacity"; from: 0; to: 1; duration: 150; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] }
             }
         }
         
         exit: Transition {
             ParallelAnimation {
-                NumberAnimation { property: "x"; from: dashboardModal.targetX; to: dashboardModal.startX; duration: 300; easing.type: Easing.OutExpo }
-                NumberAnimation { property: "y"; from: dashboardModal.targetY; to: dashboardModal.startY; duration: 300; easing.type: Easing.OutExpo }
-                NumberAnimation { property: "width"; from: dashboardModal.targetW; to: dashboardModal.startW; duration: 300; easing.type: Easing.OutExpo }
-                NumberAnimation { property: "height"; from: dashboardModal.targetH; to: dashboardModal.startH; duration: 300; easing.type: Easing.OutExpo }
-                NumberAnimation { target: modalBg; property: "radius"; from: 24; to: dashboardModal.startRadius; duration: 300; easing.type: Easing.OutExpo }
-                NumberAnimation { target: modalContent; property: "opacity"; from: 1; to: 0; duration: 150; easing.type: Easing.OutExpo }
+                NumberAnimation { property: "x"; from: dashboardModal.targetX; to: dashboardModal.startX; duration: 300; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] }
+                NumberAnimation { property: "y"; from: dashboardModal.targetY; to: dashboardModal.startY; duration: 300; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] }
+                NumberAnimation { property: "width"; from: dashboardModal.targetW; to: dashboardModal.startW; duration: 300; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] }
+                NumberAnimation { property: "height"; from: dashboardModal.targetH; to: dashboardModal.startH; duration: 300; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] }
+                NumberAnimation { target: modalBg; property: "radius"; from: ThemeManager.radiusXl; to: dashboardModal.startRadius; duration: 300; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] }
+                NumberAnimation { target: modalContent; property: "opacity"; from: 1; to: 0; duration: 150; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] }
                 SequentialAnimation {
                     PauseAnimation { duration: 150 }
-                    NumberAnimation { target: dashboardModal; property: "opacity"; from: 1; to: 0; duration: 150; easing.type: Easing.OutExpo }
+                    NumberAnimation { target: dashboardModal; property: "opacity"; from: 1; to: 0; duration: 150; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] }
                 }
             }
         }
@@ -333,7 +333,7 @@ Rectangle {
         background: Rectangle {
             id: modalBg
             color: ThemeManager.surface
-            radius: 24
+            radius: ThemeManager.radiusXl
             border.color: ThemeManager.outlineVariant
             border.width: 1
             clip: true

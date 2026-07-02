@@ -65,7 +65,7 @@ Popup {
             Rectangle {
                 width: 32; height: 32; radius: 16
                 color: closeMa.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.1) : "transparent"
-                Behavior on color { ColorAnimation { duration: 80 } }
+                Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                 M3Icon { anchors.centerIn: parent; name: "close"; size: 18; color: ThemeManager.onSurfaceVariant }
                 MouseArea { id: closeMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.close() }
             }
@@ -81,7 +81,7 @@ Popup {
                 color: ThemeManager.surfaceContainerHighest
                 border.width: nameField.activeFocus ? 2 : 0
                 border.color: ThemeManager.primary
-                Behavior on border.width { NumberAnimation { duration: 80 } }
+                Behavior on border.width { NumberAnimation { duration: ThemeManager.durShort } }
                 TextInput {
                     id: nameField
                     anchors.fill: parent; anchors.margins: 12
@@ -101,11 +101,11 @@ Popup {
                 color: ThemeManager.surfaceContainerHighest
                 border.width: descField.activeFocus ? 2 : 0
                 border.color: ThemeManager.primary
-                Behavior on border.width { NumberAnimation { duration: 80 } }
+                Behavior on border.width { NumberAnimation { duration: ThemeManager.durShort } }
                 TextEdit {
                     id: descField
                     anchors.fill: parent; anchors.margins: 12
-                    font.pixelSize: 13; color: ThemeManager.onSurface
+                    font.pixelSize: ThemeManager.fontLabelL; color: ThemeManager.onSurface
                     wrapMode: TextEdit.Wrap; clip: true
                 }
             }
@@ -139,12 +139,12 @@ Popup {
                     anchors.verticalCenter: parent.verticalCenter
                     width: changeRow.implicitWidth + 24; height: 40; radius: 20
                     color: addPhotoMa.containsMouse ? Qt.alpha(ThemeManager.primary, 0.14) : Qt.alpha(ThemeManager.primary, 0.08)
-                    Behavior on color { ColorAnimation { duration: 80 } }
+                    Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                     Row {
                         id: changeRow
                         anchors.centerIn: parent; spacing: 6
                         M3Icon { name: "image"; size: 18; color: ThemeManager.primary; anchors.verticalCenter: parent.verticalCenter }
-                        Label { text: I18n.t(Settings.language, "change_photo"); font.pixelSize: 13; color: ThemeManager.primary }
+                        Label { text: I18n.t(Settings.language, "change_photo"); font.pixelSize: ThemeManager.fontLabelL; color: ThemeManager.primary }
                     }
                     MouseArea {
                         id: addPhotoMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -161,7 +161,7 @@ Popup {
             Rectangle {
                 width: cancelLbl.implicitWidth + 32; height: 40; radius: 20
                 color: cancelMa.containsMouse ? Qt.alpha(ThemeManager.primary, 0.08) : "transparent"
-                Behavior on color { ColorAnimation { duration: 80 } }
+                Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                 Label { id: cancelLbl; anchors.centerIn: parent; text: I18n.t(Settings.language, "cancel"); color: ThemeManager.primary; font.pixelSize: 14 }
                 MouseArea { id: cancelMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.close() }
             }
@@ -169,7 +169,7 @@ Popup {
                 width: saveLbl.implicitWidth + 32; height: 40; radius: 20
                 color: saveMa.containsMouse ? Qt.alpha(ThemeManager.primary, 0.85) : ThemeManager.primary
                 opacity: nameField.text.trim().length > 0 ? 1 : 0.4
-                Behavior on color { ColorAnimation { duration: 80 } }
+                Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                 Label { id: saveLbl; anchors.centerIn: parent; text: root.isNew ? I18n.t(Settings.language, "create_album") : I18n.t(Settings.language, "save"); color: ThemeManager.onPrimary; font.pixelSize: 14; font.weight: Font.Medium }
                 MouseArea {
                     id: saveMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor

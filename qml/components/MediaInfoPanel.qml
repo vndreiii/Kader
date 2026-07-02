@@ -111,7 +111,7 @@ Rectangle {
                     Label {
                         width: parent.width
                         text: modelData.value
-                        font.pixelSize: 13
+                        font.pixelSize: ThemeManager.fontLabelL
                         font.family: modelData.mono ? "JetBrains Mono" : ""
                         color: ThemeManager.onSurface
                         wrapMode: Text.Wrap

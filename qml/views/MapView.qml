@@ -202,7 +202,7 @@ Item {
                                         Label {
                                             text: modelData.count
                                             color: "white"
-                                            font.pixelSize: 13
+                                            font.pixelSize: ThemeManager.fontLabelL
                                             font.weight: Font.SemiBold
                                             anchors.verticalCenter: parent.verticalCenter
                                         }
@@ -282,7 +282,7 @@ Item {
                                   : (root.activePin
                                      ? root.activePin.lat.toFixed(4) + "°,  " + root.activePin.lon.toFixed(4) + "°"
                                      : "")
-                            color: "white"; font.pixelSize: 12
+                            color: "white"; font.pixelSize: ThemeManager.fontLabelM
                             wrapMode: Text.WordWrap; maximumLineCount: 2; elide: Text.ElideRight
                         }
 
@@ -394,7 +394,7 @@ Item {
                     delegate: Rectangle {
                         width: placeList.width; height: 76; radius: 12
                         color: hoverArea.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.07) : "transparent"
-                        Behavior on color { ColorAnimation { duration: 80 } }
+                        Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
 
                         RowLayout {
                             anchors.fill: parent; anchors.margins: 8; spacing: 12

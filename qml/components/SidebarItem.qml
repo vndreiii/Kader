@@ -20,6 +20,12 @@ Item {
 
 
 
+    // NOTE: the M3 active-indicator pill (secondaryContainer, sliding) already
+    // exists one level up in Sidebar.qml (`activePill`, tracks the active row's
+    // y via mapToItem + a spring animation) — adding a second pill here would
+    // just double-draw on top of it, so this component intentionally only
+    // recolors icon/label for the active state, as before.
+
     Row {
         anchors.fill: parent
         anchors.leftMargin: root.collapsed ? Math.floor((root.width - 24) / 2) : 28
@@ -46,7 +52,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             text: root.label
             color: root.active ? ThemeManager.onSecondaryContainer : ThemeManager.onSurfaceVariant
-            font.pixelSize: 14
+            font.pixelSize: ThemeManager.fontLabelL
             font.weight: root.active ? Font.Medium : Font.Normal
             elide: Text.ElideRight
             width: parent.width - 64
@@ -54,14 +60,14 @@ Item {
         }
     }
 
-    // ── Hover + press overlay ─────────────────────────────────────────────
+    // ── Hover + press state layer ───────────────────────────────────────
     Rectangle {
         anchors.fill: parent
         anchors.leftMargin: 12; anchors.rightMargin: 12
-        radius: 28
+        radius: ThemeManager.radiusXxl
         color: ThemeManager.onSurface
-        opacity: mouseArea.pressed ? 0.20 : (mouseArea.containsMouse ? 0.08 : 0)
-        Behavior on opacity { NumberAnimation { duration: 80 } }
+        opacity: mouseArea.pressed ? ThemeManager.pressOpacity : (mouseArea.containsMouse ? ThemeManager.hoverOpacity : 0)
+        Behavior on opacity { NumberAnimation { duration: ThemeManager.durShort } }
     }
 
     MouseArea {

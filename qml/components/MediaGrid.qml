@@ -206,7 +206,7 @@ Item {
                             anchors.centerIn: parent
                             text: rowItem._month
                             font.family: "Roboto Flex"
-                            font.pixelSize: 13
+                            font.pixelSize: ThemeManager.fontLabelL
                             font.weight: Font.Medium
                             color: ThemeManager.onSurface
                         }
@@ -310,7 +310,7 @@ Item {
                     anchors.centerIn: parent
                     text: scrubber._currentMonth
                     color: ThemeManager.inverseOnSurface
-                    font.pixelSize: 13; font.weight: Font.Medium
+                    font.pixelSize: ThemeManager.fontLabelL; font.weight: Font.Medium
                 }
             }
         }
@@ -429,7 +429,7 @@ Item {
                 leftPadding: 8; rightPadding: 4
                 text: Object.keys(root._selSet).length + " selected"
                 color: ThemeManager.inverseOnSurface
-                font.pixelSize: 14; font.weight: Font.Medium
+                font.pixelSize: ThemeManager.fontBodyM; font.weight: Font.Medium
             }
 
             Rectangle { width: 1; height: 32; color: Qt.alpha(ThemeManager.inverseOnSurface, 0.2); anchors.verticalCenter: parent.verticalCenter }
@@ -438,7 +438,7 @@ Item {
             Rectangle {
                 width: 44; height: 44; radius: 22
                 color: selFavMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
-                Behavior on color { ColorAnimation { duration: 80 } }
+                Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                 ToolTip.text: I18n.t(Settings.language, "tip_favorite"); ToolTip.visible: selFavMa.containsMouse; ToolTip.delay: 400
                 M3Icon { anchors.centerIn: parent; name: "favorite"; size: 20; color: ThemeManager.inverseOnSurface }
                 MouseArea {
@@ -457,7 +457,7 @@ Item {
                 width: 44; height: 44; radius: 22
                 visible: TimelineModel.filterMode !== 3
                 color: selHideMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
-                Behavior on color { ColorAnimation { duration: 80 } }
+                Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                 ToolTip.text: I18n.t(Settings.language, "tip_hide"); ToolTip.visible: selHideMa.containsMouse; ToolTip.delay: 400
                 M3Icon { anchors.centerIn: parent; name: "visibility_off"; size: 20; color: ThemeManager.inverseOnSurface }
                 MouseArea {
@@ -476,7 +476,7 @@ Item {
                 width: 44; height: 44; radius: 22
                 visible: TimelineModel.filterMode === 0 || TimelineModel.filterMode === 1
                 color: selIgnoreMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
-                Behavior on color { ColorAnimation { duration: 80 } }
+                Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                 ToolTip.text: I18n.t(Settings.language, "tip_ignore"); ToolTip.visible: selIgnoreMa.containsMouse; ToolTip.delay: 400
                 M3Icon { anchors.centerIn: parent; name: "block"; size: 20; color: ThemeManager.inverseOnSurface }
                 MouseArea {
@@ -494,7 +494,7 @@ Item {
                 width: 44; height: 44; radius: 22
                 visible: TimelineModel.filterMode === 3
                 color: selUnhideMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
-                Behavior on color { ColorAnimation { duration: 80 } }
+                Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                 ToolTip.text: I18n.t(Settings.language, "tip_unhide"); ToolTip.visible: selUnhideMa.containsMouse; ToolTip.delay: 400
                 M3Icon { anchors.centerIn: parent; name: "visibility"; size: 20; color: ThemeManager.inverseOnSurface }
                 MouseArea {
@@ -514,7 +514,7 @@ Item {
                 width: 44; height: 44; radius: 22
                 visible: TimelineModel.filterMode !== 2
                 color: selTrashMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
-                Behavior on color { ColorAnimation { duration: 80 } }
+                Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                 ToolTip.text: I18n.t(Settings.language, "tip_move_trash"); ToolTip.visible: selTrashMa.containsMouse; ToolTip.delay: 400
                 M3Icon { anchors.centerIn: parent; name: "delete"; size: 20; color: ThemeManager.inverseOnSurface }
                 MouseArea {
@@ -532,7 +532,7 @@ Item {
                 width: 44; height: 44; radius: 22
                 visible: TimelineModel.filterMode === 2
                 color: selPermDelMa.containsMouse ? Qt.alpha(ThemeManager.error, 0.22) : "transparent"
-                Behavior on color { ColorAnimation { duration: 80 } }
+                Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                 ToolTip.text: I18n.t(Settings.language, "tip_delete_perm"); ToolTip.visible: selPermDelMa.containsMouse; ToolTip.delay: 400
                 M3Icon { anchors.centerIn: parent; name: "delete_forever"; size: 20; color: ThemeManager.inverseOnSurface }
                 MouseArea {
@@ -551,7 +551,7 @@ Item {
             Rectangle {
                 width: 44; height: 44; radius: 22
                 color: selClearMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
-                Behavior on color { ColorAnimation { duration: 80 } }
+                Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                 ToolTip.text: I18n.t(Settings.language, "tip_clear_selection"); ToolTip.visible: selClearMa.containsMouse; ToolTip.delay: 400
                 M3Icon { anchors.centerIn: parent; name: "close"; size: 20; color: Qt.alpha(ThemeManager.inverseOnSurface, 0.6) }
                 MouseArea {

@@ -9,7 +9,7 @@ import "../I18n.js" as I18n
 Rectangle {
     id: root
     anchors.fill: parent
-    color: "#F5000000"  // 96% opaque black — enough to hide sidebar/topbar
+    color: Qt.alpha("black", 0.96)  // 96% opaque black — enough to hide sidebar/topbar
     z: 1000
     visible: active
 
@@ -170,10 +170,10 @@ Rectangle {
         anchors.bottomMargin: root._vidFs ? 0 : 80
         clip: true
 
-        Behavior on anchors.topMargin    { NumberAnimation { duration: 220; easing.type: Easing.OutQuint } }
-        Behavior on anchors.leftMargin   { NumberAnimation { duration: 220; easing.type: Easing.OutQuint } }
-        Behavior on anchors.rightMargin  { NumberAnimation { duration: 220; easing.type: Easing.OutQuint } }
-        Behavior on anchors.bottomMargin { NumberAnimation { duration: 220; easing.type: Easing.OutQuint } }
+        Behavior on anchors.topMargin    { NumberAnimation { duration: 220; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
+        Behavior on anchors.leftMargin   { NumberAnimation { duration: 220; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
+        Behavior on anchors.rightMargin  { NumberAnimation { duration: 220; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
+        Behavior on anchors.bottomMargin { NumberAnimation { duration: 220; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
 
         // Mouse tracker for auto-hide + double-click-to-fullscreen in video fullscreen mode
         MouseArea {
@@ -331,7 +331,7 @@ Rectangle {
             anchors.fill: parent
             visible: true
             opacity: root._isVideo ? 1.0 : 0.0
-            Behavior on opacity { NumberAnimation { duration: 280; easing.type: Easing.OutQuint } }
+            Behavior on opacity { NumberAnimation { duration: 280; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
             scale: root._zoom
             transformOrigin: Item.Center
             transform: Translate { x: root._panX; y: root._panY }
@@ -341,15 +341,15 @@ Rectangle {
         Rectangle {
             visible: root._isVideo && videoPlayer.hasError
             anchors.centerIn: parent
-            width: errLbl.implicitWidth + 48; height: 56; radius: 12
+            width: errLbl.implicitWidth + 48; height: 56; radius: ThemeManager.radiusMd
             color: Qt.alpha("black", 0.65)
             Column {
                 anchors.centerIn: parent; spacing: 4
-                Label { id: errLbl; anchors.horizontalCenter: parent.horizontalCenter; text: "Failed to play video"; color: "white"; font.pixelSize: 14 }
+                Label { id: errLbl; anchors.horizontalCenter: parent.horizontalCenter; text: "Failed to play video"; color: "white"; font.pixelSize: ThemeManager.fontBodyM }
                 Label {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: "Open externally"
-                    color: Qt.alpha("white", 0.65); font.pixelSize: 12
+                    color: Qt.alpha("white", 0.65); font.pixelSize: ThemeManager.fontLabelM
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                         onClicked: if (root.mediaData) Qt.openUrlExternally("file://" + root.mediaData.file_path) }
                 }
@@ -362,13 +362,13 @@ Rectangle {
             visible: root._isVideo
             z: 11
             opacity: root._vidFs ? (root._controlsVisible ? 1.0 : 0.0) : 1.0
-            Behavior on opacity { NumberAnimation { duration: 300; easing.type: Easing.OutQuint } }
+            Behavior on opacity { NumberAnimation { duration: ThemeManager.durMed; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
             anchors.bottomMargin: 16
             width: Math.min(Math.max(400, parent.width * 0.65), 640)
             height: 80
-            radius: 20
+            radius: ThemeManager.radiusXl
             color: Qt.alpha("black", 0.70)
 
             Column {
@@ -388,15 +388,22 @@ Rectangle {
                         id: ppBtn
                         anchors.verticalCenter: parent.verticalCenter
                         width: 28; height: 28; radius: 14
-                        color: Qt.alpha("white", ppMa.containsMouse ? 0.20 : 0.12)
-                        Behavior on color { ColorAnimation { duration: 80 } }
+                        color: Qt.alpha("white", ppMa.containsMouse ? (0.12 + ThemeManager.hoverOpacity) : 0.12)
+                        Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                         M3Icon {
                             anchors.centerIn: parent
                             name: videoPlayer.playbackState === MediaPlayer.PlayingState ? "pause" : "play"
                             size: 16; color: "white"
                         }
+                        // Visual chip stays 28dp; hit area is widened toward the pill's
+                        // padding (safe — no neighbor there) without overlapping the
+                        // time label or the scrubber below.
                         MouseArea {
-                            id: ppMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            id: ppMa; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            anchors.left: parent.left;   anchors.leftMargin: -10
+                            anchors.right: parent.right; anchors.rightMargin: -4
+                            anchors.top: parent.top;     anchors.topMargin: -8
+                            anchors.bottom: parent.bottom; anchors.bottomMargin: -6
                             onClicked: videoPlayer.playbackState === MediaPlayer.PlayingState
                                        ? videoPlayer.pause() : videoPlayer.play()
                         }
@@ -414,7 +421,7 @@ Rectangle {
                             return fmt(videoPlayer.position) + " / " + fmt(videoPlayer.duration)
                         }
                         color: Qt.alpha("white", 0.75)
-                        font.pixelSize: 12; font.weight: Font.Medium
+                        font.pixelSize: ThemeManager.fontLabelM; font.weight: Font.Medium
                         font.family: "JetBrains Mono"
                     }
 
@@ -428,11 +435,17 @@ Rectangle {
                         Rectangle {
                             anchors.verticalCenter: parent.verticalCenter
                             width: 28; height: 28; radius: 14
-                            color: Qt.alpha("white", root._editMode ? 0.28 : (editMa.containsMouse ? 0.20 : 0.12))
-                            Behavior on color { ColorAnimation { duration: 80 } }
+                            color: Qt.alpha("white", root._editMode ? 0.28 : (editMa.containsMouse ? (0.12 + ThemeManager.hoverOpacity) : 0.12))
+                            Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                             M3Icon { anchors.centerIn: parent; name: "content_cut"; size: 15; color: "white" }
+                            // Widened hit area — capped at half the 4dp inter-chip gap
+                            // so neighbouring chips' hit areas never overlap.
                             MouseArea {
-                                id: editMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                id: editMa; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                anchors.left: parent.left;   anchors.leftMargin: -4
+                                anchors.right: parent.right; anchors.rightMargin: -4
+                                anchors.top: parent.top;     anchors.topMargin: -8
+                                anchors.bottom: parent.bottom; anchors.bottomMargin: -6
                                 onClicked: root._editMode ? (root._editMode = false) : root._enterEdit()
                             }
                         }
@@ -443,12 +456,18 @@ Rectangle {
                             property bool looping: true
                             anchors.verticalCenter: parent.verticalCenter
                             width: 28; height: 28; radius: 14
-                            color: Qt.alpha("white", looping ? 0.25 : (loopMa.containsMouse ? 0.16 : 0.12))
-                            Behavior on color { ColorAnimation { duration: 80 } }
+                            color: Qt.alpha("white", looping ? 0.25 : (loopMa.containsMouse ? (0.12 + ThemeManager.hoverOpacity) : 0.12))
+                            Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                             M3Icon { anchors.centerIn: parent; name: "repeat"; size: 15
                                 color: videoLoopBtn.looping ? "white" : Qt.alpha("white", 0.55) }
-                            MouseArea { id: loopMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                onClicked: videoLoopBtn.looping = !videoLoopBtn.looping }
+                            MouseArea {
+                                id: loopMa; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                anchors.left: parent.left;   anchors.leftMargin: -4
+                                anchors.right: parent.right; anchors.rightMargin: -4
+                                anchors.top: parent.top;     anchors.topMargin: -8
+                                anchors.bottom: parent.bottom; anchors.bottomMargin: -6
+                                onClicked: videoLoopBtn.looping = !videoLoopBtn.looping
+                            }
                         }
 
                         Item {
@@ -508,15 +527,19 @@ Rectangle {
 
                                 Rectangle {
                                     width: 28; height: 28; radius: 14
-                                    color: Qt.alpha("white", muteMa.containsMouse ? 0.20 : 0.12)
-                                    Behavior on color { ColorAnimation { duration: 80 } }
+                                    color: Qt.alpha("white", muteMa.containsMouse ? (0.12 + ThemeManager.hoverOpacity) : 0.12)
+                                    Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                                     M3Icon {
                                         anchors.centerIn: parent
                                         name: audioOut.muted ? "volume_off" : "volume_up"
                                         size: 15; color: "white"
                                     }
                                     MouseArea {
-                                        id: muteMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                        id: muteMa; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                        anchors.left: parent.left;   anchors.leftMargin: -2
+                                        anchors.right: parent.right; anchors.rightMargin: -4
+                                        anchors.top: parent.top;     anchors.topMargin: -8
+                                        anchors.bottom: parent.bottom; anchors.bottomMargin: -6
                                         onClicked: audioOut.muted = !audioOut.muted
                                     }
                                 }
@@ -527,15 +550,19 @@ Rectangle {
                         Rectangle {
                             anchors.verticalCenter: parent.verticalCenter
                             width: 28; height: 28; radius: 14
-                            color: Qt.alpha("white", vfsMa.containsMouse ? 0.20 : 0.12)
-                            Behavior on color { ColorAnimation { duration: 80 } }
+                            color: Qt.alpha("white", vfsMa.containsMouse ? (0.12 + ThemeManager.hoverOpacity) : 0.12)
+                            Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                             M3Icon {
                                 anchors.centerIn: parent
                                 name: root._videoFullscreen ? "fullscreen_exit" : "fullscreen"
                                 size: 15; color: "white"
                             }
                             MouseArea {
-                                id: vfsMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                id: vfsMa; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                anchors.left: parent.left;   anchors.leftMargin: -4
+                                anchors.right: parent.right; anchors.rightMargin: -8
+                                anchors.top: parent.top;     anchors.topMargin: -8
+                                anchors.bottom: parent.bottom; anchors.bottomMargin: -6
                                 onClicked: root.toggleVideoFullscreen()
                             }
                         }
@@ -569,7 +596,7 @@ Rectangle {
                         x: seekTrack._ratio * (seekTrack.width - width)
                         width: seekDrag.pressed ? 20 : 12
                         height: 12; radius: 6; color: "white"
-                        Behavior on width { NumberAnimation { duration: 80; easing.type: Easing.OutQuart } }
+                        Behavior on width { NumberAnimation { duration: ThemeManager.durShort; easing.type: Easing.OutQuart } }
                     }
 
                     MouseArea {
@@ -606,7 +633,7 @@ Rectangle {
             anchors.bottom: videoControls.top
             anchors.bottomMargin: 10
             height: 52
-            radius: 16
+            radius: ThemeManager.radiusLg
             color: Qt.alpha("black", 0.82)
             width: editRow.implicitWidth + 28
 
@@ -617,10 +644,10 @@ Rectangle {
                 signal clicked()
                 width: t.implicitWidth + 22; height: 30; radius: 15
                 color: filled ? ThemeManager.primary
-                              : Qt.alpha("white", on ? 0.28 : (ma.containsMouse ? 0.20 : 0.12))
-                Behavior on color { ColorAnimation { duration: 80 } }
+                              : Qt.alpha("white", on ? 0.28 : (ma.containsMouse ? (0.12 + ThemeManager.hoverOpacity) : 0.12))
+                Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                 Label { id: t; anchors.centerIn: parent; color: parent.filled ? ThemeManager.onPrimary : "white"
-                        font.pixelSize: 12; font.weight: Font.Medium }
+                        font.pixelSize: ThemeManager.fontLabelM; font.weight: Font.Medium }
                 MouseArea { id: ma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                             onClicked: parent.clicked() }
             }
@@ -632,9 +659,9 @@ Rectangle {
 
                 Row {
                     spacing: 6; anchors.verticalCenter: parent.verticalCenter
-                    Label { text: I18n.t(Settings.language, "editor_start"); color: Qt.alpha("white", 0.6); font.pixelSize: 11
+                    Label { text: I18n.t(Settings.language, "editor_start"); color: Qt.alpha("white", 0.6); font.pixelSize: ThemeManager.fontLabelS
                             anchors.verticalCenter: parent.verticalCenter }
-                    Label { text: root._fmt(root._trimStartMs); color: "white"; font.pixelSize: 13
+                    Label { text: root._fmt(root._trimStartMs); color: "white"; font.pixelSize: ThemeManager.fontLabelL
                             font.family: "JetBrains Mono"; anchors.verticalCenter: parent.verticalCenter }
                     MiniBtn { anchors.verticalCenter: parent.verticalCenter; label: I18n.t(Settings.language, "editor_set")
                               onClicked: root._trimStartMs = Math.min(videoPlayer.position, root._trimEndMs - 100) }
@@ -642,9 +669,9 @@ Rectangle {
                 Rectangle { width: 1; height: 26; color: Qt.alpha("white", 0.15); anchors.verticalCenter: parent.verticalCenter }
                 Row {
                     spacing: 6; anchors.verticalCenter: parent.verticalCenter
-                    Label { text: I18n.t(Settings.language, "editor_end"); color: Qt.alpha("white", 0.6); font.pixelSize: 11
+                    Label { text: I18n.t(Settings.language, "editor_end"); color: Qt.alpha("white", 0.6); font.pixelSize: ThemeManager.fontLabelS
                             anchors.verticalCenter: parent.verticalCenter }
-                    Label { text: root._fmt(root._trimEndMs); color: "white"; font.pixelSize: 13
+                    Label { text: root._fmt(root._trimEndMs); color: "white"; font.pixelSize: ThemeManager.fontLabelL
                             font.family: "JetBrains Mono"; anchors.verticalCenter: parent.verticalCenter }
                     MiniBtn { anchors.verticalCenter: parent.verticalCenter; label: I18n.t(Settings.language, "editor_set")
                               onClicked: root._trimEndMs = Math.max(videoPlayer.position, root._trimStartMs + 100) }
@@ -655,8 +682,8 @@ Rectangle {
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
                     width: 32; height: 30; radius: 15
-                    color: Qt.alpha("white", audMa.containsMouse ? 0.20 : 0.12)
-                    Behavior on color { ColorAnimation { duration: 80 } }
+                    color: Qt.alpha("white", audMa.containsMouse ? (0.12 + ThemeManager.hoverOpacity) : 0.12)
+                    Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                     M3Icon { anchors.centerIn: parent; size: 15; color: "white"
                              name: root._keepAudio ? "volume_up" : "volume_off" }
                     MouseArea { id: audMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -694,7 +721,7 @@ Rectangle {
             color: Qt.alpha("black", 0.85)
             width: toastLbl.implicitWidth + 32
             Label { id: toastLbl; anchors.centerIn: parent; text: root._toast
-                    color: "white"; font.pixelSize: 13; font.weight: Font.Medium }
+                    color: "white"; font.pixelSize: ThemeManager.fontLabelL; font.weight: Font.Medium }
         }
         Timer { id: toastTimer; interval: 4000; onTriggered: root._toast = "" }
 
@@ -760,14 +787,14 @@ Rectangle {
         anchors.left: parent.left; anchors.leftMargin: 16
         anchors.verticalCenter: parent.verticalCenter
         width: 52; height: 52; radius: 26
-        color: Qt.alpha("white", prevMa.pressed ? 0.28 : prevMa.containsMouse ? 0.20 : 0.14)
+        color: Qt.alpha("white", prevMa.pressed ? (0.14 + ThemeManager.pressOpacity) : prevMa.containsMouse ? (0.14 + ThemeManager.hoverOpacity) : 0.14)
         border.color: Qt.alpha("white", 0.08); border.width: 1
         opacity: root._vidFs ? 0 : (root.currentIndex > 0 ? 1.0 : 0.25)
         visible: opacity > 0
         Behavior on opacity { NumberAnimation { duration: 200 } }
-        Behavior on color { ColorAnimation { duration: 80 } }
+        Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
         scale: prevMa.pressed ? 0.92 : 1.0
-        Behavior on scale { NumberAnimation { duration: 80 } }
+        Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
         M3Icon { anchors.centerIn: parent; name: "chevron_left"; size: 26; color: "white" }
         MouseArea { id: prevMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; enabled: root.currentIndex > 0; onClicked: root.navigatePrev() }
     }
@@ -778,14 +805,14 @@ Rectangle {
         anchors.rightMargin: 16
         anchors.verticalCenter: parent.verticalCenter
         width: 52; height: 52; radius: 26
-        color: Qt.alpha("white", nextMa.pressed ? 0.28 : nextMa.containsMouse ? 0.20 : 0.14)
+        color: Qt.alpha("white", nextMa.pressed ? (0.14 + ThemeManager.pressOpacity) : nextMa.containsMouse ? (0.14 + ThemeManager.hoverOpacity) : 0.14)
         border.color: Qt.alpha("white", 0.08); border.width: 1
         opacity: root._vidFs ? 0 : (root.currentIndex < root.allItems.length - 1 ? 1.0 : 0.25)
         visible: opacity > 0
         Behavior on opacity { NumberAnimation { duration: 200 } }
-        Behavior on color { ColorAnimation { duration: 80 } }
+        Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
         scale: nextMa.pressed ? 0.92 : 1.0
-        Behavior on scale { NumberAnimation { duration: 80 } }
+        Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
         M3Icon { anchors.centerIn: parent; name: "chevron_right"; size: 26; color: "white" }
         MouseArea { id: nextMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; enabled: root.currentIndex < root.allItems.length - 1; onClicked: root.navigateNext() }
     }
@@ -794,13 +821,13 @@ Rectangle {
     Rectangle {
         anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 24
         width: 48; height: 48; radius: 24
-        color: Qt.alpha("white", closeMa.pressed ? 0.28 : closeMa.containsMouse ? 0.20 : 0.14)
+        color: Qt.alpha("white", closeMa.pressed ? (0.14 + ThemeManager.pressOpacity) : closeMa.containsMouse ? (0.14 + ThemeManager.hoverOpacity) : 0.14)
         opacity: root._vidFs ? 0 : 1
         visible: opacity > 0
         Behavior on opacity { NumberAnimation { duration: 200 } }
-        Behavior on color { ColorAnimation { duration: 80 } }
+        Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
         scale: closeMa.pressed ? 0.92 : 1.0
-        Behavior on scale { NumberAnimation { duration: 80 } }
+        Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
         M3Icon { anchors.centerIn: parent; name: "close"; size: 22; color: "white" }
         MouseArea { id: closeMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.active = false }
     }
@@ -823,7 +850,7 @@ Rectangle {
             text: root.mediaData && root.mediaData.creation_date
                   ? Qt.formatDateTime(new Date(root.mediaData.creation_date * 1000), "dd MMMM yyyy")
                   : ""
-            color: Qt.alpha("white", 0.65); font.pixelSize: 13
+            color: Qt.alpha("white", 0.65); font.pixelSize: ThemeManager.fontLabelL
         }
     }
 
@@ -840,9 +867,9 @@ Rectangle {
 
         Rectangle {
             width: 48; height: 48; radius: 24
-            color: Qt.alpha("white", zoomOutMa.pressed ? 0.28 : zoomOutMa.containsMouse ? 0.20 : 0.14)
-            Behavior on color { ColorAnimation { duration: 80 } }
-            scale: zoomOutMa.pressed ? 0.92 : 1.0; Behavior on scale { NumberAnimation { duration: 80 } }
+            color: Qt.alpha("white", zoomOutMa.pressed ? (0.14 + ThemeManager.pressOpacity) : zoomOutMa.containsMouse ? (0.14 + ThemeManager.hoverOpacity) : 0.14)
+            Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
+            scale: zoomOutMa.pressed ? 0.92 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
             M3Icon { anchors.centerIn: parent; name: "remove"; size: 22; color: "white" }
             MouseArea { id: zoomOutMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                 onClicked: { root._zoom = Math.max(1.0, root._zoom / 1.5); if (root._zoom <= 1.02) root.resetZoom() } }
@@ -850,18 +877,18 @@ Rectangle {
 
         Rectangle {
             width: 72; height: 48; radius: 24
-            color: Qt.alpha("white", zoomResetMa.pressed ? 0.28 : zoomResetMa.containsMouse ? 0.20 : 0.14)
-            Behavior on color { ColorAnimation { duration: 80 } }
-            scale: zoomResetMa.pressed ? 0.92 : 1.0; Behavior on scale { NumberAnimation { duration: 80 } }
-            Label { anchors.centerIn: parent; text: Math.round(root._zoom * 100) + "%"; color: "white"; font.pixelSize: 14; font.weight: Font.Medium }
+            color: Qt.alpha("white", zoomResetMa.pressed ? (0.14 + ThemeManager.pressOpacity) : zoomResetMa.containsMouse ? (0.14 + ThemeManager.hoverOpacity) : 0.14)
+            Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
+            scale: zoomResetMa.pressed ? 0.92 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
+            Label { anchors.centerIn: parent; text: Math.round(root._zoom * 100) + "%"; color: "white"; font.pixelSize: ThemeManager.fontLabelL; font.weight: Font.Medium }
             MouseArea { id: zoomResetMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.resetZoom() }
         }
 
         Rectangle {
             width: 48; height: 48; radius: 24
-            color: Qt.alpha("white", zoomInMa.pressed ? 0.28 : zoomInMa.containsMouse ? 0.20 : 0.14)
-            Behavior on color { ColorAnimation { duration: 80 } }
-            scale: zoomInMa.pressed ? 0.92 : 1.0; Behavior on scale { NumberAnimation { duration: 80 } }
+            color: Qt.alpha("white", zoomInMa.pressed ? (0.14 + ThemeManager.pressOpacity) : zoomInMa.containsMouse ? (0.14 + ThemeManager.hoverOpacity) : 0.14)
+            Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
+            scale: zoomInMa.pressed ? 0.92 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
             M3Icon { anchors.centerIn: parent; name: "add"; size: 22; color: "white" }
             MouseArea { id: zoomInMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                 onClicked: root._zoom = Math.min(8.0, root._zoom * 1.5) }
@@ -888,9 +915,9 @@ Rectangle {
         Rectangle {
             visible: !root.viewerOnlyMode
             width: 48; height: 48; radius: 24
-            color: Qt.alpha("white", favMa.pressed ? 0.28 : favMa.containsMouse ? 0.20 : 0.14)
-            Behavior on color { ColorAnimation { duration: 80 } }
-            scale: favMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: 80 } }
+            color: Qt.alpha("white", favMa.pressed ? (0.14 + ThemeManager.pressOpacity) : favMa.containsMouse ? (0.14 + ThemeManager.hoverOpacity) : 0.14)
+            Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
+            scale: favMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
             M3Icon { anchors.centerIn: parent; name: actionRow.isFav ? "favorite_fill" : "favorite"; size: 22; color: "white" }
             MouseArea { id: favMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                 onClicked: { if (!root.mediaData) return; DB.toggleFavorite(root.mediaData.id); root.mediaData = DB.getMediaById(root.mediaData.id); TimelineModel.refresh() } }
@@ -898,27 +925,29 @@ Rectangle {
         Rectangle {
             visible: !root.viewerOnlyMode
             width: 48; height: 48; radius: 24
-            color: Qt.alpha("white", trashMa.pressed ? 0.28 : trashMa.containsMouse ? 0.20 : 0.14)
-            Behavior on color { ColorAnimation { duration: 80 } }
-            scale: trashMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: 80 } }
+            color: Qt.alpha("white", trashMa.pressed ? (0.14 + ThemeManager.pressOpacity) : trashMa.containsMouse ? (0.14 + ThemeManager.hoverOpacity) : 0.14)
+            Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
+            scale: trashMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
             M3Icon { anchors.centerIn: parent; name: "delete"; size: 22; color: "white" }
             MouseArea { id: trashMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                 onClicked: { if (!root.mediaData) return; DB.setTrashed(root.mediaData.id, true); root.active = false; TimelineModel.refresh() } }
         }
         Rectangle {
             width: 48; height: 48; radius: 24
-            color: Qt.alpha("white", folderMa.pressed ? 0.28 : folderMa.containsMouse ? 0.20 : 0.14)
-            Behavior on color { ColorAnimation { duration: 80 } }
-            scale: folderMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: 80 } }
+            color: Qt.alpha("white", folderMa.pressed ? (0.14 + ThemeManager.pressOpacity) : folderMa.containsMouse ? (0.14 + ThemeManager.hoverOpacity) : 0.14)
+            Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
+            scale: folderMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
             M3Icon { anchors.centerIn: parent; name: "folder_open"; size: 22; color: "white" }
             MouseArea { id: folderMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                 onClicked: { if (root.mediaData && root.mediaData.file_path) Settings.revealInFolder(root.mediaData.file_path) } }
         }
         Rectangle {
             width: 48; height: 48; radius: 24
-            color: Qt.alpha("white", infoMa.pressed ? 0.28 : root.infoPanelOpen ? 0.28 : infoMa.containsMouse ? 0.20 : 0.14)
-            Behavior on color { ColorAnimation { duration: 80 } }
-            scale: infoMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: 80 } }
+            color: Qt.alpha("white", infoMa.pressed ? (0.14 + ThemeManager.pressOpacity)
+                                    : root.infoPanelOpen ? 0.28
+                                    : infoMa.containsMouse ? (0.14 + ThemeManager.hoverOpacity) : 0.14)
+            Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
+            scale: infoMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
             M3Icon { anchors.centerIn: parent; name: "info"; size: 22; color: "white" }
             MouseArea { id: infoMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                 onClicked: root.infoPanelOpen = !root.infoPanelOpen }
@@ -926,18 +955,18 @@ Rectangle {
         Rectangle {
             visible: !root._isVideo
             width: 48; height: 48; radius: 24
-            color: Qt.alpha("white", copyMa.pressed ? 0.28 : copyMa.containsMouse ? 0.20 : 0.14)
-            Behavior on color { ColorAnimation { duration: 80 } }
-            scale: copyMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: 80 } }
+            color: Qt.alpha("white", copyMa.pressed ? (0.14 + ThemeManager.pressOpacity) : copyMa.containsMouse ? (0.14 + ThemeManager.hoverOpacity) : 0.14)
+            Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
+            scale: copyMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
             M3Icon { anchors.centerIn: parent; name: "content_copy"; size: 22; color: "white" }
             MouseArea { id: copyMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                 onClicked: { if (root.mediaData) Settings.copyImageToClipboard(root.mediaData.file_path) } }
         }
         Rectangle {
             width: 48; height: 48; radius: 24
-            color: Qt.alpha("white", fsMa.pressed ? 0.28 : fsMa.containsMouse ? 0.20 : 0.14)
-            Behavior on color { ColorAnimation { duration: 80 } }
-            scale: fsMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: 80 } }
+            color: Qt.alpha("white", fsMa.pressed ? (0.14 + ThemeManager.pressOpacity) : fsMa.containsMouse ? (0.14 + ThemeManager.hoverOpacity) : 0.14)
+            Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
+            scale: fsMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
             M3Icon {
                 anchors.centerIn: parent
                 name: root._isFullscreen ? "fullscreen_exit" : "fullscreen"
@@ -953,10 +982,10 @@ Rectangle {
         Rectangle {
             visible: !root.viewerOnlyMode
             width: 48; height: 48; radius: 24
-            color: Qt.alpha("white", delMa.pressed ? 0.28 : delMa.containsMouse ? 0.20 : 0.14)
-            Behavior on color { ColorAnimation { duration: 80 } }
-            scale: delMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: 80 } }
-            M3Icon { anchors.centerIn: parent; name: "delete_forever"; size: 22; color: "#ffd8e4" }
+            color: Qt.alpha("white", delMa.pressed ? (0.14 + ThemeManager.pressOpacity) : delMa.containsMouse ? (0.14 + ThemeManager.hoverOpacity) : 0.14)
+            Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
+            scale: delMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
+            M3Icon { anchors.centerIn: parent; name: "delete_forever"; size: 22; color: ThemeManager.tertiaryContainer }
             MouseArea { id: delMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                 onClicked: deleteConfirm.showing = !deleteConfirm.showing }
         }
@@ -970,31 +999,31 @@ Rectangle {
         anchors.right: actionRow.right
         anchors.bottom: actionRow.top
         anchors.bottomMargin: showing ? 10 : 4
-        height: 52; radius: 14
+        height: 52; radius: ThemeManager.radiusLg
         color: ThemeManager.errorContainer
         opacity: showing ? 1 : 0
         visible: opacity > 0
-        Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutQuint } }
-        Behavior on anchors.bottomMargin { NumberAnimation { duration: 180; easing.type: Easing.OutQuint } }
+        Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
+        Behavior on anchors.bottomMargin { NumberAnimation { duration: 180; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
 
         RowLayout {
             anchors.fill: parent; anchors.leftMargin: 16; anchors.rightMargin: 8; spacing: 8
             Label {
                 Layout.fillWidth: true; text: "Delete permanently?"
-                color: ThemeManager.onErrorContainer; font.pixelSize: 13
+                color: ThemeManager.onErrorContainer; font.pixelSize: ThemeManager.fontLabelL
             }
             Rectangle {
                 height: 36; radius: 18; implicitWidth: cancelConfLbl.implicitWidth + 24
-                color: cancelConfMa.containsMouse ? Qt.alpha(ThemeManager.onErrorContainer, 0.12) : "transparent"
-                Behavior on color { ColorAnimation { duration: 80 } }
-                Label { id: cancelConfLbl; anchors.centerIn: parent; text: "Cancel"; color: ThemeManager.onErrorContainer; font.pixelSize: 13 }
+                color: cancelConfMa.containsMouse ? Qt.alpha(ThemeManager.onErrorContainer, ThemeManager.hoverOpacity) : "transparent"
+                Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
+                Label { id: cancelConfLbl; anchors.centerIn: parent; text: "Cancel"; color: ThemeManager.onErrorContainer; font.pixelSize: ThemeManager.fontLabelL }
                 MouseArea { id: cancelConfMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: deleteConfirm.showing = false }
             }
             Rectangle {
                 height: 36; radius: 18; implicitWidth: deleteConfLbl.implicitWidth + 24
                 color: deleteConfMa.containsMouse ? Qt.darker(ThemeManager.error, 1.1) : ThemeManager.error
-                Behavior on color { ColorAnimation { duration: 80 } }
-                Label { id: deleteConfLbl; anchors.centerIn: parent; text: "Delete"; color: "white"; font.pixelSize: 13; font.weight: Font.Medium }
+                Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
+                Label { id: deleteConfLbl; anchors.centerIn: parent; text: "Delete"; color: "white"; font.pixelSize: ThemeManager.fontLabelL; font.weight: Font.Medium }
                 MouseArea {
                     id: deleteConfMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                     onClicked: {
@@ -1016,11 +1045,11 @@ Rectangle {
         mediaData: root.mediaData
 
         opacity: root.infoPanelOpen ? 1.0 : 0.0
-        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutQuint } }
+        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
 
         transform: Translate {
             x: root.infoPanelOpen ? 0 : 380
-            Behavior on x { NumberAnimation { duration: 260; easing.type: Easing.OutQuint } }
+            Behavior on x { NumberAnimation { duration: 260; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
         }
     }
 }

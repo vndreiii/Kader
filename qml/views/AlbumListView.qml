@@ -118,7 +118,7 @@ Item {
                     border.width: root.isAlbumSelected(albumItem._path) ? 3 : 0
                     border.color: ThemeManager.primary
                     Behavior on radius { NumberAnimation { duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
-                    Behavior on border.width { NumberAnimation { duration: 80 } }
+                    Behavior on border.width { NumberAnimation { duration: ThemeManager.durShort } }
 
                     Rectangle {
                         id: coverMask
@@ -154,7 +154,7 @@ Item {
                             anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.margins: 12
                             width: weightLabel.width + 20; height: 24; radius: 12
                             color: Qt.alpha("black", 0.55)
-                            Label { id: weightLabel; anchors.centerIn: parent; text: model.size || "–"; color: "white"; font.pixelSize: 11; font.weight: Font.Medium }
+                            Label { id: weightLabel; anchors.centerIn: parent; text: model.size || "–"; color: "white"; font.pixelSize: ThemeManager.fontLabelS; font.weight: Font.Medium }
                         }
 
                         layer.enabled: true
@@ -176,7 +176,7 @@ Item {
                         M3Icon {
                             anchors.centerIn: parent; name: "check"; size: 16; color: "white"
                             opacity: root.isAlbumSelected(albumItem._path) ? 1 : 0
-                            Behavior on opacity { NumberAnimation { duration: 80 } }
+                            Behavior on opacity { NumberAnimation { duration: ThemeManager.durShort } }
                         }
                     }
                 }
@@ -266,7 +266,7 @@ Item {
             Rectangle {
                 width: 44; height: 44; radius: 22
                 color: pinSelMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
-                Behavior on color { ColorAnimation { duration: 80 } }
+                Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                 M3Icon { anchors.centerIn: parent; name: "pin"; size: 20; color: ThemeManager.inverseOnSurface }
                 MouseArea {
                     id: pinSelMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -282,7 +282,7 @@ Item {
             Rectangle {
                 width: 44; height: 44; radius: 22
                 color: ignoreSelMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
-                Behavior on color { ColorAnimation { duration: 80 } }
+                Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                 M3Icon { anchors.centerIn: parent; name: "visibility_off"; size: 20; color: ThemeManager.inverseOnSurface }
                 MouseArea {
                     id: ignoreSelMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -298,7 +298,7 @@ Item {
             Rectangle {
                 width: 44; height: 44; radius: 22
                 color: trashSelMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
-                Behavior on color { ColorAnimation { duration: 80 } }
+                Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                 M3Icon { anchors.centerIn: parent; name: "delete"; size: 20; color: ThemeManager.inverseOnSurface }
                 MouseArea {
                     id: trashSelMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -316,7 +316,7 @@ Item {
             Rectangle {
                 width: 44; height: 44; radius: 22
                 color: clearAlbSelMa.containsMouse ? Qt.alpha(ThemeManager.inverseOnSurface, 0.12) : "transparent"
-                Behavior on color { ColorAnimation { duration: 80 } }
+                Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
                 M3Icon { anchors.centerIn: parent; name: "close"; size: 18; color: Qt.alpha(ThemeManager.inverseOnSurface, 0.6) }
                 MouseArea {
                     id: clearAlbSelMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor

@@ -16,32 +16,41 @@ Control {
     background: Rectangle {
         implicitWidth: 52
         implicitHeight: 32
-        radius: 16
+        radius: ThemeManager.radiusLg
         color: root.checked ? ThemeManager.primary : ThemeManager.surfaceContainerHighest
         border.color: root.checked ? "transparent" : ThemeManager.outline
         border.width: root.checked ? 0 : 2
-        
+
         Behavior on color { ColorAnimation { duration: 200 } }
     }
-    
+
     contentItem: Item {
+        // Hover/press state layer — a disc centered on the handle that
+        // overflows the track slightly, matching M3 switch behavior.
+        Rectangle {
+            id: stateLayer
+            anchors.centerIn: thumb
+            width: 40; height: 40
+            radius: 20
+            color: root.checked ? ThemeManager.primary : ThemeManager.onSurface
+            opacity: switchMa.pressed ? ThemeManager.pressOpacity
+                   : switchMa.containsMouse ? ThemeManager.hoverOpacity : 0
+            Behavior on opacity { NumberAnimation { duration: ThemeManager.durShort } }
+        }
+
         Rectangle {
             id: thumb
-            // OFF: x=8, size=16 (centered vertically: (32-16)/2 = 8)
-            // ON: x=26, size=24 (centered vertically: (32-24)/2 = 4)
-            // User said "right side padding is a bit too big" when on. 
-            // 52 - 24 - 4 (left) = 24? No.
-            // Let's use 6px padding from edges.
-            // OFF: x=6, size=16. Center Y = 8.
-            // ON: x=52-6-24 = 22? No, M3 is usually 52x32.
-            
-            x: root.checked ? 24 : 8
-            y: root.checked ? 4 : 8
-            width: root.checked ? 24 : 16
-            height: root.checked ? 24 : 16
+            // OFF: 16dp, ON: 24dp, pressed (either state): grows to 28dp —
+            // all centered on the same fixed on/off center point so the
+            // press-grow reads as an expansion rather than a jump.
+            readonly property int _size: switchMa.pressed ? 28 : (root.checked ? 24 : 16)
+            width: _size
+            height: _size
+            x: (root.checked ? 36 : 16) - _size / 2
+            y: 16 - _size / 2
             radius: width / 2
             color: root.checked ? ThemeManager.onPrimary : ThemeManager.outline
-            
+
             Behavior on x { NumberAnimation { duration: 200; easing.type: Easing.OutQuint } }
             Behavior on y { NumberAnimation { duration: 200; easing.type: Easing.OutQuint } }
             Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutQuint } }
@@ -50,7 +59,9 @@ Control {
     }
 
     MouseArea {
+        id: switchMa
         anchors.fill: parent
+        hoverEnabled: true
         onClicked: {
             root.checked = !root.checked
             root.toggled(root.checked)

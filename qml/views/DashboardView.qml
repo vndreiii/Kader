@@ -48,18 +48,18 @@ Item {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 100
                 color: ThemeManager.secondaryContainer
-                radius: 12
+                radius: ThemeManager.radiusMd
                 ColumnLayout {
                     anchors.centerIn: parent
                     spacing: 4
                     Label {
                         text: I18n.t(Settings.language, "photos") || "Photos"
-                        font.pixelSize: 14
+                        font.pixelSize: ThemeManager.fontLabelL
                         color: ThemeManager.onSecondaryContainer
                     }
                     Label {
                         text: StorageManager.photoCount
-                        font.pixelSize: 32
+                        font.pixelSize: ThemeManager.fontHeadlineS
                         font.weight: Font.DemiBold
                         color: ThemeManager.onSecondaryContainer
                     }
@@ -70,18 +70,18 @@ Item {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 100
                 color: ThemeManager.tertiaryContainer
-                radius: 12
+                radius: ThemeManager.radiusMd
                 ColumnLayout {
                     anchors.centerIn: parent
                     spacing: 4
                     Label {
                         text: I18n.t(Settings.language, "videos") || "Videos"
-                        font.pixelSize: 14
+                        font.pixelSize: ThemeManager.fontLabelL
                         color: ThemeManager.onTertiaryContainer
                     }
                     Label {
                         text: StorageManager.videoCount
-                        font.pixelSize: 32
+                        font.pixelSize: ThemeManager.fontHeadlineS
                         font.weight: Font.DemiBold
                         color: ThemeManager.onTertiaryContainer
                     }
@@ -97,16 +97,26 @@ Item {
             Button {
                 id: sortBtn
                 text: I18n.t(Settings.language, "sort_by") || "Sort"
+                implicitHeight: 48
+                hoverEnabled: true
                 leftPadding: 20; rightPadding: 20; topPadding: 10; bottomPadding: 10
                 background: Rectangle {
-                    radius: 20
-                    color: sortBtn.down ? Qt.darker(ThemeManager.secondaryContainer, 1.1)
-                                        : ThemeManager.secondaryContainer
+                    radius: ThemeManager.radiusXl
+                    color: ThemeManager.secondaryContainer
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: parent.radius
+                        color: ThemeManager.onSecondaryContainer
+                        opacity: sortBtn.down ? ThemeManager.pressOpacity
+                               : sortBtn.hovered ? ThemeManager.hoverOpacity : 0
+                        Behavior on opacity { NumberAnimation { duration: ThemeManager.durShort } }
+                    }
                 }
                 contentItem: Label {
                     text: sortBtn.text
                     color: ThemeManager.onSecondaryContainer
-                    font.pixelSize: 14
+                    font.pixelSize: ThemeManager.fontLabelL
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
@@ -131,16 +141,26 @@ Item {
             Button {
                 id: selectAllBtn
                 text: I18n.t(Settings.language, "select_all") || "Select All"
+                implicitHeight: 48
+                hoverEnabled: true
                 leftPadding: 20; rightPadding: 20; topPadding: 10; bottomPadding: 10
                 background: Rectangle {
-                    radius: 20
-                    color: selectAllBtn.down ? Qt.darker(ThemeManager.secondaryContainer, 1.1)
-                                             : ThemeManager.secondaryContainer
+                    radius: ThemeManager.radiusXl
+                    color: ThemeManager.secondaryContainer
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: parent.radius
+                        color: ThemeManager.onSecondaryContainer
+                        opacity: selectAllBtn.down ? ThemeManager.pressOpacity
+                               : selectAllBtn.hovered ? ThemeManager.hoverOpacity : 0
+                        Behavior on opacity { NumberAnimation { duration: ThemeManager.durShort } }
+                    }
                 }
                 contentItem: Label {
                     text: selectAllBtn.text
                     color: ThemeManager.onSecondaryContainer
-                    font.pixelSize: 14
+                    font.pixelSize: ThemeManager.fontLabelL
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
@@ -150,15 +170,26 @@ Item {
             Button {
                 id: deleteBtn
                 text: I18n.t(Settings.language, "delete_selected") || "Delete Selected"
+                implicitHeight: 48
+                hoverEnabled: true
                 leftPadding: 20; rightPadding: 20; topPadding: 10; bottomPadding: 10
                 background: Rectangle {
-                    radius: 20
-                    color: deleteBtn.down ? Qt.darker(ThemeManager.error, 1.1) : ThemeManager.error
+                    radius: ThemeManager.radiusXl
+                    color: ThemeManager.error
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: parent.radius
+                        color: ThemeManager.onError
+                        opacity: deleteBtn.down ? ThemeManager.pressOpacity
+                               : deleteBtn.hovered ? ThemeManager.hoverOpacity : 0
+                        Behavior on opacity { NumberAnimation { duration: ThemeManager.durShort } }
+                    }
                 }
                 contentItem: Label {
                     text: deleteBtn.text
                     color: ThemeManager.onError
-                    font.pixelSize: 14
+                    font.pixelSize: ThemeManager.fontLabelL
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
@@ -178,10 +209,10 @@ Item {
             spacing: 16
             Item { Layout.preferredWidth: 40; Layout.preferredHeight: 20 } // Checkbox space
             Item { Layout.preferredWidth: 60; Layout.preferredHeight: 20 } // Thumb
-            Label { text: I18n.t(Settings.language, "k_name") || "Name"; font.pixelSize: 12; font.weight: Font.Medium; color: ThemeManager.onSurfaceVariant; Layout.fillWidth: true }
-            Label { text: I18n.t(Settings.language, "k_date_taken") || "Date"; font.pixelSize: 12; font.weight: Font.Medium; color: ThemeManager.onSurfaceVariant; Layout.preferredWidth: 150 }
-            Label { text: I18n.t(Settings.language, "k_size") || "Size"; font.pixelSize: 12; font.weight: Font.Medium; color: ThemeManager.onSurfaceVariant; Layout.preferredWidth: 80; horizontalAlignment: Text.AlignRight }
-            Label { text: I18n.t(Settings.language, "k_type") || "Format"; font.pixelSize: 12; font.weight: Font.Medium; color: ThemeManager.onSurfaceVariant; Layout.preferredWidth: 100 }
+            Label { text: I18n.t(Settings.language, "k_name") || "Name"; font.pixelSize: ThemeManager.fontLabelM; font.weight: Font.Medium; color: ThemeManager.onSurfaceVariant; Layout.fillWidth: true }
+            Label { text: I18n.t(Settings.language, "k_date_taken") || "Date"; font.pixelSize: ThemeManager.fontLabelM; font.weight: Font.Medium; color: ThemeManager.onSurfaceVariant; Layout.preferredWidth: 150 }
+            Label { text: I18n.t(Settings.language, "k_size") || "Size"; font.pixelSize: ThemeManager.fontLabelM; font.weight: Font.Medium; color: ThemeManager.onSurfaceVariant; Layout.preferredWidth: 80; horizontalAlignment: Text.AlignRight }
+            Label { text: I18n.t(Settings.language, "k_type") || "Format"; font.pixelSize: ThemeManager.fontLabelM; font.weight: Font.Medium; color: ThemeManager.onSurfaceVariant; Layout.preferredWidth: 100 }
             Item { Layout.preferredWidth: 40; Layout.preferredHeight: 20 } // Action space
         }
 
@@ -205,16 +236,27 @@ Item {
                 readonly property string _rawPath: path ? path.toString().replace("file://", "") : ""
 
                 Rectangle {
+                    id: rowBg
                     anchors.fill: parent
                     color: isSelected ? ThemeManager.secondaryContainer : "transparent"
-                    radius: 8
+                    radius: ThemeManager.radiusSm
+
+                    // Declarative state-layer overlay (bound, not imperative) — hover
+                    // only shows on unselected rows since selected rows already have
+                    // a container fill.
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: parent.radius
+                        color: ThemeManager.onSurface
+                        opacity: (!isSelected && rowMa.containsMouse) ? ThemeManager.hoverOpacity : 0
+                        Behavior on opacity { NumberAnimation { duration: ThemeManager.durShort } }
+                    }
 
                     MouseArea {
+                        id: rowMa
                         anchors.fill: parent
                         hoverEnabled: true
                         acceptedButtons: Qt.LeftButton | Qt.RightButton
-                        onEntered: parent.color = isSelected ? ThemeManager.secondaryContainer : ThemeManager.surfaceContainerHigh
-                        onExited: parent.color = isSelected ? ThemeManager.secondaryContainer : "transparent"
                         onClicked: (mouse) => {
                             if (mouse.button === Qt.RightButton) rowMenu.popup()
                             else isSelected = !isSelected
@@ -275,7 +317,7 @@ Item {
                     Rectangle {
                         Layout.preferredWidth: 44
                         Layout.preferredHeight: 44
-                        radius: 4
+                        radius: ThemeManager.radiusXs
                         color: ThemeManager.surfaceVariant
                         clip: true
                         Image {
@@ -288,7 +330,7 @@ Item {
 
                     Label {
                         text: path.split('/').pop()
-                        font.pixelSize: 13
+                        font.pixelSize: ThemeManager.fontLabelL
                         color: ThemeManager.onSurface
                         elide: Text.ElideMiddle
                         Layout.fillWidth: true
@@ -297,7 +339,7 @@ Item {
 
                     Label {
                         text: formatDate(date)
-                        font.pixelSize: 13
+                        font.pixelSize: ThemeManager.fontLabelL
                         color: ThemeManager.onSurfaceVariant
                         Layout.preferredWidth: 150
                         Layout.alignment: Qt.AlignVCenter
@@ -305,7 +347,7 @@ Item {
 
                     Label {
                         text: formatSize(fileSize)
-                        font.pixelSize: 13
+                        font.pixelSize: ThemeManager.fontLabelL
                         color: ThemeManager.onSurfaceVariant
                         Layout.preferredWidth: 80
                         horizontalAlignment: Text.AlignRight
@@ -314,17 +356,23 @@ Item {
 
                     Label {
                         text: mimeType ? mimeType.split('/').pop().toUpperCase() : "UNKNOWN"
-                        font.pixelSize: 13
+                        font.pixelSize: ThemeManager.fontLabelL
                         color: ThemeManager.onSurfaceVariant
                         Layout.preferredWidth: 100
                         Layout.alignment: Qt.AlignVCenter
                     }
 
-                    MaterialSymbol {
-                        name: "delete"
-                        size: 22
-                        color: ThemeManager.onSurfaceVariant
+                    Item {
+                        Layout.preferredWidth: 48
+                        Layout.preferredHeight: 48
                         Layout.alignment: Qt.AlignVCenter
+
+                        MaterialSymbol {
+                            anchors.centerIn: parent
+                            name: "delete"
+                            size: 22
+                            color: ThemeManager.onSurfaceVariant
+                        }
                         MouseArea {
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
