@@ -508,8 +508,8 @@ Item {
             }
 
             // Move to trash — shown everywhere EXCEPT the trash view itself.
-            // Also clears the hidden flag so a hidden item lands cleanly in trash
-            // (otherwise it stays flagged hidden and never leaves the Hidden view).
+            // Leaves the hidden flag untouched so a hidden item that's trashed
+            // and later restored naturally lands back in the Hidden view.
             Rectangle {
                 width: 44; height: 44; radius: 22
                 visible: TimelineModel.filterMode !== 2
@@ -521,7 +521,7 @@ Item {
                     id: selTrashMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                     onClicked: {
                         var ids = root.selectedIds()
-                        for (var i = 0; i < ids.length; i++) { DB.setHidden(ids[i], false); DB.setTrashed(ids[i], true) }
+                        for (var i = 0; i < ids.length; i++) DB.setTrashed(ids[i], true)
                         TimelineModel.refresh(); root.clearSelection()
                     }
                 }

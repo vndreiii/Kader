@@ -196,20 +196,68 @@ Item {
             spacing: 8
 
             delegate: Item {
+                id: rowItem
                 width: ListView.view.width
                 height: 60
+
+                // path (role) is "file://"-prefixed; the reveal-in-folder API
+                // (like ViewerOverlay's folder button) wants a plain local path.
+                readonly property string _rawPath: path ? path.toString().replace("file://", "") : ""
 
                 Rectangle {
                     anchors.fill: parent
                     color: isSelected ? ThemeManager.secondaryContainer : "transparent"
                     radius: 8
-                    
+
                     MouseArea {
                         anchors.fill: parent
                         hoverEnabled: true
+                        acceptedButtons: Qt.LeftButton | Qt.RightButton
                         onEntered: parent.color = isSelected ? ThemeManager.secondaryContainer : ThemeManager.surfaceContainerHigh
                         onExited: parent.color = isSelected ? ThemeManager.secondaryContainer : "transparent"
-                        onClicked: isSelected = !isSelected
+                        onClicked: (mouse) => {
+                            if (mouse.button === Qt.RightButton) rowMenu.popup()
+                            else isSelected = !isSelected
+                        }
+                    }
+                }
+
+                M3Menu {
+                    id: rowMenu
+                    M3MenuItem {
+                        text: I18n.t(Settings.language, "ctx_open_folder")
+                        onTriggered: if (rowItem._rawPath) Settings.revealInFolder(rowItem._rawPath)
+                    }
+                    M3MenuItem {
+                        text: isFavorite ? "Unfavorite" : "Favorite"
+                        onTriggered: { if (model.id) { DB.toggleFavorite(model.id); root.reload() } }
+                    }
+                    M3MenuItem {
+                        text: I18n.t(Settings.language, "tip_hide")
+                        onTriggered: {
+                            if (model.id) {
+                                DB.setHidden(model.id, true)
+                                MediaModel.removeByPath(path)
+                            }
+                        }
+                    }
+                    M3MenuItem {
+                        text: I18n.t(Settings.language, "ctx_add_ignored")
+                        onTriggered: {
+                            if (model.id) {
+                                DB.setIgnored(model.id, true)
+                                if (Settings.hideIgnoredInTimeline) MediaModel.removeByPath(path)
+                            }
+                        }
+                    }
+                    M3MenuItem {
+                        text: I18n.t(Settings.language, "tip_move_trash")
+                        onTriggered: {
+                            if (path) {
+                                DB.trashMedia(path)
+                                MediaModel.removeByPath(path)
+                            }
+                        }
                     }
                 }
 

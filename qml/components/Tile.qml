@@ -102,8 +102,10 @@ Item {
             Label { id: gifLabel; anchors.centerIn: parent; text: "GIF"; color: "white"; font.pixelSize: 9; font.weight: Font.Bold }
         }
 
-        // Selection checkmark
+        // Selection checkmark — z above the privacy cover so hidden tiles stay
+        // selectable (restore/delete) even while their thumbnail is covered.
         Rectangle {
+            z: 10
             visible: root.selectable || root.selected
             anchors.top: parent.top; anchors.left: parent.left; anchors.margins: 8
             width: 24; height: 24; radius: 12
@@ -146,6 +148,26 @@ Item {
                     }
                     color: "white"; font.pixelSize: 11; font.weight: Font.Medium
                 }
+            }
+        }
+
+        // Privacy cover — hidden items shown OUTSIDE the Hidden view (e.g. still
+        // mixed into All/Favorites/Trash) must never reveal their thumbnail.
+        // Opaque, sits above the image/badges/favorite button/date label but
+        // below the selection checkmark (z: 10 above) so the tile stays
+        // selectable for restore/delete without ever exposing the media.
+        Rectangle {
+            id: privacyCover
+            z: 5
+            visible: root._isHidden && TimelineModel.filterMode !== TimelineModel.HiddenMode
+            anchors.fill: parent
+            radius: 16
+            color: "black"
+            M3Icon {
+                anchors.centerIn: parent
+                name: "visibility_off"
+                size: 28
+                color: "white"
             }
         }
 
@@ -214,6 +236,15 @@ Item {
                 onTriggered: {
                     if (root._mediaId) {
                         DB.setHidden(root._mediaId, !root._isHidden)
+                        TimelineModel.refresh()
+                    }
+                }
+            }
+            M3MenuItem {
+                text: I18n.t(Settings.language, "ctx_add_ignored")
+                onTriggered: {
+                    if (root._mediaId) {
+                        DB.setIgnored(root._mediaId, true)
                         TimelineModel.refresh()
                     }
                 }
@@ -315,7 +346,7 @@ Item {
                 else root._showMenu()
             } else if (root.selectable) {
                 root.selectToggle()
-            } else {
+            } else if (!privacyCover.visible) {
                 root.open()
             }
         }
