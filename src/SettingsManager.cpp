@@ -7,7 +7,6 @@
 #include <QImage>
 #include <QDir>
 #include <QFile>
-#include <QFileDialog>
 #include <QJsonDocument>
 #include <QLocale>
 #include <QStandardPaths>
@@ -152,20 +151,6 @@ bool SettingsManager::copyImageToClipboard(const QString &filePath) {
 
 QString SettingsManager::homePath() const {
     return QDir::homePath();
-}
-
-void SettingsManager::openImageFilePicker(const QString &title) {
-    QFileDialog *dlg = new QFileDialog(
-        nullptr,
-        title.isEmpty() ? "Select cover photo" : title
-    );
-    dlg->setNameFilter("Image files (*.jpg *.jpeg *.png *.webp *.heic *.gif *.bmp *.tiff)");
-    dlg->setFileMode(QFileDialog::ExistingFile);
-    dlg->setAttribute(Qt::WA_DeleteOnClose);
-    connect(dlg, &QFileDialog::fileSelected, this, [this](const QString &file) {
-        if (!file.isEmpty()) emit imageFilePicked(file);
-    });
-    dlg->show();
 }
 
 void SettingsManager::revealInFolder(const QString &filePath) {

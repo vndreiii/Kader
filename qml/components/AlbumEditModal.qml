@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import Qt.labs.platform as Platform
 import ".."
 import "../I18n.js" as I18n
 
@@ -23,10 +24,13 @@ Popup {
 
     signal saved()
 
-    Connections {
-        target: Settings
-        function onImageFilePicked(path) {
-            if (root.visible) root._selectedCover = path
+    Platform.FileDialog {
+        id: coverPicker
+        title: "Select cover photo"
+        nameFilters: ["Image files (*.jpg *.jpeg *.png *.webp *.heic *.gif *.bmp *.tiff)"]
+        onAccepted: {
+            var path = file.toString().replace(/^file:\/\//, "")
+            if (path !== "") root._selectedCover = path
         }
     }
 
@@ -144,7 +148,7 @@ Popup {
                     }
                     MouseArea {
                         id: addPhotoMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                        onClicked: Settings.openImageFilePicker("Select cover photo")
+                        onClicked: coverPicker.open()
                     }
                 }
             }

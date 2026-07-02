@@ -48,7 +48,6 @@ public:
     Q_INVOKABLE int workerThreads() const;
 
     Q_INVOKABLE bool copyImageToClipboard(const QString &filePath);
-    Q_INVOKABLE void openImageFilePicker(const QString &title = QString());
 
     // Open the system file manager with `filePath` selected (freedesktop
     // FileManager1, with a plain "open parent folder" fallback). Lives here so
@@ -65,7 +64,6 @@ signals:
     void languageChanged();
     void parallelThumbnailsChanged();
     void resourceModeChanged();
-    void imageFilePicked(const QString &path);
 
 private:
     void load();

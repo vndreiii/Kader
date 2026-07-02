@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtQuick.Dialogs
+import Qt.labs.platform as Platform
 import "components"
 import "views"
 import "I18n.js" as I18n
@@ -238,11 +238,11 @@ ApplicationWindow {
     // ── Folder picker (FAB + Settings "Add directory") ───────────────────
     function openFolderPickerForSettings() { mainFolderPicker.open() }
 
-    FolderDialog {
+    Platform.FolderDialog {
         id: mainFolderPicker
         title: "Choose a directory to scan"
         onAccepted: {
-            var path = selectedFolder.toString().replace(/^file:\/\//, "")
+            var path = folder.toString().replace(/^file:\/\//, "")
             DB.addIndexedDirectory(path)
             FileScanner.startScan(path)
         }

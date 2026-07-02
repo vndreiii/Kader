@@ -9,7 +9,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Qml Quick QuickDialogs2 Sql Positioning Location Concurrent Multimedia DBus Test QuickTest)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick QuickDialogs2 Sql Positioning Location Concurrent Multimedia DBus Test QuickTest)
 find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(VIPS REQUIRED vips-cpp)
@@ -75,7 +75,6 @@ add_library(KaderLib STATIC
 target_link_libraries(KaderLib PUBLIC
     Qt6::Core
     Qt6::Gui
-    Qt6::Widgets
     Qt6::Qml
     Qt6::Quick
     Qt6::QuickDialogs2
