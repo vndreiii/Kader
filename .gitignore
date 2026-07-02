@@ -1,6 +1,10 @@
 # Build directories
 build/
 bin/
+src/build-pkg/
+
+# Tooling
+.serena/
 
 # Built packages
 *.pkg.tar.zst
