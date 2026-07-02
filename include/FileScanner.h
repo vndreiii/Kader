@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QStringList>
+#include <QVariantList>
 #include <QFuture>
 #include <set>
 #include <string>
@@ -25,6 +26,13 @@ public:
 
     // Performs a high-performance parallel scan
     Q_INVOKABLE void startScan(const QString &rootPath);
+
+    // Synchronously lists every supported media file in the same directory as
+    // `filePath`, sorted case-insensitively by name. Returns a list of maps
+    // ({ file_path, mime_type, id:-1, is_favorite:false, is_trashed:false })
+    // ready to drop straight into the viewer's allItems model. Cheap enough to
+    // call on the UI thread — it's a single directory listing, no recursion.
+    Q_INVOKABLE QVariantList listSiblingMedia(const QString &filePath) const;
 
     void setThumbnailGenerator(ThumbnailGenerator *gen) { m_thumbGen = gen; }
 

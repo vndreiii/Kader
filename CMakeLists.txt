@@ -129,6 +129,7 @@ qt_add_qml_module(KaderApp
         qml/views/AlbumListView.qml
         qml/views/AlbumDetailView.qml
         qml/views/ViewerOverlay.qml
+        qml/views/ViewerWindow.qml
         qml/views/SettingsView.qml
         qml/views/MapView.qml
         qml/views/DashboardView.qml

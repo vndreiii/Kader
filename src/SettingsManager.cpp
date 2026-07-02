@@ -11,6 +11,12 @@
 #include <QJsonDocument>
 #include <QLocale>
 #include <QStandardPaths>
+#include <QUrl>
+#include <QFileInfo>
+#include <QDesktopServices>
+#include <QDBusConnection>
+#include <QDBusMessage>
+#include <QDBusPendingCall>
 
 static QString settingsFilePath() {
     QString dir = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + "/kader";
@@ -160,4 +166,25 @@ void SettingsManager::openImageFilePicker(const QString &title) {
         if (!file.isEmpty()) emit imageFilePicked(file);
     });
     dlg->show();
+}
+
+void SettingsManager::revealInFolder(const QString &filePath) {
+    if (filePath.isEmpty()) return;
+
+    const QString uri = QUrl::fromLocalFile(filePath).toString();
+
+    // Preferred: ask the file manager to show (and select) the item.
+    QDBusMessage msg = QDBusMessage::createMethodCall(
+        QStringLiteral("org.freedesktop.FileManager1"),
+        QStringLiteral("/org/freedesktop/FileManager1"),
+        QStringLiteral("org.freedesktop.FileManager1"),
+        QStringLiteral("ShowItems"));
+    msg << QStringList{uri} << QString();
+
+    QDBusMessage reply = QDBusConnection::sessionBus().call(msg);
+    if (reply.type() == QDBusMessage::ErrorMessage) {
+        // Fallback: just open the containing directory.
+        QDesktopServices::openUrl(
+            QUrl::fromLocalFile(QFileInfo(filePath).absolutePath()));
+    }
 }

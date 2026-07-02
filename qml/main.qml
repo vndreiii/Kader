@@ -107,6 +107,10 @@ ApplicationWindow {
         })
 
         if (isViewerOnly) {
+            // NOTE: the standalone viewer fast path is handled by ViewerWindow.qml
+            // (a minimal window that skips the gallery backend entirely). This
+            // branch only runs if main.qml is ever loaded with a startup file,
+            // which the current main.cpp no longer does.
             var mime = ""
             var fp = STARTUP_FILE
             if (/\.(mp4|mkv|mov|avi|webm)$/i.test(fp)) mime = "video/mp4"

@@ -251,6 +251,13 @@ Rectangle {
             fillMode: Image.PreserveAspectFit
             autoTransform: true
             asynchronous: true
+            cache: false
+            // Cap the decode resolution. Photos larger than this box are scaled
+            // down at decode time (much faster, far less memory); smaller images
+            // are untouched. 4096 keeps fit-view and normal zoom crisp. Fixed —
+            // never rebound on zoom, so there's no reload flicker mid-gesture.
+            sourceSize.width:  4096
+            sourceSize.height: 4096
 
             scale: root._zoom
             transformOrigin: Item.Center
@@ -875,7 +882,11 @@ Rectangle {
 
         property bool isFav: root.mediaData ? !!root.mediaData.is_favorite : false
 
+        // Library-only actions — these mutate the database by media id, which is
+        // meaningless for loose files opened straight from a file manager, so
+        // they're hidden in the standalone viewer.
         Rectangle {
+            visible: !root.viewerOnlyMode
             width: 48; height: 48; radius: 24
             color: Qt.alpha("white", favMa.pressed ? 0.28 : favMa.containsMouse ? 0.20 : 0.14)
             Behavior on color { ColorAnimation { duration: 80 } }
@@ -885,6 +896,7 @@ Rectangle {
                 onClicked: { if (!root.mediaData) return; DB.toggleFavorite(root.mediaData.id); root.mediaData = DB.getMediaById(root.mediaData.id); TimelineModel.refresh() } }
         }
         Rectangle {
+            visible: !root.viewerOnlyMode
             width: 48; height: 48; radius: 24
             color: Qt.alpha("white", trashMa.pressed ? 0.28 : trashMa.containsMouse ? 0.20 : 0.14)
             Behavior on color { ColorAnimation { duration: 80 } }
@@ -900,7 +912,7 @@ Rectangle {
             scale: folderMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: 80 } }
             M3Icon { anchors.centerIn: parent; name: "folder_open"; size: 22; color: "white" }
             MouseArea { id: folderMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                onClicked: { if (root.mediaData && root.mediaData.file_path) DB.revealInFolder(root.mediaData.file_path) } }
+                onClicked: { if (root.mediaData && root.mediaData.file_path) Settings.revealInFolder(root.mediaData.file_path) } }
         }
         Rectangle {
             width: 48; height: 48; radius: 24
@@ -939,6 +951,7 @@ Rectangle {
             }
         }
         Rectangle {
+            visible: !root.viewerOnlyMode
             width: 48; height: 48; radius: 24
             color: Qt.alpha("white", delMa.pressed ? 0.28 : delMa.containsMouse ? 0.20 : 0.14)
             Behavior on color { ColorAnimation { duration: 80 } }

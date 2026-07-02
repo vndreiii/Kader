@@ -17,6 +17,10 @@
 #include <chrono>
 #include <QtConcurrent>
 #include <QFileInfo>
+#include <QDir>
+#include <QUrl>
+#include <QCollator>
+#include <QVariantMap>
 #include <QDateTime>
 #include <QMimeDatabase>
 #include <QProcess>
@@ -133,6 +137,55 @@ FileScanner::FileScanner(DatabaseManager *db, QObject *parent) : QObject(parent)
 FileScanner::~FileScanner() {
     if (m_scanFuture.isRunning())
         m_scanFuture.waitForFinished();
+}
+
+QVariantList FileScanner::listSiblingMedia(const QString &filePath) const {
+    QVariantList out;
+
+    QString path = filePath;
+    if (path.startsWith("file://"))
+        path = QUrl(path).toLocalFile();
+
+    QFileInfo info(path);
+    QDir dir = info.absoluteDir();
+    if (!dir.exists())
+        return out;
+
+    // Build name filters ("*.jpg", …) from the same extension set used by the
+    // recursive scanner so the viewer sees exactly what the gallery would.
+    QStringList filters;
+    for (const std::string &ext : m_mediaExtensions)
+        filters << ("*" + QString::fromStdString(ext));
+
+    QFileInfoList entries = dir.entryInfoList(filters, QDir::Files);
+
+    // Natural, case-insensitive sort ("img2" before "img10") to match how a
+    // file manager presents the folder.
+    QCollator collator;
+    collator.setNumericMode(true);
+    collator.setCaseSensitivity(Qt::CaseInsensitive);
+    std::sort(entries.begin(), entries.end(),
+              [&collator](const QFileInfo &a, const QFileInfo &b) {
+                  return collator.compare(a.fileName(), b.fileName()) < 0;
+              });
+
+    static const QStringList kVideoExts = {"mp4", "mkv", "mov", "avi", "webm"};
+    for (const QFileInfo &fi : entries) {
+        const QString suffix = fi.suffix().toLower();
+        QString mime;
+        if (suffix == "gif")                 mime = "image/gif";
+        else if (kVideoExts.contains(suffix)) mime = "video/mp4";
+        else                                  mime = "image/jpeg";
+
+        QVariantMap m;
+        m["file_path"]   = fi.absoluteFilePath();
+        m["mime_type"]   = mime;
+        m["id"]          = -1;
+        m["is_favorite"] = false;
+        m["is_trashed"]  = false;
+        out.append(m);
+    }
+    return out;
 }
 
 void FileScanner::startScan(const QString &rootPath) {

@@ -4,6 +4,7 @@
 #include <QIcon>
 #include <QUrl>
 #include <QFile>
+#include <QFileInfo>
 #include <QtConcurrent>
 #include <QTimer>
 #include <algorithm>
@@ -37,7 +38,9 @@ int main(int argc, char *argv[]) {
             if (arg.startsWith("file://"))
                 arg = QUrl(arg).toLocalFile();
             if (QFile::exists(arg))
-                startupFile = arg;
+                // Canonicalise to an absolute path so it matches the entries
+                // returned by FileScanner::listSiblingMedia (folder browsing).
+                startupFile = QFileInfo(arg).absoluteFilePath();
         }
     }
 
@@ -45,6 +48,36 @@ int main(int argc, char *argv[]) {
     app.setOrganizationDomain("kader.app");
     app.setApplicationName("Kader");
     app.setWindowIcon(QIcon(":/Kader/assets/KaderPNGicon.png"));
+
+    // ── Standalone-viewer fast path ───────────────────────────────────────
+    // When launched with a file (e.g. from a file manager), show ONLY that
+    // image/video and let the user scroll through the rest of its folder. None
+    // of the gallery backend (database, models, scanner, AI, thumbnailer) is
+    // constructed — this keeps cold-open latency to an absolute minimum.
+    if (!startupFile.isEmpty()) {
+        SettingsManager settingsManager;
+        ThemeManager    themeManager;
+        VideoEditor     videoEditor;
+        FileScanner     fileScanner(nullptr);   // only listSiblingMedia() is used; no DB needed
+
+        QQmlApplicationEngine engine;
+        engine.addImportPath("qrc:/");
+        engine.addImportPath(app.applicationDirPath() + "/qml_modules");
+        engine.rootContext()->setContextProperty("Settings", &settingsManager);
+        engine.rootContext()->setContextProperty("ThemeManager", &themeManager);
+        engine.rootContext()->setContextProperty("VideoEditor", &videoEditor);
+        engine.rootContext()->setContextProperty("FileScanner", &fileScanner);
+        engine.rootContext()->setContextProperty("STARTUP_FILE", startupFile);
+
+        const QUrl url(u"qrc:/Kader/qml/views/ViewerWindow.qml"_qs);
+        QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
+                         &app, [url](QObject *obj, const QUrl &objUrl) {
+            if (!obj && url == objUrl)
+                QCoreApplication::exit(-1);
+        }, Qt::QueuedConnection);
+        engine.load(url);
+        return app.exec();
+    }
 
     DatabaseManager dbManager;
     SettingsManager settingsManager;
