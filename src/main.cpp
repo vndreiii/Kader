@@ -1,6 +1,7 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QQuickWindow>
 #include <QIcon>
 #include <QUrl>
 #include <QFile>
@@ -20,12 +21,19 @@
 #include "SettingsManager.h"
 #include "StorageManager.h"
 #include "SemanticSearchEngine.h"
+#include <MilfsConnect/Connect.h>
 
 int main(int argc, char *argv[]) {
     // Prefer Qt's FFmpeg multimedia backend over GStreamer for better codec
     // compatibility and stability (avoids GStreamer plugin crashes on VAAPI/VDPAU).
     if (qgetenv("QT_MEDIA_BACKEND").isEmpty())
         qputenv("QT_MEDIA_BACKEND", "ffmpeg");
+
+    // The frameless ApplicationWindow renders its own rounded-corner
+    // background in QML; without an alpha-enabled surface the window itself
+    // stays an opaque rectangle, showing through as a white border/corners
+    // around the rounded content. Must be called before QGuiApplication.
+    QQuickWindow::setDefaultAlphaBuffer(true);
 
     QGuiApplication app(argc, argv);
 
@@ -87,6 +95,25 @@ int main(int argc, char *argv[]) {
     ThumbnailGenerator thumbGenerator;
     FileScanner fileScanner(&dbManager);
     fileScanner.setThumbnailGenerator(&thumbGenerator);
+
+    // Sibling-app integration (see milfs-connect): ingest media announced by
+    // other apps (e.g. Recamara) live, without waiting for the next startup scan.
+    MilfsConnect::Bus bus(QStringLiteral("kader"));
+    bus.subscribe([&](const QString &, const QString &eventType, const QVariantMap &payload) {
+        if (eventType != QStringLiteral("media.added"))
+            return;
+        const QString path = payload.value(QStringLiteral("path")).toString();
+        if (path.isEmpty() || !QFile::exists(path))
+            return;
+        const QString dir = QFileInfo(path).absolutePath();
+        const QStringList indexedDirs = dbManager.getIndexedDirectoryPaths();
+        const bool alreadyIndexed = std::any_of(indexedDirs.begin(), indexedDirs.end(), [&](const QString &indexed) {
+            return dir == indexed || dir.startsWith(indexed + "/");
+        });
+        if (!alreadyIndexed)
+            dbManager.addIndexedDirectory(dir);
+        fileScanner.startScan(dir);
+    });
     MediaModel mediaModel(&dbManager, &thumbGenerator);
     TimelineModel timelineModel(&dbManager);
     AlbumModel albumModel(&dbManager, &thumbGenerator);

@@ -10,6 +10,7 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick QuickDialogs2 Sql Positioning Location Concurrent Multimedia DBus Test QuickTest)
+find_package(MilfsConnect REQUIRED)
 find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(VIPS REQUIRED vips-cpp)
@@ -143,7 +144,7 @@ add_executable(kader
 )
 
 target_compile_definitions(kader PRIVATE CMAKE_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(kader PRIVATE KaderLib KaderApp)
+target_link_libraries(kader PRIVATE KaderLib KaderApp MilfsConnect::MilfsConnect)
 
 # --- Testing ---
 if(BUILD_TESTING)

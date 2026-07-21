@@ -1,6 +1,6 @@
 # Maintainer: Alex <alex@milfs.party>
 pkgname=kader
-pkgver=2026.06.114
+pkgver=2026.07.121
 pkgrel=1
 pkgdesc="Modern photo gallery"
 arch=('x86_64')
@@ -24,6 +24,7 @@ makedepends=(
     'ninja'
     'qt6-tools'
     'pkgconfig'
+    'milfs-connect'
 )
 source=(
     "$pkgname::git+ssh://git@code.milfs.party:2222/alex/Kader.git"

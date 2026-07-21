@@ -11,6 +11,7 @@ ApplicationWindow {
     width: 1480
     height: 940
     visible: true
+    color: "transparent"
     // _pendingView is set the moment the password dialog opens (before auth),
     // so the window title reports "Hidden" immediately for IPC / screen-share scripts.
     property string _pendingView: ""
