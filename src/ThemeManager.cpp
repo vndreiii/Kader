@@ -15,6 +15,7 @@ ThemeManager::ThemeManager(QObject *parent) : QObject(parent) {
     }
     QSettings s;
     m_themeMode = s.value("themeMode", 0).toInt();
+    m_dynamicColor = s.value("dynamicColor", true).toBool();
     refreshTheme();
 }
 
@@ -27,6 +28,15 @@ void ThemeManager::setThemeMode(int mode) {
     refreshTheme();
 }
 
+void ThemeManager::setDynamicColor(bool dynamic) {
+    if (m_dynamicColor == dynamic) return;
+    m_dynamicColor = dynamic;
+    QSettings s;
+    s.setValue("dynamicColor", dynamic);
+    emit dynamicColorChanged();
+    refreshTheme();
+}
+
 QString ThemeManager::getScssPath() const {
     QString xdgState = qgetenv("XDG_STATE_HOME");
     if (xdgState.isEmpty()) {
@@ -36,12 +46,24 @@ QString ThemeManager::getScssPath() const {
 }
 
 void ThemeManager::refreshTheme() {
-    parseScss();
+    bool parsed = false;
+    if (m_dynamicColor) {
+        QString path = getScssPath();
+        if (QFile::exists(path)) {
+            parseScss();
+            parsed = true;
+        }
+    }
+    
+    if (!parsed) {
+        loadHardcoded(m_themeMode);
+    }
+    
     emit themeChanged();
 }
 
-void ThemeManager::parseScss() {
-    if (m_themeMode == 1) { // Light
+void ThemeManager::loadHardcoded(int mode) {
+    if (mode == 1) { // Light
         m_colors.clear();
         m_colors["primary"]                 = "#6750A4";
         m_colors["onPrimary"]               = "#FFFFFF";
@@ -103,13 +125,22 @@ void ThemeManager::parseScss() {
         m_colors["inversePrimary"]          = "#6750A4";
         return;
     }
-    // System (mode 0): parse SCSS file
+    // System (mode 0) fallback if not using dynamic colors
+    if (mode == 0) {
+        loadHardcoded(2); // Fallback to Dark
+    }
+}
+
+void ThemeManager::parseScss() {
     QString path = getScssPath();
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         qWarning() << "Could not open SCSS file for theming:" << path;
+        loadHardcoded(m_themeMode);
         return;
     }
+    
+    m_colors.clear();
 
     QTextStream in(&file);
     while (!in.atEnd()) {
@@ -122,13 +153,15 @@ void ThemeManager::parseScss() {
                 m_colors[key] = value;
                 
                 // Also store without $ for easier lookup if needed
-                m_colors[key.mid(1)] = value;
+                QString baseKey = key.mid(1);
+                m_colors[baseKey] = value;
                 
-                // Handle kebab-case to camelCase conversion for M3 names if they come in kebab
-                // e.g. $surface-container -> surfaceContainer
-                QString camelKey = key.mid(1);
-                while (camelKey.contains("-")) {
+                // Handle kebab-case and snake_case to camelCase conversion
+                QString camelKey = baseKey;
+                while (camelKey.contains("-") || camelKey.contains("_")) {
                     int idx = camelKey.indexOf("-");
+                    if (idx == -1) idx = camelKey.indexOf("_");
+                    
                     if (idx + 1 < camelKey.length()) {
                         camelKey.replace(idx, 2, camelKey.at(idx+1).toUpper());
                     } else {
@@ -140,6 +173,21 @@ void ThemeManager::parseScss() {
         }
     }
     file.close();
+    
+    // The "Pinkish" Accent Fix logic
+    // Prefer inversePrimary over primary in dark mode (assuming dynamic color file specifies it)
+    if (m_colors.contains("darkmode") && m_colors["darkmode"] == "true") {
+        if (m_colors.contains("inversePrimary")) {
+            m_colors["primary"] = m_colors["inversePrimary"];
+        }
+    } else if (!m_colors.contains("darkmode")) {
+        // If we can't explicitly tell, but we have an inversePrimary, maybe we can use it?
+        // Wait, only apply the pinkish fix if we actually parsed inversePrimary.
+        // Usually inversePrimary in dark mode is brighter/truer to the hue.
+        if (m_colors.contains("inversePrimary")) {
+            m_colors["primary"] = m_colors["inversePrimary"];
+        }
+    }
 }
 
 #define GET_COLOR(name, fallback) \

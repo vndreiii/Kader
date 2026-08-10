@@ -136,15 +136,22 @@ public:
     Q_INVOKABLE void setThemeMode(int mode);
     Q_INVOKABLE void refreshTheme();
 
+    Q_PROPERTY(bool dynamicColor READ dynamicColor WRITE setDynamicColor NOTIFY dynamicColorChanged)
+    bool dynamicColor() const { return m_dynamicColor; }
+    Q_INVOKABLE void setDynamicColor(bool dynamic);
+
 signals:
     void themeChanged();
     void themeModeChanged();
+    void dynamicColorChanged();
 
 private:
     void parseScss();
+    void loadHardcoded(int mode);
     QString getScssPath() const;
 
     QVariantMap m_colors;
     QFileSystemWatcher *m_watcher;
     int m_themeMode = 0; // 0=system, 1=light, 2=dark
+    bool m_dynamicColor = true;
 };

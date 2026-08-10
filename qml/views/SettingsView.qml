@@ -556,7 +556,10 @@ Item {
                 SettingsRow {
                     label: I18n.t(Settings.language, "dynamic_color")
                     sub: I18n.t(Settings.language, "dynamic_color_sub")
-                    action: M3Switch { checked: true }
+                    action: M3Switch { 
+                        checked: ThemeManager.dynamicColor 
+                        onCheckedChanged: ThemeManager.dynamicColor = checked
+                    }
                 }
                 SettingsRow {
                     id: densityRow

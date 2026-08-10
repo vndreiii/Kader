@@ -11,6 +11,7 @@ Kader (photo/media gallery app) was integrated with the new milfs-connect shared
 - Added `'milfs-connect'` to the PKGBUILD's `makedepends`.
 - Committed and pushed all of the above to Kader's own repo (`ssh://git@code.milfs.party:2222/alex/Kader.git`, commit `b359eec`).
 - Built the real system package via `makepkg -f --noconfirm` (this only succeeded once the milfs-connect packaging bug described in milfs-connect's own SUMMARY was fixed — the static archive was previously broken), then installed it via `pacman -U`. Confirmed the freshly-built-and-installed real system package launches and runs correctly, actively performing real work (photo/video thumbnail generation).
+- **Dynamic Color & Matugen Support**: Implemented a `dynamicColor` property in `ThemeManager` to dynamically load Material 3 design tokens from Quickshell's generated `material_colors.scss` file. It automatically translates `kebab-case` and `snake_case` variables into `camelCase`, and handles the 'Pinkish Accent Fix' (prioritizing `$inversePrimary` over `$primary` in dark mode). Added instructions for configuring Matugen templates in `README.md` and created a Matugen template on the user's system to sync with Kader seamlessly.
 
 ## Open / future items
 
