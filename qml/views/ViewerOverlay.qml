@@ -84,6 +84,10 @@ Rectangle {
     property real _panY: 0
     property bool _isDraggingPan: (typeof imgMouseArea !== "undefined" && imgMouseArea.pressed) || (typeof videoMouseArea !== "undefined" && videoMouseArea.pressed)
 
+    property real _targetZoom: 1.0
+    property real _targetPanX: 0
+    property real _targetPanY: 0
+
     Behavior on _zoom { enabled: !root._isDraggingPan; NumberAnimation { duration: 180; easing.type: Easing.OutQuint } }
     Behavior on _panX { enabled: !root._isDraggingPan; NumberAnimation { duration: 180; easing.type: Easing.OutQuint } }
     Behavior on _panY { enabled: !root._isDraggingPan; NumberAnimation { duration: 180; easing.type: Easing.OutQuint } }
@@ -97,38 +101,49 @@ Rectangle {
         return m === "image/gif"
     }
 
-    function resetZoom() { _zoom = 1.0; _panX = 0; _panY = 0 }
+    function resetZoom() { 
+        _targetZoom = 1.0; _targetPanX = 0; _targetPanY = 0;
+        _zoom = 1.0; _panX = 0; _panY = 0; 
+    }
 
     function zoomTo(newZoom, focalX, focalY) {
-        var oldZoom = _zoom;
+        var oldZoom = _targetZoom;
         newZoom = Math.max(1.0, Math.min(8.0, newZoom));
         if (newZoom === oldZoom) return;
         
-        var imgW = mainImg.width * oldZoom;
-        var imgH = mainImg.height * oldZoom;
+        var imgW = mainImg.width * newZoom;
+        var imgH = mainImg.height * newZoom;
 
-        // If the image is smaller than the view, don't pan on that axis
-        var canPanX = imgW > root.width;
-        var canPanY = imgH > root.height;
+        // The center of imgArea in root's coordinates
+        var cx = imgArea.x + imgArea.width / 2;
+        var cy = imgArea.y + imgArea.height / 2;
 
-        // Offset from the center of the image area
-        var dx = focalX - root.width / 2;
-        var dy = focalY - root.height / 2;
+        var dx = focalX - cx;
+        var dy = focalY - cy;
         
+        var canPanX = imgW > imgArea.width;
+        var canPanY = imgH > imgArea.height;
+
         if (canPanX) {
-            _panX = dx - (dx - _panX) * (newZoom / oldZoom);
+            _targetPanX = dx - (dx - _targetPanX) * (newZoom / oldZoom);
         } else {
-            _panX = 0;
+            _targetPanX = 0;
         }
 
         if (canPanY) {
-            _panY = dy - (dy - _panY) * (newZoom / oldZoom);
+            _targetPanY = dy - (dy - _targetPanY) * (newZoom / oldZoom);
         } else {
-            _panY = 0;
+            _targetPanY = 0;
         }
         
-        _zoom = newZoom;
-        if (_zoom <= 1.02) resetZoom();
+        _targetZoom = newZoom;
+        if (_targetZoom <= 1.02) {
+            resetZoom();
+        } else {
+            _zoom = _targetZoom;
+            _panX = _targetPanX;
+            _panY = _targetPanY;
+        }
     }
 
     onMediaDataChanged: {
@@ -182,11 +197,11 @@ Rectangle {
         onWheel: (wheel) => {
             if (wheel.angleDelta.y !== 0) {
                 var factor = wheel.angleDelta.y > 0 ? 1.15 : (1.0 / 1.15)
-                root.zoomTo(root._zoom * factor, wheel.x, wheel.y)
+                root.zoomTo(root._targetZoom * factor, wheel.x, wheel.y)
                 wheel.accepted = true
             }
             // Horizontal scroll navigates prev/next when not zoomed in
-            if (wheel.angleDelta.x !== 0 && root._zoom <= 1.0 && !root._vidFs) {
+            if (wheel.angleDelta.x !== 0 && root._targetZoom <= 1.0 && !root._vidFs) {
                 if (wheel.angleDelta.x > 0) root.navigateNext()
                 else root.navigatePrev()
                 wheel.accepted = true
@@ -251,6 +266,8 @@ Rectangle {
                 if (pressed && root._zoom > 1.05) {
                     root._panX = _dragStartPanX + (mouseX - _dragStartX)
                     root._panY = _dragStartPanY + (mouseY - _dragStartY)
+                    root._targetPanX = root._panX
+                    root._targetPanY = root._panY
                 }
             }
             onClicked: (m) => m.accepted = false
@@ -806,6 +823,8 @@ Rectangle {
                     _wasDrag = true
                     root._panX = _dragStartPanX + (mouseX - _dragStartX)
                     root._panY = _dragStartPanY + (mouseY - _dragStartY)
+                    root._targetPanX = root._panX
+                    root._targetPanY = root._panY
                 }
             }
 
@@ -908,7 +927,7 @@ Rectangle {
             scale: zoomOutMa.pressed ? 0.92 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
             M3Icon { anchors.centerIn: parent; name: "remove"; size: 22; color: "white" }
             MouseArea { id: zoomOutMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                onClicked: root.zoomTo(root._zoom / 1.5, root.width / 2, root.height / 2) }
+                onClicked: root.zoomTo(root._targetZoom / 1.5, imgArea.x + imgArea.width / 2, imgArea.y + imgArea.height / 2) }
         }
 
         Rectangle {
@@ -927,7 +946,7 @@ Rectangle {
             scale: zoomInMa.pressed ? 0.92 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
             M3Icon { anchors.centerIn: parent; name: "add"; size: 22; color: "white" }
             MouseArea { id: zoomInMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                onClicked: root.zoomTo(root._zoom * 1.5, root.width / 2, root.height / 2) }
+                onClicked: root.zoomTo(root._targetZoom * 1.5, imgArea.x + imgArea.width / 2, imgArea.y + imgArea.height / 2) }
         }
     }
 
