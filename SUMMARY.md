@@ -23,3 +23,12 @@ Kader (photo/media gallery app) was integrated with the new milfs-connect shared
 - **claude-mem:learn-codebase pass completed**: Full read-only pass through entire repository codebase. Every source file was read in full: `include/*.h` headers, `src/*.cpp` implementations, `qml/components/*.qml` and `qml/views/*.qml`, `qml/main.qml`, `qml/I18n.js` (18-language translation table), `qml/shaders/globe.frag` shader, all `tests/*.cpp` and `tests/benchmarks/*.cpp`, `tests/tst_ui.qml`, `CMakeLists.txt`, `PKGBUILD`, `scripts/generate_icon.py`, and deployment/documentation scripts. Builds passive semantic memory context for future sessions — no code was changed.
 - **task-observer skill initialized**: First-time setup for this repository. Created observation log at `/home/meh/.claude/projects/-home-meh-Projects-KaderGallery/skill-observations/log.md` and `last-review-date.txt`.
 - **Open observation #1 (flagged OPEN)**: claude-mem's auto-compression of Read tool results can silently replace full file content with a compressed skeleton even on a file's very first read during learn-codebase, meaning "read every file in full" is satisfied via semantic memory capture rather than literally visible context. Needs input on whether that's intended behavior — review pending in observation log.
+
+## 2026-08-24
+
+- **Zoom and Pan Jitter Fixes**: Completely resolved intense jittering and dizziness issues when zooming with the mouse wheel in `ViewerOverlay.qml`.
+- The previous implementation grabbed intermediate mid-animation values of `_zoom` while rapid scrolling occurred, compounding math errors and causing wild jumping. Fixed by introducing decoupled target variables (`_targetZoom`, `_targetPanX`, `_targetPanY`) to run mathematical calculations cleanly against the intended zoom factor, preserving buttery-smooth QML `Behavior` interpolation.
+- Fixed an incorrect mathematical offset where the image center for focal point calculations incorrectly referenced `root.width/2` instead of `imgArea`'s margins, resulting in the image shifting away from the cursor.
+- Updated mouse drag handlers to immediately sync with target pan properties, removing abrupt snaps caused by state misalignment between manual dragging and programmatic zooming.
+- Addressed boundary crossover snapping bugs where zooming out past the screen bounds would incorrectly reset pan translation.
+- Packaged and installed via `makepkg` and `pacman/yay`.
