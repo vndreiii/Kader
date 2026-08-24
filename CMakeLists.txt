@@ -9,7 +9,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick QuickDialogs2 Sql Positioning Location Concurrent Multimedia DBus Test QuickTest)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick ShaderTools QuickDialogs2 Sql Positioning Location Concurrent Multimedia DBus Test QuickTest)
 find_package(MilfsConnect REQUIRED)
 find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 find_package(PkgConfig REQUIRED)
@@ -132,11 +132,22 @@ qt_add_qml_module(KaderApp
         qml/views/ViewerWindow.qml
         qml/views/SettingsView.qml
         qml/views/MapView.qml
+        qml/views/GlobeView.qml
         qml/views/DashboardView.qml
     RESOURCES
         "assets/Kader Logoicon.svg"
         assets/KaderPNGicon.png
         assets/MaterialSymbolsRounded.ttf
+        assets/globe-world-mask.png
+)
+
+qt_add_shaders(KaderApp "kader_shaders"
+    PREFIX
+        "/shaders"
+    BASE
+        "qml/shaders"
+    FILES
+        qml/shaders/globe.frag
 )
 
 add_executable(kader

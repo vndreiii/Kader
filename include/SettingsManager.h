@@ -12,6 +12,7 @@ class SettingsManager : public QObject {
     Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY languageChanged)
     Q_PROPERTY(bool parallelThumbnails READ parallelThumbnails WRITE setParallelThumbnails NOTIFY parallelThumbnailsChanged)
     Q_PROPERTY(int  resourceMode READ resourceMode WRITE setResourceMode NOTIFY resourceModeChanged)
+    Q_PROPERTY(bool use3DGlobe READ use3DGlobe WRITE setUse3DGlobe NOTIFY use3DGlobeChanged)
     Q_PROPERTY(QString homePath READ homePath CONSTANT)
 
 public:
@@ -42,6 +43,10 @@ public:
     int  resourceMode() const;
     void setResourceMode(int m);
 
+    // Places view: true = 3D rotating globe, false = classic 2D map.
+    bool use3DGlobe() const;
+    void setUse3DGlobe(bool use);
+
     // Number of worker threads to use for the current resource mode, derived
     // from the CPU core count. Always >= 1 and capped below the core count so
     // the desktop stays responsive.
@@ -64,6 +69,7 @@ signals:
     void languageChanged();
     void parallelThumbnailsChanged();
     void resourceModeChanged();
+    void use3DGlobeChanged();
 
 private:
     void load();

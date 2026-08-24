@@ -93,6 +93,22 @@ Rectangle {
     }
 
     function resetZoom() { _zoom = 1.0; _panX = 0; _panY = 0 }
+
+    function zoomTo(newZoom, focalX, focalY) {
+        var oldZoom = _zoom;
+        newZoom = Math.max(1.0, Math.min(8.0, newZoom));
+        if (newZoom === oldZoom) return;
+        
+        var dx = focalX - root.width / 2;
+        var dy = focalY - root.height / 2;
+        
+        _panX = dx - (dx - _panX) * (newZoom / oldZoom);
+        _panY = dy - (dy - _panY) * (newZoom / oldZoom);
+        
+        _zoom = newZoom;
+        if (_zoom <= 1.02) resetZoom();
+    }
+
     onMediaDataChanged: {
         resetZoom()
         deleteConfirm.showing = false
@@ -144,8 +160,7 @@ Rectangle {
         onWheel: (wheel) => {
             if (wheel.angleDelta.y !== 0) {
                 var factor = wheel.angleDelta.y > 0 ? 1.15 : (1.0 / 1.15)
-                root._zoom = Math.max(1.0, Math.min(8.0, root._zoom * factor))
-                if (root._zoom <= 1.02) root.resetZoom()
+                root.zoomTo(root._zoom * factor, wheel.x, wheel.y)
                 wheel.accepted = true
             }
             // Horizontal scroll navigates prev/next when not zoomed in
@@ -752,9 +767,9 @@ Rectangle {
             property real _dragStartPanY: 0
             property bool _wasDrag:       false
 
-            onDoubleClicked: {
+            onDoubleClicked: (mouse) => {
                 if (root._zoom > 1.05) root.resetZoom()
-                else root._zoom = 2.5
+                else root.zoomTo(2.5, mouse.x, mouse.y)
             }
 
             onPressed: {
@@ -872,7 +887,7 @@ Rectangle {
             scale: zoomOutMa.pressed ? 0.92 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
             M3Icon { anchors.centerIn: parent; name: "remove"; size: 22; color: "white" }
             MouseArea { id: zoomOutMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                onClicked: { root._zoom = Math.max(1.0, root._zoom / 1.5); if (root._zoom <= 1.02) root.resetZoom() } }
+                onClicked: root.zoomTo(root._zoom / 1.5, root.width / 2, root.height / 2) }
         }
 
         Rectangle {
@@ -891,7 +906,7 @@ Rectangle {
             scale: zoomInMa.pressed ? 0.92 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
             M3Icon { anchors.centerIn: parent; name: "add"; size: 22; color: "white" }
             MouseArea { id: zoomInMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                onClicked: root._zoom = Math.min(8.0, root._zoom * 1.5) }
+                onClicked: root.zoomTo(root._zoom * 1.5, root.width / 2, root.height / 2) }
         }
     }
 
