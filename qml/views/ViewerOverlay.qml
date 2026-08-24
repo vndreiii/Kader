@@ -104,11 +104,28 @@ Rectangle {
         newZoom = Math.max(1.0, Math.min(8.0, newZoom));
         if (newZoom === oldZoom) return;
         
+        var imgW = mainImg.width * oldZoom;
+        var imgH = mainImg.height * oldZoom;
+
+        // If the image is smaller than the view, don't pan on that axis
+        var canPanX = imgW > root.width;
+        var canPanY = imgH > root.height;
+
+        // Offset from the center of the image area
         var dx = focalX - root.width / 2;
         var dy = focalY - root.height / 2;
         
-        _panX = dx - (dx - _panX) * (newZoom / oldZoom);
-        _panY = dy - (dy - _panY) * (newZoom / oldZoom);
+        if (canPanX) {
+            _panX = dx - (dx - _panX) * (newZoom / oldZoom);
+        } else {
+            _panX = 0;
+        }
+
+        if (canPanY) {
+            _panY = dy - (dy - _panY) * (newZoom / oldZoom);
+        } else {
+            _panY = 0;
+        }
         
         _zoom = newZoom;
         if (_zoom <= 1.02) resetZoom();
@@ -279,9 +296,10 @@ Rectangle {
             sourceSize.width:  4096
             sourceSize.height: 4096
 
-            scale: root._zoom
-            transformOrigin: Item.Center
-            transform: Translate { x: root._panX; y: root._panY }
+            transform: [
+                Scale { origin.x: mainImg.width/2; origin.y: mainImg.height/2; xScale: root._zoom; yScale: root._zoom },
+                Translate { x: root._panX; y: root._panY }
+            ]
         }
 
         // Animated GIF viewer — loops silently, supports zoom + pan
@@ -297,11 +315,10 @@ Rectangle {
             asynchronous: true
             cache: false
 
-            scale: root._zoom
-            transformOrigin: Item.Center
-            transform: Translate { x: root._panX; y: root._panY }
-
-            Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutQuint } }
+            transform: [
+                Scale { origin.x: gifViewer.width/2; origin.y: gifViewer.height/2; xScale: root._zoom; yScale: root._zoom },
+                Translate { x: root._panX; y: root._panY }
+            ]
         }
 
         // ── Video player (shown instead of image when _isVideo) ──────────
@@ -350,9 +367,10 @@ Rectangle {
             visible: true
             opacity: root._isVideo ? 1.0 : 0.0
             Behavior on opacity { NumberAnimation { duration: 280; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
-            scale: root._zoom
-            transformOrigin: Item.Center
-            transform: Translate { x: root._panX; y: root._panY }
+            transform: [
+                Scale { origin.x: videoOut.width/2; origin.y: videoOut.height/2; xScale: root._zoom; yScale: root._zoom },
+                Translate { x: root._panX; y: root._panY }
+            ]
         }
 
         // Error overlay for videos that fail to load
