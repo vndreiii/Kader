@@ -82,6 +82,11 @@ Rectangle {
     property real _zoom: 1.0
     property real _panX: 0
     property real _panY: 0
+    property bool _isDraggingPan: (typeof imgMouseArea !== "undefined" && imgMouseArea.pressed) || (typeof videoMouseArea !== "undefined" && videoMouseArea.pressed)
+
+    Behavior on _zoom { enabled: !root._isDraggingPan; NumberAnimation { duration: 180; easing.type: Easing.OutQuint } }
+    Behavior on _panX { enabled: !root._isDraggingPan; NumberAnimation { duration: 180; easing.type: Easing.OutQuint } }
+    Behavior on _panY { enabled: !root._isDraggingPan; NumberAnimation { duration: 180; easing.type: Easing.OutQuint } }
 
     readonly property bool _isVideo: {
         var m = root.mediaData ? (root.mediaData.mime_type || "") : ""
@@ -277,8 +282,6 @@ Rectangle {
             scale: root._zoom
             transformOrigin: Item.Center
             transform: Translate { x: root._panX; y: root._panY }
-
-            Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutQuint } }
         }
 
         // Animated GIF viewer — loops silently, supports zoom + pan
