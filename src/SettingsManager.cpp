@@ -124,6 +124,17 @@ void SettingsManager::setResourceMode(int m) {
     }
 }
 
+bool SettingsManager::use3DGlobe() const {
+    return m_data.value("use3DGlobe").toBool(true);
+}
+void SettingsManager::setUse3DGlobe(bool use) {
+    if (use3DGlobe() != use) {
+        m_data["use3DGlobe"] = use;
+        save();
+        emit use3DGlobeChanged();
+    }
+}
+
 int SettingsManager::workerThreads() const {
     int cores = QThread::idealThreadCount();
     if (cores < 1) cores = 1;

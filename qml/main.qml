@@ -58,8 +58,28 @@ ApplicationWindow {
         }
     }
 
+    // Places view: swaps between the 3D globe and the classic 2D map
+    // depending on Settings.use3DGlobe, lazily instantiating whichever is needed.
+    function _activatePlacesView() {
+        var inst
+        if (Settings.use3DGlobe) {
+            if (!window._globeViewInst) window._globeViewInst = globeView.createObject(null)
+            inst = window._globeViewInst
+        } else {
+            if (!window._mapViewInst) window._mapViewInst = mapView.createObject(null)
+            inst = window._mapViewInst
+        }
+        mainStack.replace(inst)
+    }
+    Connections {
+        target: Settings
+        function onUse3DGlobeChanged() {
+            if (window.currentView === "map") window._activatePlacesView()
+        }
+    }
+
     property var _aiDocResults: []
-    
+
     FontLoader {
         id: materialSymbolsFont
         source: "qrc:/Kader/assets/MaterialSymbolsRounded.ttf"
@@ -93,6 +113,7 @@ ApplicationWindow {
     property Item _tlViewInst:       null
     property Item _albumsViewInst:   null
     property Item _mapViewInst:      null
+    property Item _globeViewInst:    null
     property Item _settingsViewInst: null
 
     Component.onCompleted: {
@@ -395,8 +416,7 @@ ApplicationWindow {
                     mainStack.replace(window._albumsViewInst)
                     window.applyViewSort("albums")
                 } else if (view === "map") {
-                    if (!window._mapViewInst) window._mapViewInst = mapView.createObject(null)
-                    mainStack.replace(window._mapViewInst)
+                    window._activatePlacesView()
                 } else if (view === "settings") {
                     if (!window._settingsViewInst) window._settingsViewInst = settingsView.createObject(null)
                     mainStack.replace(window._settingsViewInst)
@@ -1076,6 +1096,18 @@ ApplicationWindow {
     Component {
         id: mapView
         MapView {
+            onOpenViewer: (data) => {
+                viewerOverlay.mediaData = data
+                viewerOverlay.currentIndex = 0
+                viewerOverlay.allItems = [data]
+                viewerOverlay.active = true
+            }
+        }
+    }
+
+    Component {
+        id: globeView
+        GlobeView {
             onOpenViewer: (data) => {
                 viewerOverlay.mediaData = data
                 viewerOverlay.currentIndex = 0

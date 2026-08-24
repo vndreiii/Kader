@@ -734,6 +734,19 @@ Item {
             }
 
             SettingsSection {
+                title: I18n.t(Settings.language, "section_map")
+                SettingsRow {
+                    label: I18n.t(Settings.language, "use_3d_globe")
+                    sub: I18n.t(Settings.language, "use_3d_globe_sub")
+                    last: true
+                    action: M3Switch {
+                        checked: Settings.use3DGlobe
+                        onCheckedChanged: Settings.use3DGlobe = checked
+                    }
+                }
+            }
+
+            SettingsSection {
                 title: I18n.t(Settings.language, "section_ai")
 
                 // Model status + download
