@@ -41,7 +41,11 @@ public:
 
 signals:
     void scanStarted(const QString &rootPath);
-    void scanFinished(const QStringList &paths, int dirsScanned, double duration, const QString &rootPath);
+    // Carries the file count, not the paths: no consumer ever used the list for
+    // anything but its size, and handing a QStringList to a QML handler converts
+    // every entry into a JS string on the GUI thread — a whole-library
+    // allocation once per scanned directory.
+    void scanFinished(int fileCount, int dirsScanned, double duration, const QString &rootPath);
     void scanProgress(int filesFound);
 
 private:

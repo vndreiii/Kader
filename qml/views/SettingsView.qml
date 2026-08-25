@@ -58,11 +58,13 @@ Item {
 
     Connections {
         target: FileScanner
-        function onScanFinished(paths, dirsScanned, duration, rootPath) {
+        function onScanFinished(fileCount, dirsScanned, duration, rootPath) {
+            // Only the directory list is ours to update. main.cpp already
+            // refreshes the timeline/album/media models on scanFinished, on a
+            // debounce; refreshing them here as well doubled that work — and
+            // this view is cached for the app's lifetime, so once Settings had
+            // been opened every scan paid for two full library re-queries.
             refreshDirs()
-            // Also refresh other models
-            TimelineModel.refresh()
-            AlbumModel.refresh()
         }
     }
 

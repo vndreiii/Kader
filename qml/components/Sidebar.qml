@@ -339,16 +339,25 @@ Rectangle {
             clip: true
         }
         
+        // Built on first open, not at startup. A Popup's contentItem is created
+        // with the component, and DashboardView's Component.onCompleted runs
+        // MediaModel.refresh() — a full-library query and sort that the app paid
+        // for on every cold start, for a modal nobody had opened yet.
+        property bool dashboardLoaded: false
+
         contentItem: Item {
             id: modalContent
             opacity: dashboardModal.opened ? 1 : 0
-                DashboardView {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                }
+
+            Loader {
+                anchors.fill: parent
+                active: dashboardModal.dashboardLoaded
+                sourceComponent: DashboardView { }
+            }
         }
 
         function openFrom(sourceItem) {
+            dashboardLoaded = true
             var pt = sourceItem.mapToItem(dashboardModal.parent, 0, 0)
             startX = pt.x
             startY = pt.y

@@ -25,11 +25,15 @@ QVariant MediaModel::data(const QModelIndex &index, int role) const {
     switch (role) {
         case IdRole: return item.value("id");
         case PathRole: return "file://" + item.value("file_path").toString();
-        case ThumbRole: {
-            QString path = item.value("file_path").toString();
-            QString thumb = m_thumb->getOrCreateThumbnail(path);
-            return thumb.isEmpty() ? "" : "file://" + thumb;
-        }
+        case ThumbRole:
+            // Hand back the image-provider URL rather than generating here:
+            // data() runs on the GUI thread, and getOrCreateThumbnail() decodes
+            // the image inline (libvips/LibRaw, or an ffmpegthumbnailer
+            // subprocess for video) behind a mutex the background cache builder
+            // also holds. Routing through ThumbnailProvider — registered with
+            // ForceAsynchronousImageLoading, same as TimelineModel already does
+            // — keeps the decode off the GUI thread entirely.
+            return ThumbnailGenerator::thumbnailUrl(item.value("file_path").toString());
         case DateRole: return item.value("creation_date");
         case MimeRole: return item.value("mime_type");
         case WidthRole: return item.value("width");
