@@ -74,8 +74,14 @@ private:
     std::atomic<int>  m_budgetThreads{1};  // worker-thread budget (see setResourceBudget)
 
     std::atomic<bool> m_thumbCaching{false};
-    std::atomic<bool> m_cancelCache{false};
+    // Bumped on every startCacheBuilding()/cancelCacheBuilding(). A running
+    // cache worker compares it against the generation it was started with and
+    // bails out as soon as it sees a newer one — this replaces waiting on the
+    // previous QFuture, which used to block whichever thread asked for a new
+    // cache build (the GUI thread, on startup and after every scan).
+    std::atomic<quint64> m_cacheGeneration{0};
     std::atomic<int>  m_thumbCacheDone{0};
     std::atomic<int>  m_thumbCacheTotal{0};
+    QMutex            m_cacheFutureMutex;  // guards m_cacheFuture (assigned off-thread)
     QFuture<void>     m_cacheFuture;
 };

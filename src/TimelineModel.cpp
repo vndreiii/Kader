@@ -51,7 +51,7 @@ void TimelineModel::setNumColumns(int n) {
     if (n > 0 && n != m_numColumns) {
         m_numColumns = n;
         emit numColumnsChanged();
-        refresh();
+        repack();   // geometry only — the item set is unchanged
     }
 }
 
@@ -99,7 +99,7 @@ void TimelineModel::setContentWidth(int px) {
     if (px > 0 && qAbs(px - m_contentWidth) > 8) {
         m_contentWidth = px;
         emit contentWidthChanged();
-        refresh();
+        repack();   // geometry only — the item set is unchanged
     }
 }
 
@@ -214,9 +214,6 @@ QVariantMap TimelineModel::rowData(int row) const {
 }
 
 void TimelineModel::refresh(bool hideIgnored) {
-    beginResetModel();
-    m_rows.clear();
-
     QVariantList allMedia = m_db->getAllMedia(
         hideIgnored,
         static_cast<DatabaseManager::SortRole>(m_sortRole),
@@ -268,6 +265,18 @@ void TimelineModel::refresh(bool hideIgnored) {
         });
         allMedia = filtered;
     }
+
+    m_media = std::move(allMedia);
+    repack();
+}
+
+// Lay m_media out into rows. Callers that only changed geometry (setContentWidth,
+// setNumColumns) come straight here and skip the SELECT + filtering above.
+void TimelineModel::repack() {
+    beginResetModel();
+    m_rows.clear();
+    const QVariantList &allMedia = m_media;
+    const bool aiMode = m_aiFilterActive;   // AI results carry their own order — no month headers
 
     // ── Aspect-ratio row packing (Google Photos style) ──────────────────────
     // Photos keep their real aspect ratios. We pack them into rows so the total

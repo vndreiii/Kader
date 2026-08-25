@@ -122,18 +122,40 @@ int main(int argc, char *argv[]) {
     // In vieweronly mode we only display a single file — skip all heavy startup work.
     const bool viewerOnly = !startupFile.isEmpty();
 
+    // Refreshing the models is three full-table queries plus an O(n) mosaic
+    // relayout, all on the GUI thread. Scans finish once per indexed directory
+    // and milfs-connect starts a scan per announced file, so refreshing eagerly
+    // meant one multi-hundred-millisecond stall per scan, back to back. Funnel
+    // every request through one single-shot timer instead: a burst of scans
+    // collapses into a single refresh once the burst settles.
+    QTimer *refreshTimer = new QTimer(&app);
+    refreshTimer->setSingleShot(true);
+    refreshTimer->setInterval(500);
+
+    // Kick off a thumbnail cache build. getAllMediaPaths() is a full-table query
+    // and startCacheBuilding() then stats every path, so both go off-thread.
+    auto rebuildThumbnailCache = [&]() {
+        if (viewerOnly)
+            return;
+        QtConcurrent::run([&]() {
+            thumbGenerator.startCacheBuilding(dbManager.getAllMediaPaths(), 768);
+        });
+    };
+
+    QObject::connect(refreshTimer, &QTimer::timeout, &app, [&]() {
+        mediaModel.refresh(settingsManager.hideIgnoredInTimeline());
+        timelineModel.refresh(settingsManager.hideIgnoredInTimeline());
+        albumModel.refresh(true);
+        storageManager.refresh();
+        rebuildThumbnailCache();
+    });
+
     // Prune helper: runs off-thread, refreshes models on main thread if anything was removed.
     auto runPrune = [&]() {
         QtConcurrent::run([&]() {
             int pruned = dbManager.pruneOrphanedMedia();
-            if (pruned > 0) {
-                QMetaObject::invokeMethod(&app, [&]() {
-                    mediaModel.refresh(settingsManager.hideIgnoredInTimeline());
-                    timelineModel.refresh(settingsManager.hideIgnoredInTimeline());
-                    albumModel.refresh(true);
-                    storageManager.refresh();
-                }, Qt::QueuedConnection);
-            }
+            if (pruned > 0)
+                QMetaObject::invokeMethod(refreshTimer, qOverload<>(&QTimer::start), Qt::QueuedConnection);
         });
     };
 
@@ -157,9 +179,7 @@ int main(int argc, char *argv[]) {
 
         // Pre-generate 768px disk thumbnails for all known media.
         // Runs after a short delay so the UI renders first.
-        QTimer::singleShot(1500, &app, [&]() {
-            thumbGenerator.startCacheBuilding(dbManager.getAllMediaPaths(), 768);
-        });
+        QTimer::singleShot(1500, &app, rebuildThumbnailCache);
 
         // Run once at startup, then every 3 minutes to catch external file deletions.
         runPrune();
@@ -184,16 +204,11 @@ int main(int argc, char *argv[]) {
     dbManager.setRawFilter(settingsManager.rawFilter());
 
     // Context object (&app) ensures the lambda runs on the main thread via a queued connection.
-    QObject::connect(&fileScanner, &FileScanner::scanFinished, &app, [&](const QStringList &, int, double, const QString &) {
-        mediaModel.refresh(settingsManager.hideIgnoredInTimeline());
-        timelineModel.refresh(settingsManager.hideIgnoredInTimeline());
-        albumModel.refresh(true);
-        storageManager.refresh();
-        // Re-run cache builder after a scan to pick up newly indexed files.
-        QTimer::singleShot(500, &app, [&]() {
-            if (!viewerOnly)
-                thumbGenerator.startCacheBuilding(dbManager.getAllMediaPaths(), 768);
-        });
+    // Restarting the timer coalesces the scans of several indexed directories
+    // into one refresh (which also re-runs the cache builder for the new files).
+    QObject::connect(&fileScanner, &FileScanner::scanFinished, &app,
+                     [refreshTimer](int, int, double, const QString &) {
+        refreshTimer->start();
     });
 
     // Apply the resource budget: bounds CPU (scan threads, thumbnail concurrency)

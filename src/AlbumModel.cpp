@@ -34,9 +34,13 @@ QVariant AlbumModel::data(const QModelIndex &index, int role) const {
             return QString::number(bytes / (1024.0 * 1024.0 * 1024.0), 'f', 1) + " GB";
         }
         case CoverRole: {
-            QString coverPath = item.value("cover").toString();
-            QString thumb = m_thumb->getOrCreateThumbnail(coverPath);
-            return thumb.isEmpty() ? "" : "file://" + thumb;
+            // Image-provider URL, not an inline decode: see the matching note in
+            // MediaModel::data(). Generating the cover here blocked the GUI
+            // thread on libvips (or ffmpegthumbnailer) for every album that
+            // scrolled into view, and on the shared generator mutex whenever the
+            // background cache builder held it.
+            const QString coverPath = item.value("cover").toString();
+            return coverPath.isEmpty() ? QString() : ThumbnailGenerator::thumbnailUrl(coverPath);
         }
         default: return QVariant();
     }

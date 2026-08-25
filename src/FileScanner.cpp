@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <sys/stat.h>
+#include <sys/resource.h>
 #include <dirent.h>
 #include <string.h>
 #include <algorithm>
@@ -72,6 +73,15 @@ bool probeVideo(const QString &path, int &w, int &h, double &durationSec) {
         else if (key == u"duration") durationSec = val.toDouble();
     }
     return got;
+}
+
+// Drop the calling thread to a background scheduling priority. The scan is
+// entirely background work — directory walking, EXIF parsing, ffprobe — and it
+// runs a worker per core, so at equal priority it competes with the GUI and Qt
+// render threads and the window stops responding while a scan is in flight.
+// Nice values are per-thread on Linux, so this only affects the scan workers.
+void deprioritiseCurrentThread() {
+    setpriority(PRIO_PROCESS, static_cast<id_t>(syscall(SYS_gettid)), 10);
 }
 
 } // namespace
@@ -191,18 +201,31 @@ QVariantList FileScanner::listSiblingMedia(const QString &filePath) const {
 void FileScanner::startScan(const QString &rootPath) {
     qDebug() << "Start scan requested for:" << rootPath;
     emit scanStarted(rootPath);
-    QStringList qExclusions = m_db->getScanExclusions();
-    std::vector<std::string> exclusions;
-    for (const QString &p : qExclusions)
-        exclusions.push_back(p.toStdString());
-    m_scanFuture = QtConcurrent::run([this, rootPath, exclusions]() {
+    // getScanExclusions() is a SQL round-trip and startScan() is called from the
+    // GUI thread (startup timer, QML, and the milfs-connect callback), so read
+    // the exclusions on the worker instead of before dispatching.
+    m_scanFuture = QtConcurrent::run([this, rootPath]() {
+        std::vector<std::string> exclusions;
+        for (const QString &p : m_db->getScanExclusions())
+            exclusions.push_back(p.toStdString());
         runScan(rootPath.toStdString(), exclusions);
     });
 }
 
 void FileScanner::runScan(const std::string &rootPath, const std::vector<std::string> &exclusions) {
     auto start = std::chrono::high_resolution_clock::now();
-    
+
+    // This body also does the per-file EXIF/ffprobe pass, which is the most
+    // CPU-hungry part of a scan. It runs on a shared QtConcurrent pool thread,
+    // so restore the original priority on the way out rather than leaving the
+    // thread niced for whatever task the pool hands it next.
+    const int callerPriority = getpriority(PRIO_PROCESS, static_cast<id_t>(syscall(SYS_gettid)));
+    deprioritiseCurrentThread();
+    struct PriorityRestore {
+        int priority;
+        ~PriorityRestore() { setpriority(PRIO_PROCESS, static_cast<id_t>(syscall(SYS_gettid)), priority); }
+    } restorePriority{callerPriority};
+
     InternalWorkQueue wq;
     wq.push(rootPath);
 
@@ -222,6 +245,7 @@ void FileScanner::runScan(const std::string &rootPath, const std::vector<std::st
 
     for (int i = 0; i < numThreads; ++i) {
         workers.emplace_back([this, &wq, &dirsScanned, &pathsMutex, &foundFiles, &exclusions]() {
+            deprioritiseCurrentThread();
             std::string path;
             while (wq.pop(path)) {
                 int fd = open(path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
@@ -393,7 +417,7 @@ void FileScanner::runScan(const std::string &rootPath, const std::vector<std::st
     std::chrono::duration<double> diff = end - start;
 
     // Emit first so the UI refreshes immediately with the new items.
-    emit scanFinished(finalPaths, (int)dirsScanned.load(), diff.count(), QString::fromStdString(rootPath));
+    emit scanFinished((int)finalPaths.size(), (int)dirsScanned.load(), diff.count(), QString::fromStdString(rootPath));
 
     // Pre-generate thumbnails after the UI has already updated.
     // Runs in a separate detached task so it never blocks the main thread.

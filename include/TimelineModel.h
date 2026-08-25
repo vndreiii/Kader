@@ -100,7 +100,13 @@ private:
 
     void rebuildLayout();
 
+    // Pack m_media into rows for the current width/column count. Split out of
+    // refresh() so geometry-only changes (window resize, mosaic density) can
+    // re-pack without re-running the library-wide SELECT and its filter passes.
+    void repack();
+
     DatabaseManager *m_db;
+    QVariantList     m_media;            // queried + filtered items, input to repack()
     QList<Row>       m_rows;
     QList<int>       m_rowY;             // cumulative top Y per row
     int              m_totalHeight = 0;

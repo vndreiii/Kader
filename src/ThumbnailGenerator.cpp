@@ -2,6 +2,7 @@
 #include <QStandardPaths>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QCryptographicHash>
 #include <QBuffer>
 #include <QProcess>
@@ -303,48 +304,60 @@ QByteArray ThumbnailGenerator::generateThumbnailBytes(const QString &filePath, i
 }
 
 void ThumbnailGenerator::startCacheBuilding(const QStringList &paths, int size) {
-    if (m_thumbCaching.load()) {
-        m_cancelCache.store(true);
-        m_cacheFuture.waitForFinished();
-    }
+    // Supersede any run already in flight. We deliberately never wait for it
+    // here: this is called from the GUI thread (the startup timer, and again
+    // after every scan finishes) and the item in flight can be a multi-second
+    // RAW decode or an ffmpegthumbnailer subprocess. The old worker sees the
+    // bumped generation and drops out by itself; a brief overlap costs nothing
+    // because thumbnail generation is idempotent and disk-cache guarded.
+    const quint64 generation = m_cacheGeneration.fetch_add(1) + 1;
 
-    QStringList uncached;
-    uncached.reserve(paths.size());
-    for (const QString &p : paths) {
-        QString tp = m_cacheDir + "/" + generateHash(p) + "_" + QString::number(size) + ".jpg";
-        if (!QFile::exists(tp) || QFile(tp).size() == 0)
-            uncached << p;
-    }
-
-    if (uncached.isEmpty()) {
-        emit thumbCacheFinished();
-        return;
-    }
-
-    m_cancelCache.store(false);
     m_thumbCaching.store(true);
     m_thumbCacheDone.store(0);
-    m_thumbCacheTotal.store(uncached.size());
-    QMetaObject::invokeMethod(this, "thumbCachingChanged",     Qt::QueuedConnection);
+    m_thumbCacheTotal.store(0);
+    QMetaObject::invokeMethod(this, "thumbCachingChanged",       Qt::QueuedConnection);
     QMetaObject::invokeMethod(this, "thumbCacheProgressChanged", Qt::QueuedConnection);
 
-    m_cacheFuture = QtConcurrent::run([this, uncached, size]() {
+    QFuture<void> future = QtConcurrent::run([this, paths, size, generation]() {
+        // Deciding which paths still need a thumbnail is one stat() per file.
+        // Over a large library that is tens of thousands of syscalls, competing
+        // with a running scan for the disk — it belongs here, not on the caller.
+        QStringList uncached;
+        uncached.reserve(paths.size());
+        for (const QString &p : paths) {
+            if (m_cacheGeneration.load() != generation) return;
+            const QFileInfo tp(m_cacheDir + "/" + generateHash(p) + "_" + QString::number(size) + ".jpg");
+            if (!tp.exists() || tp.size() == 0)
+                uncached << p;
+        }
+
+        m_thumbCacheTotal.store(uncached.size());
+        QMetaObject::invokeMethod(this, "thumbCacheProgressChanged", Qt::QueuedConnection);
+
         for (const QString &p : uncached) {
-            if (m_cancelCache.load()) break;
+            if (m_cacheGeneration.load() != generation) return;
             getOrCreateThumbnail(p, size);
-            int done = m_thumbCacheDone.fetch_add(1) + 1;
+            const int done = m_thumbCacheDone.fetch_add(1) + 1;
             if (done % 10 == 0 || done == m_thumbCacheTotal.load())
                 QMetaObject::invokeMethod(this, "thumbCacheProgressChanged", Qt::QueuedConnection);
         }
+
+        // Only the newest run owns the "finished" transition.
+        if (m_cacheGeneration.load() != generation) return;
         m_thumbCaching.store(false);
         QMetaObject::invokeMethod(this, "thumbCachingChanged",  Qt::QueuedConnection);
         QMetaObject::invokeMethod(this, "thumbCacheFinished",   Qt::QueuedConnection);
     });
+
+    QMutexLocker lock(&m_cacheFutureMutex);
+    m_cacheFuture = future;
 }
 
 void ThumbnailGenerator::cancelCacheBuilding() {
-    if (m_thumbCaching.load())
-        m_cancelCache.store(true);
+    // Same contract as above: signal, never wait.
+    m_cacheGeneration.fetch_add(1);
+    if (m_thumbCaching.exchange(false))
+        QMetaObject::invokeMethod(this, "thumbCachingChanged", Qt::QueuedConnection);
 }
 
 // Derive a 32-byte AES key from the machine ID + a fixed app salt.

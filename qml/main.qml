@@ -121,12 +121,14 @@ ApplicationWindow {
 
         window._refreshPhotoCount()
 
-        // In vieweronly mode the stack and sidebar are never shown — skip expensive view creation.
-        // Other views are created lazily on first navigation to avoid blocking startup.
-        if (!isViewerOnly) Qt.callLater(() => {
-            _tlViewInst = timelineView.createObject(null)
-            mainStack.replace(_tlViewInst, StackView.Immediate)
-        })
+        // The StackView's initialItem already built the timeline grid, so just
+        // adopt it. Creating a second instance here and replace()-ing it in
+        // meant the whole grid was built twice at startup, and the throwaway
+        // was parented to null — it laid out at its 800px implicitWidth first,
+        // so TimelineModel re-packed a third time once the StackView sized it.
+        // Other views are still created lazily on first navigation.
+        if (!isViewerOnly)
+            _tlViewInst = mainStack.currentItem
 
         if (isViewerOnly) {
             // NOTE: the standalone viewer fast path is handled by ViewerWindow.qml
@@ -318,8 +320,8 @@ ApplicationWindow {
         function onScanProgress(count) {
             window.scanFileCount = count
         }
-        function onScanFinished(paths, dirsScanned, duration, rootPath) {
-            window.scanFileCount = paths.length
+        function onScanFinished(fileCount, dirsScanned, duration, rootPath) {
+            window.scanFileCount = fileCount
             window.isScanning = false
             window.scanDone = true
             scanBannerTimer.restart()
@@ -1060,7 +1062,11 @@ ApplicationWindow {
             // Restore saved scroll when the grid is created (view switch back)
             Component.onCompleted: {
                 if (window.timelineScrollY > 0)
-                    Qt.callLater(() => { _savedY = window.timelineScrollY; _pendingRestore = true; restoreTimer.restart() })
+                    // MediaGrid's onLayoutChanged handler performs the restore;
+                    // arming the flags is all that is needed. (There is no
+                    // restoreTimer — calling one here threw a ReferenceError
+                    // that aborted the restore before it could take effect.)
+                    Qt.callLater(() => { _savedY = window.timelineScrollY; _pendingRestore = true })
             }
             // Save scroll position when this instance is about to be destroyed
             Component.onDestruction: window.timelineScrollY = _savedY
