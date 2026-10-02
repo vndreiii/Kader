@@ -738,12 +738,84 @@ Item {
                         }
                     }
                 }
+                // ── colours: source, preset, Material 3 scheme style ──────
                 SettingsRow {
-                    label: I18n.t(Settings.language, "dynamic_color")
-                    sub: I18n.t(Settings.language, "dynamic_color_sub")
-                    action: M3Switch { 
-                        checked: ThemeManager.dynamicColor 
-                        onCheckedChanged: ThemeManager.dynamicColor = checked
+                    label: I18n.t(Settings.language, "color_source")
+                    sub: ThemeManager.colorSource !== 2 ? I18n.t(Settings.language, "color_source_sub")
+                       : ThemeManager.systemSource === "matugen" ? I18n.t(Settings.language, "color_sys_matugen")
+                       : ThemeManager.systemSource === "quickshell" ? I18n.t(Settings.language, "color_sys_quickshell")
+                       : ThemeManager.systemSource === "accent" ? I18n.t(Settings.language, "color_sys_accent")
+                       : I18n.t(Settings.language, "color_sys_none").arg(ThemeManager.matugenPath)
+                    action: Row {
+                        spacing: 4
+                        Repeater {
+                            model: [I18n.t(Settings.language, "color_kader"), I18n.t(Settings.language, "color_preset"), I18n.t(Settings.language, "color_system")]
+                            delegate: Button {
+                                required property int index
+                                required property string modelData
+                                text: modelData
+                                checkable: true
+                                checked: ThemeManager.colorSource === index
+                                onClicked: ThemeManager.colorSource = index
+                                implicitWidth: 72; implicitHeight: 34
+                                background: Rectangle {
+                                    radius: 17
+                                    color: parent.checked ? ThemeManager.secondaryContainer : ThemeManager.surfaceContainerHighest
+                                    border.color: ThemeManager.outline; border.width: 1
+                                    Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
+                                }
+                                contentItem: Label {
+                                    text: parent.text; font.pixelSize: 12
+                                    color: parent.checked ? ThemeManager.onSecondaryContainer : ThemeManager.onSurface
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+                            }
+                        }
+                    }
+                }
+                SettingsRow {
+                    visible: ThemeManager.colorSource === 1
+                    label: I18n.t(Settings.language, "color_pick")
+                    sub: ThemeManager.seedColor.toUpperCase()
+                    action: Grid {
+                        columns: 6
+                        spacing: 8
+                        Repeater {
+                            model: ThemeManager.presetColors
+                            delegate: Rectangle {
+                                required property string modelData
+                                readonly property bool on: ThemeManager.seedColor.toLowerCase() === modelData.toLowerCase()
+                                width: 30; height: 30; radius: 15
+                                color: modelData
+                                border.width: on ? 3 : 0
+                                border.color: ThemeManager.onSurface
+                                scale: swMa.containsMouse ? 1.12 : 1
+                                Behavior on scale { NumberAnimation { duration: ThemeManager.durShort; easing.type: Easing.OutBack } }
+                                MaterialSymbol {
+                                    anchors.centerIn: parent
+                                    visible: parent.on
+                                    name: "check"; size: 18; color: "white"
+                                }
+                                MouseArea {
+                                    id: swMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: ThemeManager.seedColor = modelData
+                                }
+                            }
+                        }
+                    }
+                }
+                SettingsRow {
+                    label: I18n.t(Settings.language, "color_style")
+                    sub: I18n.t(Settings.language, "color_style_sub")
+                    action: ComboBox {
+                        implicitWidth: 200
+                        model: ThemeManager.variantNames
+                        currentIndex: ThemeManager.schemeVariant
+                        onActivated: (i) => ThemeManager.schemeVariant = i
                     }
                 }
                 SettingsRow {

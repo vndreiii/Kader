@@ -116,6 +116,7 @@ add_dependencies(kader_core kader_core_build)
 # ── Backend library ─────────────────────────────────────────────────────────
 set(SOURCES
     ${SOURCE_DIR}/ThemeManager.cpp
+    ${SOURCE_DIR}/MaterialColor.cpp
     ${SOURCE_DIR}/FileScanner.cpp
     ${SOURCE_DIR}/DatabaseManager.cpp
     ${SOURCE_DIR}/MediaRepository.cpp
@@ -138,6 +139,7 @@ set(SOURCES
 
 set(HEADERS
     ${INCLUDE_DIR}/ThemeManager.h
+    ${INCLUDE_DIR}/MaterialColor.h
     ${INCLUDE_DIR}/FileScanner.h
     ${INCLUDE_DIR}/DatabaseManager.h
     ${INCLUDE_DIR}/MediaRepository.h

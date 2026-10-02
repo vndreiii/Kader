@@ -1,32 +1,65 @@
 #include "ThemeManager.h"
-#include <QFile>
+#include "MaterialColor.h"
 #include <algorithm>
-#include <QTextStream>
 #include <QDir>
-#include <QStandardPaths>
-#include <QSettings>
-#include <QDebug>
 #include <QEvent>
+#include <QFile>
+#include <QFileInfo>
 #include <QGuiApplication>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QPalette>
+#include <QRegularExpression>
+#include <QSettings>
+#include <QStandardPaths>
 #include <QStyleHints>
+#include <QTextStream>
+
+// Colours are generated from one seed colour with Material Color Utilities
+// (MaterialColor.cpp — the same maths as Android and matugen), in the scheme
+// style the user picks. The seed is Kader's purple, a preset, or the
+// system's: a matugen-generated file, Quickshell's palette, or the desktop
+// accent colour (Windows, KDE).
+
+namespace {
+const QString kDefaultSeed = QStringLiteral("#6750A4");
+
+QString stateDir() {
+    QString x = qEnvironmentVariable("XDG_STATE_HOME");
+    return x.isEmpty() ? QDir::homePath() + QStringLiteral("/.local/state") : x;
+}
+QString configDir() {
+    QString x = qEnvironmentVariable("XDG_CONFIG_HOME");
+    return x.isEmpty() ? QDir::homePath() + QStringLiteral("/.config") : x;
+}
+QString quickshellPath() {
+    return stateDir() + QStringLiteral("/quickshell/user/generated/material_colors.scss");
+}
+} // namespace
 
 ThemeManager::ThemeManager(QObject *parent) : QObject(parent) {
     m_watcher = new QFileSystemWatcher(this);
-    QString path = getScssPath();
-    if (!path.isEmpty() && QFile::exists(path)) {
-        m_watcher->addPath(path);
-        connect(m_watcher, &QFileSystemWatcher::fileChanged, this, &ThemeManager::refreshTheme);
-    }
+    // matugen and Quickshell rewrite their files by replacing them, which
+    // drops the watch: re-arm on every change (and watch the folders, for
+    // files that don't exist yet).
+    connect(m_watcher, &QFileSystemWatcher::fileChanged, this, [this] { watchFiles(); refreshTheme(); });
+    connect(m_watcher, &QFileSystemWatcher::directoryChanged, this, [this] { watchFiles(); refreshTheme(); });
+
     QSettings s;
     m_themeMode = s.value("themeMode", 0).toInt();
-    m_dynamicColor = s.value("dynamicColor", true).toBool();
-    // "System" follows the OS light/dark setting; on Windows dynamic colour
-    // follows the accent colour too.
+    // colorSource replaces the old on/off "dynamicColor" (on = system colours)
+    if (s.contains("colorSource"))
+        m_colorSource = std::clamp(s.value("colorSource").toInt(), 0, 2);
+    else
+        m_colorSource = s.value("dynamicColor", true).toBool() ? 2 : 0;
+    m_seed = s.value("seedColor", kDefaultSeed).toString();
+    m_variant = std::clamp(s.value("schemeVariant", 0).toInt(), 0, int(MaterialColor::Variant::Count) - 1);
+
     if (auto *hints = QGuiApplication::styleHints())
         connect(hints, &QStyleHints::colorSchemeChanged, this, &ThemeManager::refreshTheme);
     if (qApp)
         qApp->installEventFilter(this);
+    watchFiles();
     refreshTheme();
 }
 
@@ -41,223 +74,129 @@ bool ThemeManager::systemIsLight() {
     return hints && hints->colorScheme() == Qt::ColorScheme::Light;
 }
 
-// Windows accent colour → Material roles. A light-weight stand-in for the
-// full HCT scheme generator: keep the accent's hue, map M3 tones onto HSL
-// lightness, and tint the neutrals faintly with the same hue.
-void ThemeManager::applyAccent(const QColor &accent, bool dark) {
-    const float hue = accent.hslHueF() < 0 ? 0.7f : accent.hslHueF();
-    const float sat = std::clamp(accent.hslSaturationF(), 0.35f, 0.85f);
-    auto tone = [hue](float s, int t) { return QColor::fromHslF(hue, s, t / 100.0f).name(); };
-    const float ns = 0.06f;  // neutral chroma
-    const float vs = 0.12f;  // neutral-variant chroma
-    auto &c = m_colors;
-    if (dark) {
-        c["primary"] = tone(sat, 80);            c["onPrimary"] = tone(sat, 20);
-        c["primaryContainer"] = tone(sat, 30);   c["onPrimaryContainer"] = tone(sat, 90);
-        c["inversePrimary"] = tone(sat, 40);
-        c["secondary"] = tone(sat * 0.35f, 80);  c["onSecondary"] = tone(sat * 0.35f, 20);
-        c["secondaryContainer"] = tone(sat * 0.35f, 30);
-        c["onSecondaryContainer"] = tone(sat * 0.35f, 90);
-        c["surface"] = tone(ns, 6);              c["surfaceDim"] = tone(ns, 6);
-        c["surfaceBright"] = tone(ns, 24);       c["surfaceContainerLowest"] = tone(ns, 4);
-        c["surfaceContainerLow"] = tone(ns, 10); c["surfaceContainer"] = tone(ns, 12);
-        c["surfaceContainerHigh"] = tone(ns, 17);
-        c["surfaceContainerHighest"] = tone(ns, 22);
-        c["onSurface"] = tone(ns, 90);           c["onSurfaceVariant"] = tone(vs, 80);
-        c["outline"] = tone(vs, 60);             c["outlineVariant"] = tone(vs, 30);
-        c["inverseSurface"] = tone(ns, 90);      c["inverseOnSurface"] = tone(ns, 20);
-    } else {
-        c["primary"] = tone(sat, 40);            c["onPrimary"] = tone(sat, 100);
-        c["primaryContainer"] = tone(sat, 90);   c["onPrimaryContainer"] = tone(sat, 10);
-        c["inversePrimary"] = tone(sat, 80);
-        c["secondary"] = tone(sat * 0.35f, 40);  c["onSecondary"] = tone(sat * 0.35f, 100);
-        c["secondaryContainer"] = tone(sat * 0.35f, 90);
-        c["onSecondaryContainer"] = tone(sat * 0.35f, 10);
-        c["surface"] = tone(ns, 98);             c["surfaceDim"] = tone(ns, 87);
-        c["surfaceBright"] = tone(ns, 98);       c["surfaceContainerLowest"] = tone(ns, 100);
-        c["surfaceContainerLow"] = tone(ns, 96); c["surfaceContainer"] = tone(ns, 94);
-        c["surfaceContainerHigh"] = tone(ns, 92);
-        c["surfaceContainerHighest"] = tone(ns, 90);
-        c["onSurface"] = tone(ns, 10);           c["onSurfaceVariant"] = tone(vs, 30);
-        c["outline"] = tone(vs, 50);             c["outlineVariant"] = tone(vs, 80);
-        c["inverseSurface"] = tone(ns, 20);      c["inverseOnSurface"] = tone(ns, 95);
+QString ThemeManager::matugenPath() const {
+    return configDir() + QStringLiteral("/kader/matugen.json");
+}
+
+void ThemeManager::watchFiles() {
+    for (const QString &f : {matugenPath(), quickshellPath()}) {
+        const QString dir = QFileInfo(f).absolutePath();
+        if (QFileInfo::exists(dir) && !m_watcher->directories().contains(dir))
+            m_watcher->addPath(dir);
+        if (QFileInfo::exists(f) && !m_watcher->files().contains(f))
+            m_watcher->addPath(f);
     }
+}
+
+QStringList ThemeManager::presetColors() const {
+    // Material's baseline purple, then a spread of hues
+    return {kDefaultSeed, QStringLiteral("#B3261E"), QStringLiteral("#984061"), QStringLiteral("#8B5000"),
+            QStringLiteral("#6D5E0F"), QStringLiteral("#386A20"), QStringLiteral("#006A6A"), QStringLiteral("#006493"),
+            QStringLiteral("#0061A4"), QStringLiteral("#4355B9"), QStringLiteral("#7D5260"), QStringLiteral("#5D5F5F")};
+}
+
+QStringList ThemeManager::variantNames() const {
+    QStringList out;
+    for (int v = 0; v < int(MaterialColor::Variant::Count); ++v)
+        out << MaterialColor::variantName(MaterialColor::Variant(v));
+    return out;
 }
 
 void ThemeManager::setThemeMode(int mode) {
     if (m_themeMode == mode) return;
     m_themeMode = mode;
-    QSettings s;
-    s.setValue("themeMode", mode);
+    QSettings().setValue("themeMode", mode);
     emit themeModeChanged();
     refreshTheme();
 }
 
-void ThemeManager::setDynamicColor(bool dynamic) {
-    if (m_dynamicColor == dynamic) return;
-    m_dynamicColor = dynamic;
-    QSettings s;
-    s.setValue("dynamicColor", dynamic);
+void ThemeManager::setColorSource(int src) {
+    src = std::clamp(src, 0, 2);
+    if (m_colorSource == src) return;
+    m_colorSource = src;
+    QSettings().setValue("colorSource", src);
+    emit colorSourceChanged();
     emit dynamicColorChanged();
     refreshTheme();
 }
 
-QString ThemeManager::getScssPath() const {
-    QString xdgState = qgetenv("XDG_STATE_HOME");
-    if (xdgState.isEmpty()) {
-        xdgState = QDir::homePath() + "/.local/state";
+void ThemeManager::setDynamicColor(bool dynamic) {
+    setColorSource(dynamic ? 2 : 0);
+}
+
+void ThemeManager::setSeedColor(const QString &c) {
+    if (!QColor::isValidColorName(c) || m_seed == c) return;
+    m_seed = c;
+    QSettings().setValue("seedColor", c);
+    emit colorSourceChanged();
+    refreshTheme();
+}
+
+void ThemeManager::setSchemeVariant(int v) {
+    v = std::clamp(v, 0, int(MaterialColor::Variant::Count) - 1);
+    if (m_variant == v) return;
+    m_variant = v;
+    QSettings().setValue("schemeVariant", v);
+    emit colorSourceChanged();
+    refreshTheme();
+}
+
+// The system's seed colour, best first: a matugen file (from Kader's matugen
+// template), Quickshell's generated palette, then the desktop accent colour.
+QColor ThemeManager::systemSeed(bool *darkHint, bool *hasHint) {
+    *hasHint = false;
+    QFile mf(matugenPath());
+    if (mf.open(QIODevice::ReadOnly)) {
+        const QJsonObject o = QJsonDocument::fromJson(mf.readAll()).object();
+        QColor c(o.value("source_color").toString());
+        if (!c.isValid()) c = QColor(o.value("source").toString());
+        if (!c.isValid()) c = QColor(o.value("primary").toString());
+        const QString mode = o.value("mode").toString().toLower();
+        if (mode == "dark" || mode == "light") { *hasHint = true; *darkHint = mode == "dark"; }
+        if (c.isValid()) { m_systemSource = QStringLiteral("matugen"); return c; }
     }
-    return xdgState + "/quickshell/user/generated/material_colors.scss";
+    QFile qf(quickshellPath());
+    if (qf.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QHash<QString, QString> vars;
+        static const QRegularExpression re(QStringLiteral("^\\$([\\w-]+)\\s*:\\s*([^;]+);"));
+        QTextStream in(&qf);
+        while (!in.atEnd()) {
+            const auto m = re.match(in.readLine().trimmed());
+            if (m.hasMatch()) vars.insert(m.captured(1).toLower(), m.captured(2).trimmed());
+        }
+        QColor c(vars.value("source_color", vars.value("sourcecolor", vars.value("primary"))));
+        if (vars.contains("darkmode")) { *hasHint = true; *darkHint = vars.value("darkmode") == "true"; }
+        if (c.isValid()) { m_systemSource = QStringLiteral("quickshell"); return c; }
+    }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
+    const QColor accent = QGuiApplication::palette().color(QPalette::Accent);
+    if (accent.isValid() && accent != QPalette().color(QPalette::Accent)) {
+        m_systemSource = QStringLiteral("accent");
+        return accent;
+    }
+#endif
+    return {};
 }
 
 void ThemeManager::refreshTheme() {
-    bool parsed = false;
-    if (m_dynamicColor) {
-        QString path = getScssPath();
-        if (QFile::exists(path)) {
-            parseScss();
-            parsed = true;
-        }
+    bool dark = m_themeMode == 2 || (m_themeMode == 0 && !systemIsLight());
+    QColor seed(kDefaultSeed);
+    m_systemSource.clear();
+    if (m_colorSource == 1) {
+        seed = QColor(m_seed);
+    } else if (m_colorSource == 2) {
+        bool hint = false, hasHint = false;
+        const QColor sys = systemSeed(&hint, &hasHint);
+        if (sys.isValid()) seed = sys;
+        // "System" mode follows matugen's / Quickshell's light-dark choice
+        if (m_themeMode == 0 && hasHint) dark = hint;
     }
-    
-    if (!parsed) {
-        loadHardcoded(m_themeMode);
-#if defined(Q_OS_WIN) && QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
-        if (m_dynamicColor) {
-            const bool dark = m_themeMode == 2 || (m_themeMode == 0 && !systemIsLight());
-            applyAccent(QGuiApplication::palette().color(QPalette::Accent), dark);
-        }
-#endif
-    }
-    
-    emit themeChanged();
-}
-
-void ThemeManager::loadHardcoded(int mode) {
-    if (mode == 1) { // Light
-        m_colors.clear();
-        m_colors["primary"]                 = "#6750A4";
-        m_colors["onPrimary"]               = "#FFFFFF";
-        m_colors["primaryContainer"]        = "#EADDFF";
-        m_colors["onPrimaryContainer"]      = "#21005D";
-        m_colors["secondary"]               = "#625B71";
-        m_colors["onSecondary"]             = "#FFFFFF";
-        m_colors["secondaryContainer"]      = "#E8DEF8";
-        m_colors["onSecondaryContainer"]    = "#1D192B";
-        m_colors["error"]                   = "#B3261E";
-        m_colors["onError"]                 = "#FFFFFF";
-        m_colors["errorContainer"]          = "#F9DEDC";
-        m_colors["onErrorContainer"]        = "#410E0B";
-        m_colors["surface"]                 = "#FEF7FF";
-        m_colors["surfaceDim"]              = "#DED8E1";
-        m_colors["surfaceBright"]           = "#FEF7FF";
-        m_colors["surfaceContainerLowest"]  = "#FFFFFF";
-        m_colors["surfaceContainerLow"]     = "#F7F2FA";
-        m_colors["surfaceContainer"]        = "#F3EDF7";
-        m_colors["surfaceContainerHigh"]    = "#ECE6F0";
-        m_colors["surfaceContainerHighest"] = "#E6E0E9";
-        m_colors["onSurface"]               = "#1D1B20";
-        m_colors["onSurfaceVariant"]        = "#49454F";
-        m_colors["outline"]                 = "#79747E";
-        m_colors["outlineVariant"]          = "#CAC4D0";
-        m_colors["inverseSurface"]          = "#322F35";
-        m_colors["inverseOnSurface"]        = "#F5EFF7";
-        m_colors["inversePrimary"]          = "#D0BCFF";
-        return;
-    }
-    if (mode == 2) { // Dark
-        m_colors.clear();
-        m_colors["primary"]                 = "#D0BCFF";
-        m_colors["onPrimary"]               = "#381E72";
-        m_colors["primaryContainer"]        = "#4F378B";
-        m_colors["onPrimaryContainer"]      = "#EADDFF";
-        m_colors["secondary"]               = "#CCC2DC";
-        m_colors["onSecondary"]             = "#332D41";
-        m_colors["secondaryContainer"]      = "#4A4458";
-        m_colors["onSecondaryContainer"]    = "#E8DEF8";
-        m_colors["error"]                   = "#F2B8B5";
-        m_colors["onError"]                 = "#601410";
-        m_colors["errorContainer"]          = "#8C1D18";
-        m_colors["onErrorContainer"]        = "#F9DEDC";
-        m_colors["surface"]                 = "#141218";
-        m_colors["surfaceDim"]              = "#141218";
-        m_colors["surfaceBright"]           = "#3B383E";
-        m_colors["surfaceContainerLowest"]  = "#0F0D13";
-        m_colors["surfaceContainerLow"]     = "#1D1B20";
-        m_colors["surfaceContainer"]        = "#211F26";
-        m_colors["surfaceContainerHigh"]    = "#2B2930";
-        m_colors["surfaceContainerHighest"] = "#36343B";
-        m_colors["onSurface"]               = "#E6E1E5";
-        m_colors["onSurfaceVariant"]        = "#CAC4D0";
-        m_colors["outline"]                 = "#938F99";
-        m_colors["outlineVariant"]          = "#49454F";
-        m_colors["inverseSurface"]          = "#E6E1E5";
-        m_colors["inverseOnSurface"]        = "#322F35";
-        m_colors["inversePrimary"]          = "#6750A4";
-        return;
-    }
-    // System (mode 0): follow the OS light/dark setting, dark when unknown.
-    if (mode == 0)
-        loadHardcoded(systemIsLight() ? 1 : 2);
-}
-
-void ThemeManager::parseScss() {
-    QString path = getScssPath();
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        qWarning() << "Could not open SCSS file for theming:" << path;
-        loadHardcoded(m_themeMode);
-        return;
-    }
-    
+    if (!seed.isValid()) seed = QColor(kDefaultSeed);
     m_colors.clear();
-
-    QTextStream in(&file);
-    while (!in.atEnd()) {
-        QString line = in.readLine().trimmed();
-        if (line.startsWith("$") && line.contains(":")) {
-            QStringList parts = line.split(":");
-            if (parts.size() >= 2) {
-                QString key = parts[0].trimmed();
-                QString value = parts[1].split(";")[0].trimmed();
-                m_colors[key] = value;
-                
-                // Also store without $ for easier lookup if needed
-                QString baseKey = key.mid(1);
-                m_colors[baseKey] = value;
-                
-                // Handle kebab-case and snake_case to camelCase conversion
-                QString camelKey = baseKey;
-                while (camelKey.contains("-") || camelKey.contains("_")) {
-                    int idx = camelKey.indexOf("-");
-                    if (idx == -1) idx = camelKey.indexOf("_");
-                    
-                    if (idx + 1 < camelKey.length()) {
-                        camelKey.replace(idx, 2, camelKey.at(idx+1).toUpper());
-                    } else {
-                        camelKey.remove(idx, 1);
-                    }
-                }
-                m_colors[camelKey] = value;
-            }
-        }
-    }
-    file.close();
-    
-    // The "Pinkish" Accent Fix logic
-    // Prefer inversePrimary over primary in dark mode (assuming dynamic color file specifies it)
-    if (m_colors.contains("darkmode") && m_colors["darkmode"] == "true") {
-        if (m_colors.contains("inversePrimary")) {
-            m_colors["primary"] = m_colors["inversePrimary"];
-        }
-    } else if (!m_colors.contains("darkmode")) {
-        // If we can't explicitly tell, but we have an inversePrimary, maybe we can use it?
-        // Wait, only apply the pinkish fix if we actually parsed inversePrimary.
-        // Usually inversePrimary in dark mode is brighter/truer to the hue.
-        if (m_colors.contains("inversePrimary")) {
-            m_colors["primary"] = m_colors["inversePrimary"];
-        }
-    }
+    const auto roles = MaterialColor::scheme(seed, MaterialColor::Variant(m_variant), dark);
+    for (auto it = roles.cbegin(); it != roles.cend(); ++it)
+        m_colors.insert(it.key(), it.value());
+    emit themeChanged();
 }
 
 #define GET_COLOR(name, fallback) \

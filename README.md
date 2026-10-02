@@ -73,54 +73,24 @@ kader /path/to/photo.jpg     # open a single file directly
 kader file:///path/to/photo  # XDG / .desktop %U handler
 ```
 
-## Dynamic Colors & Matugen
+## Colours & Matugen
 
-Kader supports dynamic theming out of the box. On Windows, "Dynamic color" follows your Windows accent colour and light/dark mode. On Linux: By toggling "Dynamic color" in the app's settings, Kader will automatically read Material 3 colors from `~/.local/state/quickshell/user/generated/material_colors.scss`. 
+Settings → Appearance → **Colours** picks where Kader's Material You palette comes from:
 
-### Using with Matugen
-To sync Kader's colors with your system wallpaper using [Matugen](https://github.com/InioX/matugen), you can create an SCSS template in your Matugen templates directory (e.g., `~/.config/matugen/templates/kader-colors.scss`) with the following variables:
+- **Kader**: the built-in purple.
+- **Preset**: one of twelve seed colours.
+- **System**: your wallpaper through [matugen](https://github.com/InioX/matugen), Quickshell's generated palette (`~/.local/state/quickshell/user/generated/material_colors.scss`), or your desktop's accent colour (Windows, KDE).
 
-```scss
-$darkmode: true;
-$primary: {{colors.primary.default.hex}};
-$onPrimary: {{colors.on_primary.default.hex}};
-$primaryContainer: {{colors.primary_container.default.hex}};
-$onPrimaryContainer: {{colors.on_primary_container.default.hex}};
-$secondary: {{colors.secondary.default.hex}};
-$onSecondary: {{colors.on_secondary.default.hex}};
-$secondaryContainer: {{colors.secondary_container.default.hex}};
-$onSecondaryContainer: {{colors.on_secondary_container.default.hex}};
-$tertiary: {{colors.tertiary.default.hex}};
-$onTertiary: {{colors.on_tertiary.default.hex}};
-$tertiaryContainer: {{colors.tertiary_container.default.hex}};
-$onTertiaryContainer: {{colors.on_tertiary_container.default.hex}};
-$error: {{colors.error.default.hex}};
-$onError: {{colors.on_error.default.hex}};
-$errorContainer: {{colors.error_container.default.hex}};
-$onErrorContainer: {{colors.on_error_container.default.hex}};
-$surface: {{colors.surface.default.hex}};
-$surfaceDim: {{colors.surface_dim.default.hex}};
-$surfaceBright: {{colors.surface_bright.default.hex}};
-$surfaceContainerLowest: {{colors.surface_container_lowest.default.hex}};
-$surfaceContainerLow: {{colors.surface_container_low.default.hex}};
-$surfaceContainer: {{colors.surface_container.default.hex}};
-$surfaceContainerHigh: {{colors.surface_container_high.default.hex}};
-$surfaceContainerHighest: {{colors.surface_container_highest.default.hex}};
-$onSurface: {{colors.on_surface.default.hex}};
-$onSurfaceVariant: {{colors.on_surface_variant.default.hex}};
-$outline: {{colors.outline.default.hex}};
-$outlineVariant: {{colors.outline_variant.default.hex}};
-$inverseSurface: {{colors.inverse_surface.default.hex}};
-$inverseOnSurface: {{colors.inverse_on_surface.default.hex}};
-$inversePrimary: {{colors.inverse_primary.default.hex}};
-```
+**Colour style** chooses the Material 3 scheme built from that colour: Tonal spot (Android's default), Neutral, Vibrant, Expressive, Fidelity, Content, Rainbow, Fruit salad or Monochrome. Choose the same style as your matugen `--type` for matching colours.
 
-Then configure your `matugen.toml` to output it to Kader's watch path:
+### Using with matugen
+Copy [`packaging/matugen/kader.json`](packaging/matugen/kader.json) to `~/.config/matugen/templates/kader.json` and add it to `~/.config/matugen/config.toml`:
 
 ```toml
-[templates.kader_gallery]
-input_path = '~/.config/matugen/templates/kader-colors.scss'
-output_path = '~/.local/state/quickshell/user/generated/material_colors.scss'
+[templates.kader]
+input_path = "~/.config/matugen/templates/kader.json"
+output_path = "~/.config/kader/matugen.json"
 ```
 
-Kader parses both standard `camelCase` and `snake_case` tokens and will seamlessly update at runtime when Matugen generates new colors!
+Each time matugen runs, Kader picks up the new colours (and light or dark mode, when the theme is set to System) right away.
+
