@@ -83,8 +83,8 @@ static int g_qmlProblems = 0;
 static QtMessageHandler g_prevHandler = nullptr;
 static void smokeMessageHandler(QtMsgType type, const QMessageLogContext &ctx, const QString &msg) {
     if (type != QtDebugMsg && type != QtInfoMsg
-        && (msg.contains(QLatin1String(".qml")) || msg.contains(QLatin1String("not installed"))
-            || msg.contains(QLatin1String("plugin"))))
+        && (msg.contains(QLatin1String(".qml:")) || msg.contains(QLatin1String("is not installed"))
+            || msg.contains(QLatin1String("Cannot load library"))))
         ++g_qmlProblems;
     if (g_prevHandler)
         g_prevHandler(type, ctx, msg);
