@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.21)
 
 # Versioning is semantic: MAJOR.MINOR.FIX. This is the single source of
 # truth — PKGBUILD, AppImage names and the in-app updater all read it.
-project(Kader VERSION 2.0.1 LANGUAGES CXX)
+project(Kader VERSION 2.0.2 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

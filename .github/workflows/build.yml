@@ -88,7 +88,7 @@ jobs:
             libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 \
             libxcb-shape0 libwayland-dev libwayland-egl1 libfontconfig1 libdbus-1-3 \
             patchelf desktop-file-utils zsync \
-            libpulse0 xvfb xauth libgl1-mesa-dri \
+            libpulse0 xvfb xauth libgl1-mesa-dri weston libegl-mesa0 libwayland-egl1 \
             libx11-6 libxext6 libxrandr2 libxfixes3 libxrender1 libxcb-shm0 libxcb-xfixes0 \
             libxcb-randr0 libxcb-shape0 libegl1 libdrm2 libva2 libva-drm2 libva-x11-2 libvdpau1
       - uses: actions/checkout@v4
@@ -155,6 +155,9 @@ jobs:
           ls build/AppDir/usr/plugins/platforms
           ls build/AppDir/usr/plugins/platforms | grep -q wayland \
             || { echo "::error::Wayland platform plugin missing from the AppImage"; exit 1; }
+          # the GL integration the wayland plugin loads at runtime
+          ls build/AppDir/usr/plugins/wayland-graphics-integration-client | grep -q wayland-egl \
+            || { echo "::error::Wayland EGL integration missing from the AppImage"; exit 1; }
       - name: Smoke test the AppImage
         run: |
           # Loads every view; fails on QML errors such as a module whose
@@ -162,6 +165,18 @@ jobs:
           APPIMAGE_EXTRACT_AND_RUN=1 KADER_SMOKE_TEST=1 LIBGL_ALWAYS_SOFTWARE=1 \
             QSG_RHI_BACKEND=opengl QT_QPA_PLATFORM=xcb \
             timeout 180 xvfb-run -a dist/Kader-*-x86_64.AppImage
+      - name: Smoke test the AppImage on Wayland
+        run: |
+          # Headless Weston + Mesa's software EGL: the same path Hyprland,
+          # niri, GNOME and KDE take (wayland platform plugin, EGL context).
+          export XDG_RUNTIME_DIR="$(mktemp -d)"
+          chmod 700 "$XDG_RUNTIME_DIR"
+          weston --backend=headless-backend.so --socket=wl-ci --idle-time=0 &
+          for i in $(seq 50); do [ -S "$XDG_RUNTIME_DIR/wl-ci" ] && break; sleep 0.2; done
+          APPIMAGE_EXTRACT_AND_RUN=1 KADER_SMOKE_TEST=1 LIBGL_ALWAYS_SOFTWARE=1 \
+            WAYLAND_DISPLAY=wl-ci QT_QPA_PLATFORM=wayland \
+            timeout 180 dist/Kader-*-x86_64.AppImage
+          kill %1 || true
       - name: Check Qt Multimedia is bundled
         run: |
           ls build/AppDir/usr/lib | grep -q '^libQt6MultimediaQuick.so' \
