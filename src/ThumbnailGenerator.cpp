@@ -226,9 +226,13 @@ QByteArray ThumbnailGenerator::generateRawThumbnailBytes(const QString &filePath
             QByteArray result;
             try {
                 if (thumb->type == LIBRAW_IMAGE_JPEG) {
+                    // VipsBlob overload: the (data, size) one needs libvips 8.13+
+                    // and the AppImage builds against 8.12. The blob borrows
+                    // thumb->data, which outlives the call.
+                    VipsBlob *blob = vips_blob_new(nullptr, thumb->data, thumb->data_size);
                     vips::VImage img = vips::VImage::thumbnail_buffer(
-                        thumb->data, thumb->data_size, size,
-                        vips::VImage::option()->set("height", size));
+                        blob, size, vips::VImage::option()->set("height", size));
+                    vips_area_unref(VIPS_AREA(blob));
                     void *buf = nullptr; size_t len = 0;
                     img.write_to_buffer(".jpg", &buf, &len);
                     result = QByteArray(static_cast<const char *>(buf), static_cast<int>(len));
