@@ -31,6 +31,23 @@ public:
 
     Q_INVOKABLE void refresh();
 
+    // ── storage dashboard ─────────────────────────────────────────────────
+    // Bytes on the library's disk: {total, free, photos, videos, raw, trash,
+    // other} (other = everything on the disk that isn't Kader's library).
+    Q_INVOKABLE QVariantMap overview();
+    // Largest folders: [{folder, name, bytes, count}]
+    Q_INVOKABLE QVariantList byFolder(int limit = 8);
+    // Per capture year: [{year, bytes, count}] (oldest first)
+    Q_INVOKABLE QVariantList byYear();
+    // Per file type: [{ext, bytes, count}] largest first
+    Q_INVOKABLE QVariantList byType();
+    // Largest files (media maps + thumb)
+    Q_INVOKABLE QVariantList largest(int limit = 60);
+    // Likely duplicates: same name and size in different folders.
+    // [{name, bytes, copies: [media…]}] — wasted bytes first
+    Q_INVOKABLE QVariantList duplicates(int limit = 40);
+    Q_INVOKABLE QVariantList trashItems(int limit = 200);
+
 signals:
     void storageChanged();
 
