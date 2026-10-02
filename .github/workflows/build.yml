@@ -36,6 +36,18 @@ jobs:
             qt6-base qt6-declarative qt6-multimedia qt6-positioning qt6-svg \
             qt6-shadertools qt6-tools libvips exiv2 libraw libheif poppler openssl polkit
       - uses: actions/checkout@v4
+      - name: Checkout milfs-connect (sibling-app event bus)
+        uses: actions/checkout@v4
+        with:
+          repository: vndreiii/milfs-connect
+          path: milfs-connect
+      - name: Install milfs-connect
+        run: |
+          cmake -S milfs-connect -B milfs-connect/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/usr -DMILFS_CONNECT_BUILD_TESTS=OFF 
+          cmake --build milfs-connect/build
+          cmake --install milfs-connect/build
+          rm -rf milfs-connect
       - name: makepkg
         run: |
           useradd -m builder
@@ -78,6 +90,18 @@ jobs:
           version: '6.8.3'
           modules: 'qtmultimedia qtpositioning qtlocation qtshadertools qtimageformats qtwaylandcompositor'
           cache: true
+      - name: Checkout milfs-connect (sibling-app event bus)
+        uses: actions/checkout@v4
+        with:
+          repository: vndreiii/milfs-connect
+          path: milfs-connect
+      - name: Install milfs-connect
+        run: |
+          cmake -S milfs-connect -B milfs-connect/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/usr -DMILFS_CONNECT_BUILD_TESTS=OFF -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR"
+          cmake --build milfs-connect/build
+          cmake --install milfs-connect/build
+          rm -rf milfs-connect
       - name: Cache llama.cpp
         uses: actions/cache@v4
         with:
