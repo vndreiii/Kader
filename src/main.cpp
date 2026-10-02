@@ -75,7 +75,46 @@ static bool systemWantsWindowButtons() {
 #endif
 }
 
+// KADER_SMOKE_TEST=1 (CI, packaged builds): load the UI, open every view,
+// check the world data, and exit non-zero on any QML error — catches a
+// missing Qt module or plugin in a packaged build.
+static int g_qmlProblems = 0;
+static QtMessageHandler g_prevHandler = nullptr;
+static void smokeMessageHandler(QtMsgType type, const QMessageLogContext &ctx, const QString &msg) {
+    if (type != QtDebugMsg && type != QtInfoMsg
+        && (msg.contains(QLatin1String(".qml:")) || msg.contains(QLatin1String("is not installed"))
+            || msg.contains(QLatin1String("Cannot load library"))))
+        ++g_qmlProblems;
+    if (g_prevHandler)
+        g_prevHandler(type, ctx, msg);
+}
+
+static int runSmokeTest(QGuiApplication &app, QQmlApplicationEngine &engine) {
+    if (engine.rootObjects().isEmpty()) {
+        fprintf(stderr, "smoke test: main.qml did not load\n");
+        return 1;
+    }
+    if (!kaderWorld().result()) {
+        fprintf(stderr, "smoke test: world.kgeo not found or unreadable\n");
+        return 2;
+    }
+    QObject *root = engine.rootObjects().constFirst();
+    const QStringList views = {QStringLiteral("albums"), QStringLiteral("search"), QStringLiteral("map"),
+                               QStringLiteral("settings"), QStringLiteral("videos"), QStringLiteral("timeline")};
+    for (int i = 0; i < views.size(); ++i)
+        QTimer::singleShot(800 * (i + 1), root, [root, view = views[i]] {
+            QMetaObject::invokeMethod(root, "switchView", Q_ARG(QVariant, view));
+        });
+    QTimer::singleShot(800 * (views.size() + 2), &app, [&app] {
+        fprintf(stderr, "smoke test: %d QML problem(s)\n", g_qmlProblems);
+        app.exit(g_qmlProblems ? 3 : 0);
+    });
+    return app.exec();
+}
+
 int main(int argc, char *argv[]) {
+    if (qEnvironmentVariableIsSet("KADER_SMOKE_TEST"))
+        g_prevHandler = qInstallMessageHandler(smokeMessageHandler);
     g_startClock.start();
     g_traceStartup = qEnvironmentVariableIsSet("KADER_TRACE_STARTUP");
     // Prefer Qt's FFmpeg multimedia backend over GStreamer for better codec
@@ -450,5 +489,7 @@ int main(int argc, char *argv[]) {
     });
     engine.load(url);
 
+    if (qEnvironmentVariableIsSet("KADER_SMOKE_TEST"))
+        return runSmokeTest(app, engine);
     return app.exec();
 }
