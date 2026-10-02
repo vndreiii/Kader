@@ -468,7 +468,7 @@ mod tests {
         assert_eq!(std::mem::size_of::<LabelOut>(), 20);
         assert_eq!(std::mem::size_of::<PinOut>(), 32);
         assert_eq!(std::mem::size_of::<KgPinIn>(), 24);
-        assert_eq!(std::mem::size_of::<Style>(), 28 + 9 * 4);
+        assert_eq!(std::mem::size_of::<Style>(), 8 * 4 + 9 * 4);
     }
 
     #[test]

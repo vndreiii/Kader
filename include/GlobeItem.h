@@ -87,6 +87,7 @@ class GlobeItem : public QQuickItem {
     Q_PROPERTY(QColor oceanEdgeColor MEMBER m_oceanEdgeColor NOTIFY styleChanged)
     Q_PROPERTY(QColor glowColor MEMBER m_glowColor NOTIFY styleChanged)
     Q_PROPERTY(QColor landColor MEMBER m_landColor NOTIFY styleChanged)
+    Q_PROPERTY(QColor landEdgeColor MEMBER m_landEdgeColor NOTIFY styleChanged)
     Q_PROPERTY(QColor coastColor MEMBER m_coastColor NOTIFY styleChanged)
     Q_PROPERTY(QColor borderColor MEMBER m_borderColor NOTIFY styleChanged)
     Q_PROPERTY(QColor stateColor MEMBER m_stateColor NOTIFY styleChanged)
@@ -213,6 +214,7 @@ private:
     QColor m_oceanEdgeColor{0x05, 0x07, 0x0d};
     QColor m_glowColor{0x6f, 0x9b, 0xff, 140};
     QColor m_landColor{0xe8, 0xec, 0xf6, 235};
+    QColor m_landEdgeColor{120, 130, 170, 120};
     QColor m_coastColor{0x8f, 0xb0, 0xff, 200};
     QColor m_borderColor{0xff, 0xff, 0xff, 215};
     QColor m_stateColor{0xff, 0xff, 0xff, 105};

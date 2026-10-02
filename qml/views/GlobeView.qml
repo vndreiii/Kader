@@ -19,6 +19,38 @@ Item {
 
     readonly property bool narrow: width < 980
     property bool panelOpen: true
+    readonly property bool compact: Settings.placesPanelCompact && !narrow
+    property string placeSort: "recent"
+    // list rows: names resolved once per reload, then filtered and sorted
+    property var _rowsAll: []
+    function _buildRows() {
+        var out = []
+        for (var i = 0; i < locations.length; i++) {
+            var l = locations[i]
+            var info = globe.ready ? globe.placeInfo(l.lat, l.lon) : ({})
+            // remote spots: name the nearest town within a few hundred km
+            if (!info.name && globe.ready) info = globe.placeInfo(l.lat, l.lon, 600)
+            var coords = Math.abs(l.lat).toFixed(2) + "° " + (l.lat >= 0 ? "N" : "S") + ", "
+                       + Math.abs(l.lon).toFixed(2) + "° " + (l.lon >= 0 ? "E" : "W")
+            var parts = info.name ? info.name.split(", ") : []
+            var near = info.km > 25
+            out.push({ loc: l,
+                       title: parts.length ? (near ? _t("place_near").arg(parts[0]) : parts[0]) : coords,
+                       sub: parts.length ? parts.slice(1).join(", ") : "",
+                       key: ((info.name || "") + " " + coords).toLowerCase() })
+        }
+        _rowsAll = out
+    }
+    onLocationsChanged: _buildRows()
+    Connections { target: globe; function onReadyChanged() { root._buildRows() } }
+    readonly property var placeRows: {
+        var q = placeFilter.text.trim().toLowerCase()
+        var rows = q.length ? _rowsAll.filter(r => r.key.indexOf(q) >= 0) : _rowsAll.slice()
+        if (placeSort === "count") rows.sort((a, b) => b.loc.count - a.loc.count)
+        else if (placeSort === "name") rows.sort((a, b) => a.title.localeCompare(b.title))
+        else rows.sort((a, b) => (b.loc.creation_date || 0) - (a.loc.creation_date || 0))
+        return rows
+    }
     readonly property bool panelShown: panelOpen && (!narrow || panelToggle.checked)
 
     property bool _loaded: false
@@ -73,7 +105,7 @@ Item {
     readonly property color _accent: ThemeManager.isDark ? ThemeManager.primary : ThemeManager.inversePrimary
     readonly property color _space: Qt.rgba(0.020, 0.024, 0.040, 1)
     readonly property color _labelInk: "#f4f6fb"
-    readonly property color _labelHalo: Qt.rgba(0.02, 0.03, 0.06, 0.92)
+    readonly property color _labelHalo: Qt.rgba(0.01, 0.015, 0.035, 0.97)
 
     RowLayout {
         anchors.fill: parent
@@ -115,22 +147,36 @@ Item {
                 oceanColor: Qt.rgba(0.045 + root._accent.r * 0.05, 0.060 + root._accent.g * 0.05, 0.110 + root._accent.b * 0.06, 1)
                 oceanEdgeColor: Qt.rgba(0.015, 0.020, 0.040, 1)
                 glowColor: Qt.rgba(root._accent.r, root._accent.g, root._accent.b, 0.85)
-                landColor: Qt.rgba(0.90, 0.93, 0.98, 0.92)
+                // soft, cool halftone: brighter where you look, fading into the
+                // accent towards the limb, so white labels keep the contrast
+                landColor: Qt.rgba(0.80, 0.85, 0.95, 0.58)
+                landEdgeColor: Qt.rgba(0.35 + root._accent.r * 0.35, 0.38 + root._accent.g * 0.35, 0.50 + root._accent.b * 0.35, 0.20)
                 coastColor: Qt.rgba(root._accent.r, root._accent.g, root._accent.b, 0.80)
                 borderColor: Qt.rgba(1, 1, 1, 0.82)
                 stateColor: Qt.rgba(1, 1, 1, 0.36)
                 cityColor: "white"
                 cityHaloColor: Qt.rgba(0.02, 0.03, 0.06, 0.85)
                 casingColor: Qt.rgba(0.015, 0.02, 0.04, 0.92)
-                pinSize: Qt.size(52, 62)
+                pinSize: Qt.size(56, 70)
 
                 onPinClicked: (cluster) => root.selectCluster(cluster)
                 onGlobeClicked: (lat, lon) => root.activePlace = null
             }
 
             // ── place labels (pooled; positions come from the engine) ───────
+            // One soft dark glow over the whole layer (a single effect pass)
+            // lifts the text off the halftone without per-label effects.
             Item {
                 anchors.fill: globe
+                layer.enabled: globe.ready
+                layer.effect: MultiEffect {
+                    shadowEnabled: true
+                    shadowColor: Qt.rgba(0, 0, 0, 0.95)
+                    shadowBlur: 0.35
+                    shadowHorizontalOffset: 0
+                    shadowVerticalOffset: 0
+                    shadowScale: 1.02
+                }
                 Repeater {
                     model: globe.labels
                     delegate: Text {
@@ -166,12 +212,15 @@ Item {
             }
 
             // ── photo pins ──────────────────────────────────────────────────
+            // A round photo on a short stem with a ground shadow; clusters show
+            // a stack of photos behind and a count badge; hovered / active
+            // pins lift and get an accent ring with a pulse at the exact spot.
             Item {
                 id: pinLayer
                 anchors.fill: globe
                 Rectangle {
                     id: pinMask
-                    width: 44; height: 44; radius: 13
+                    width: 46; height: 46; radius: 23
                     visible: false
                     layer.enabled: true
                 }
@@ -191,43 +240,85 @@ Item {
 
                         readonly property bool hot: globe.hoveredCluster === cluster
                         readonly property bool active: root.activePlace !== null && root.activePlace.cluster === cluster
+                        readonly property bool stacked: members > 1 || count > 1
+                        readonly property color ring: active ? root._accent : "white"
 
                         visible: shown && popacity > 0.02
                         opacity: popacity
-                        width: 52; height: 62
+                        width: 56; height: 70
                         x: px - width / 2
                         y: py - height
                         z: depth + (hot || active ? 2 : 0)
                         transformOrigin: Item.Bottom
-                        scale: (hot || active ? 1.12 : 1.0) * (0.82 + 0.18 * depth)
-                        Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+                        scale: (hot || active ? 1.14 : 1.0) * (0.80 + 0.20 * depth)
+                        Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack } }
 
-                        // tail + ground dot mark the exact spot
+                        // ground shadow + exact spot
                         Rectangle {
-                            width: 12; height: 12; rotation: 45
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            y: 42
-                            color: frame.color
-                        }
-                        Rectangle {
-                            width: 8; height: 8; radius: 4
+                            width: 20; height: 7; radius: 3.5
                             anchors.horizontalCenter: parent.horizontalCenter
                             anchors.bottom: parent.bottom
-                            color: root._accent
-                            border.color: "white"; border.width: 1.5
+                            anchors.bottomMargin: -2
+                            color: Qt.rgba(0, 0, 0, 0.45)
                         }
                         Rectangle {
-                            id: frame
-                            width: 52; height: 52; radius: 16
+                            id: spot
+                            width: 7; height: 7; radius: 3.5
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.bottom: parent.bottom
                             color: pin.active ? root._accent : "white"
+                        }
+                        // pulse at the spot while active
+                        Rectangle {
+                            visible: pin.active
+                            anchors.centerIn: spot
+                            width: 7; height: 7; radius: width / 2
+                            color: "transparent"
+                            border.color: root._accent
+                            border.width: 1.5
+                            SequentialAnimation on width {
+                                running: pin.active
+                                loops: Animation.Infinite
+                                NumberAnimation { from: 7; to: 30; duration: 1200; easing.type: Easing.OutCubic }
+                            }
+                            opacity: 1.0 - (width - 7) / 23
+                        }
+                        // stem
+                        Rectangle {
+                            width: 2.5; height: 14
+                            radius: 1.25
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            y: 50
+                            color: pin.ring
+                        }
+
+                        // stack of photos behind a cluster
+                        Repeater {
+                            model: pin.stacked ? 2 : 0
+                            Rectangle {
+                                required property int index
+                                width: 50; height: 50; radius: 25
+                                x: 3 + (index + 1) * 4
+                                y: 1 - (index + 1) * 3
+                                color: Qt.rgba(1, 1, 1, index === 0 ? 0.55 : 0.30)
+                                z: -1 - index
+                            }
+                        }
+
+                        // photo in a ring
+                        Rectangle {
+                            id: frame
+                            x: 3; y: 1
+                            width: 50; height: 50; radius: 25
+                            color: pin.ring
                             Rectangle { // placeholder while the thumbnail loads
                                 anchors.centerIn: parent
-                                width: 44; height: 44; radius: 13
+                                width: 46; height: 46; radius: 23
                                 color: Qt.rgba(0.12, 0.14, 0.2, 1)
                             }
                             Image {
                                 anchors.centerIn: parent
-                                width: 44; height: 44
+                                width: 46; height: 46
                                 source: pin.thumb || ""
                                 sourceSize: Qt.size(96, 96)
                                 fillMode: Image.PreserveAspectCrop
@@ -241,12 +332,13 @@ Item {
                                 }
                             }
                         }
+
                         // photo count
                         Rectangle {
                             visible: pin.count > 1
-                            anchors { right: frame.right; top: frame.top; rightMargin: -6; topMargin: -6 }
-                            height: 22; radius: 11
-                            width: Math.max(22, countLbl.implicitWidth + 12)
+                            anchors { horizontalCenter: frame.right; verticalCenter: frame.top; horizontalCenterOffset: -6; verticalCenterOffset: 6 }
+                            height: 20; radius: 10
+                            width: Math.max(20, countLbl.implicitWidth + 10)
                             color: root._accent
                             border.color: root._space; border.width: 2
                             Text {
@@ -421,43 +513,103 @@ Item {
             }
         }
 
-        // ── Places panel ─────────────────────────────────────────────────────
+        // ── Places panel: full list, or a compact rail of photos ─────────────
         Rectangle {
             id: panel
             visible: root.panelShown
             Layout.fillHeight: true
-            Layout.preferredWidth: root.narrow ? 280 : 320
+            Layout.preferredWidth: root.compact ? 84 : (root.narrow ? 300 : 340)
+            Behavior on Layout.preferredWidth { NumberAnimation { duration: ThemeManager.durMed; easing.type: Easing.OutCubic } }
             color: ThemeManager.surfaceContainer
-            radius: 16
+            radius: 20
+            clip: true
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.margins: 16
-                anchors.topMargin: 20
-                spacing: 10
+                anchors.margins: root.compact ? 10 : 16
+                anchors.topMargin: 14
+                spacing: 12
 
+                // header
                 RowLayout {
                     Layout.fillWidth: true
-                    Layout.leftMargin: 8
+                    spacing: 6
                     Label {
+                        visible: !root.compact
                         text: root._t("places")
-                        font.family: "Roboto Flex"
                         font.pixelSize: 20
                         font.weight: Font.Medium
                         color: ThemeManager.onSurface
-                        Layout.fillWidth: true
+                        Layout.leftMargin: 6
                     }
-                    Label {
-                        visible: root.locations.length > 0
-                        text: root.locations.length
-                        color: ThemeManager.onSurfaceVariant
-                        font.pixelSize: 13
-                        Layout.rightMargin: 8
+                    Rectangle {
+                        visible: !root.compact && root.locations.length > 0
+                        Layout.preferredHeight: 22
+                        Layout.preferredWidth: cntLbl.implicitWidth + 14
+                        radius: 11
+                        color: ThemeManager.surfaceContainerHighest
+                        Label { id: cntLbl; anchors.centerIn: parent; text: root.locations.length; font.pixelSize: 12; color: ThemeManager.onSurfaceVariant }
+                    }
+                    Item { Layout.fillWidth: true; visible: !root.compact }
+                    RoundButton {
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.preferredWidth: 44; Layout.preferredHeight: 44
+                        flat: true
+                        contentItem: MaterialSymbol {
+                            name: root.compact ? "left_panel_open" : "right_panel_close"
+                            size: 22
+                            color: ThemeManager.onSurfaceVariant
+                        }
+                        background: Rectangle { radius: 22; color: parent.hovered ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent" }
+                        ToolTip.visible: hovered
+                        ToolTip.delay: 500
+                        ToolTip.text: root.compact ? root._t("panel_expand") : root._t("panel_collapse")
+                        onClicked: Settings.placesPanelCompact = !Settings.placesPanelCompact
+                    }
+                }
+
+                // search + sort (full mode)
+                M3TextField {
+                    id: placeFilter
+                    visible: !root.compact && root.locations.length > 6
+                    Layout.fillWidth: true
+                    placeholderText: root._t("places_filter")
+                    font.pixelSize: 14
+                }
+                Row {
+                    visible: !root.compact && root.locations.length > 1
+                    Layout.fillWidth: true
+                    spacing: 6
+                    Repeater {
+                        model: [{ k: "recent", t: root._t("sort_recent") }, { k: "count", t: root._t("sort_most") }, { k: "name", t: root._t("sort_az") }]
+                        delegate: Rectangle {
+                            required property var modelData
+                            readonly property bool on: root.placeSort === modelData.k
+                            height: 32; radius: 8
+                            width: chipTxt.implicitWidth + (on ? 40 : 24)
+                            color: on ? ThemeManager.secondaryContainer : "transparent"
+                            border.width: on ? 0 : 1
+                            border.color: ThemeManager.outlineVariant
+                            Row {
+                                anchors.centerIn: parent
+                                spacing: 4
+                                MaterialSymbol { visible: parent.parent.on; name: "check"; size: 16; color: ThemeManager.onSecondaryContainer; anchors.verticalCenter: parent.verticalCenter }
+                                Label {
+                                    id: chipTxt
+                                    text: modelData.t
+                                    font.pixelSize: 13
+                                    font.weight: Font.Medium
+                                    color: parent.parent.on ? ThemeManager.onSecondaryContainer : ThemeManager.onSurfaceVariant
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                            }
+                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.placeSort = modelData.k }
+                        }
                     }
                 }
 
                 ColumnLayout {
-                    visible: root._loaded && root.locations.length === 0
+                    visible: root._loaded && root.locations.length === 0 && !root.compact
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     spacing: 12
@@ -476,13 +628,10 @@ Item {
                 Column {
                     visible: !root._loaded
                     Layout.fillWidth: true
-                    spacing: 6
+                    spacing: 8
                     Repeater {
-                        model: 6
-                        Rectangle {
-                            width: parent.width; height: 72; radius: 14
-                            color: Qt.alpha(ThemeManager.onSurface, 0.05)
-                        }
+                        model: 7
+                        Skeleton { width: parent.width; height: root.compact ? 56 : 76; radius: root.compact ? 28 : 16 }
                     }
                 }
 
@@ -490,63 +639,126 @@ Item {
                     id: placeList
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    model: root.locations
+                    model: root.placeRows
                     clip: true
-                    spacing: 4
+                    spacing: root.compact ? 10 : 4
                     visible: root.locations.length > 0
                     reuseItems: true
                     boundsBehavior: Flickable.StopAtBounds
+                    ScrollBar.vertical: ScrollBar { policy: root.compact ? ScrollBar.AlwaysOff : ScrollBar.AsNeeded }
 
-                    delegate: Rectangle {
+                    delegate: Item {
                         id: row
                         required property var modelData
+                        readonly property var loc: modelData.loc
                         readonly property bool selected: root.activePlace !== null
-                            && Math.abs(root.activePlace.lat - modelData.lat) < 1e-6
-                            && Math.abs(root.activePlace.lon - modelData.lon) < 1e-6
+                            && Math.abs(root.activePlace.lat - loc.lat) < 1e-6
+                            && Math.abs(root.activePlace.lon - loc.lon) < 1e-6
                         width: placeList.width
-                        height: 72
-                        radius: 14
-                        color: selected ? ThemeManager.secondaryContainer
-                             : hoverArea.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.07) : "transparent"
-                        Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
+                        height: root.compact ? 56 : 76
 
-                        RowLayout {
-                            anchors.fill: parent; anchors.margins: 8; spacing: 12
-                            Rectangle {
-                                Layout.preferredWidth: 56; Layout.preferredHeight: 56
-                                radius: 12
-                                color: ThemeManager.surfaceContainerHigh
-                                clip: true
-                                Image {
-                                    anchors.fill: parent
-                                    source: row.modelData.thumb || ""
-                                    sourceSize: Qt.size(112, 112)
-                                    fillMode: Image.PreserveAspectCrop
-                                    asynchronous: true
-                                }
+                        Rectangle {
+                            anchors.fill: parent
+                            visible: !root.compact
+                            radius: 16
+                            color: row.selected ? ThemeManager.secondaryContainer
+                                 : hoverArea.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.06) : "transparent"
+                            Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
+                        }
+                        // selection bar
+                        Rectangle {
+                            visible: row.selected && !root.compact
+                            width: 4; height: 36; radius: 2
+                            anchors.verticalCenter: parent.verticalCenter
+                            x: 2
+                            color: ThemeManager.primary
+                        }
+
+                        // thumbnail (round in the rail, rounded square in the list)
+                        Item {
+                            id: thumbBox
+                            width: root.compact ? 52 : 60
+                            height: width
+                            anchors.verticalCenter: parent.verticalCenter
+                            x: root.compact ? (parent.width - width) / 2 : 10
+                            Rectangle { id: tmask; anchors.fill: parent; radius: root.compact ? width / 2 : 14; visible: false; layer.enabled: true }
+                            Skeleton { anchors.fill: parent; radius: tmask.radius; visible: tImg.status !== Image.Ready; active: visible }
+                            Image {
+                                id: tImg
+                                anchors.fill: parent
+                                source: row.loc.thumb || ""
+                                sourceSize: Qt.size(128, 128)
+                                fillMode: Image.PreserveAspectCrop
+                                asynchronous: true
+                                visible: false
                             }
-                            ColumnLayout {
+                            MultiEffect {
+                                anchors.fill: parent
+                                source: tImg
+                                visible: tImg.status === Image.Ready
+                                maskEnabled: true
+                                maskSource: tmask
+                                maskThresholdMin: 0.5
+                                maskSpreadAtMin: 1.0
+                            }
+                            Rectangle {
+                                anchors.fill: parent
+                                radius: tmask.radius
+                                color: "transparent"
+                                border.width: row.selected ? 3 : 0
+                                border.color: ThemeManager.primary
+                            }
+                            // count badge in the rail
+                            Rectangle {
+                                visible: root.compact && row.loc.count > 1
+                                anchors { right: parent.right; top: parent.top; rightMargin: -4; topMargin: -4 }
+                                height: 18; radius: 9
+                                width: Math.max(18, railCnt.implicitWidth + 8)
+                                color: ThemeManager.primary
+                                border.width: 2; border.color: ThemeManager.surfaceContainer
+                                Label { id: railCnt; anchors.centerIn: parent; text: row.loc.count; font.pixelSize: 10; font.weight: Font.Bold; color: ThemeManager.onPrimary }
+                            }
+                        }
+
+                        ColumnLayout {
+                            visible: !root.compact
+                            anchors { left: thumbBox.right; leftMargin: 14; right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
+                            spacing: 3
+                            Label {
                                 Layout.fillWidth: true
-                                spacing: 2
-                                Label {
-                                    Layout.fillWidth: true
-                                    text: globe.ready, root.placeLabel(row.modelData.lat, row.modelData.lon)
-                                    font.weight: Font.Medium; font.pixelSize: 13
-                                    color: row.selected ? ThemeManager.onSecondaryContainer : ThemeManager.onSurface
-                                    elide: Text.ElideRight
+                                text: row.modelData.title
+                                font.weight: Font.DemiBold; font.pixelSize: 15
+                                color: row.selected ? ThemeManager.onSecondaryContainer : ThemeManager.onSurface
+                                elide: Text.ElideRight
+                            }
+                            Label {
+                                Layout.fillWidth: true
+                                visible: text.length > 0
+                                text: row.modelData.sub
+                                font.pixelSize: 12
+                                color: row.selected ? ThemeManager.onSecondaryContainer : ThemeManager.onSurfaceVariant
+                                elide: Text.ElideRight
+                            }
+                            RowLayout {
+                                spacing: 6
+                                Rectangle {
+                                    Layout.preferredHeight: 20
+                                    Layout.preferredWidth: metaCnt.implicitWidth + 14
+                                    radius: 10
+                                    color: row.selected ? Qt.alpha(ThemeManager.onSecondaryContainer, 0.12) : ThemeManager.surfaceContainerHighest
+                                    Label {
+                                        id: metaCnt
+                                        anchors.centerIn: parent
+                                        text: row.loc.count + " " + (row.loc.count === 1 ? root._t("photo_one") : root._t("photo_many"))
+                                        font.pixelSize: 11; font.weight: Font.Medium
+                                        color: row.selected ? ThemeManager.onSecondaryContainer : ThemeManager.onSurfaceVariant
+                                    }
                                 }
                                 Label {
-                                    Layout.fillWidth: true
-                                    text: {
-                                        var parts = []
-                                        if (row.modelData.creation_date)
-                                            parts.push(Qt.formatDateTime(new Date(row.modelData.creation_date * 1000), "d MMM yyyy"))
-                                        parts.push(row.modelData.count + " " + (row.modelData.count === 1 ? root._t("photo_one") : root._t("photo_many")))
-                                        return parts.join(" · ")
-                                    }
+                                    visible: !!row.loc.creation_date
+                                    text: row.loc.creation_date ? Qt.formatDateTime(new Date(row.loc.creation_date * 1000), "d MMM yyyy") : ""
                                     font.pixelSize: 11
                                     color: row.selected ? ThemeManager.onSecondaryContainer : ThemeManager.onSurfaceVariant
-                                    elide: Text.ElideRight
                                 }
                             }
                         }
@@ -556,9 +768,12 @@ Item {
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: root.selectLocation(row.modelData)
-                            onDoubleClicked: root.openPlace({ places: [row.modelData] })
+                            onClicked: root.selectLocation(row.loc)
+                            onDoubleClicked: root.openPlace({ places: [row.loc] })
                         }
+                        ToolTip.visible: root.compact && hoverArea.containsMouse
+                        ToolTip.delay: 300
+                        ToolTip.text: row.modelData.title + (row.modelData.sub ? " · " + row.modelData.sub : "")
                     }
                 }
             }

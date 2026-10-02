@@ -85,165 +85,218 @@ Item {
     opacity: shown && anchorVisible ? 1 : 0
     Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
 
-    Rectangle {
+    // `card` positions everything; `body` is the visible card with a round
+    // bite taken out of its top-right corner where the close button sits.
+    Item {
         id: card
         width: root.cardW
         implicitHeight: col.implicitHeight + 24
         height: implicitHeight
-        radius: 18
-        color: Qt.rgba(0.075, 0.085, 0.115, 1)
-        border.color: Qt.rgba(1, 1, 1, 0.14)
-        border.width: 1
-        x: Math.max(10, Math.min(root.width - width - 10, root.anchorX - width / 2))
+        x: Math.max(10, Math.min(root.width - width - 22, root.anchorX - width / 2))
         y: root.below ? Math.min(root.height - height - 10, root.anchorY + 14)
-                      : root.anchorY - root.anchorGap - height
+                      : Math.max(22, root.anchorY - root.anchorGap - height)
         scale: root.shown ? 1 : 0.94
         transformOrigin: root.below ? Item.Top : Item.Bottom
         Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack } }
 
-        layer.enabled: root.visible
-        layer.effect: MultiEffect {
-            shadowEnabled: true
-            shadowBlur: 0.8
-            shadowColor: Qt.rgba(0, 0, 0, 0.55)
-            shadowVerticalOffset: 6
-        }
+        readonly property real biteR: 21              // hole radius
+        readonly property point biteC: Qt.point(width - 6, 6) // hole / button centre
 
-        Column {
-            id: col
-            anchors { left: parent.left; right: parent.right; top: parent.top; margins: 12 }
-            spacing: 10
+        // shadow around the bitten shape
+        Item {
+            id: shadowed
+            anchors.fill: parent
+            layer.enabled: root.visible
+            layer.effect: MultiEffect {
+                shadowEnabled: true
+                shadowBlur: 0.8
+                shadowColor: Qt.rgba(0, 0, 0, 0.55)
+                shadowVerticalOffset: 6
+            }
 
-            // Mosaic: one hero + up to two side thumbs
             Item {
-                width: parent.width
-                height: 128
-                Rectangle {
-                    id: hero
-                    anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                    width: root.thumbs.length > 1 ? parent.width * 0.64 : parent.width
-                    radius: 12; clip: true
-                    color: Qt.rgba(1, 1, 1, 0.06)
-                    Image {
-                        anchors.fill: parent
-                        source: root.thumbs.length > 0 ? root.thumbs[0] : ""
-                        fillMode: Image.PreserveAspectCrop
-                        asynchronous: true
-                        sourceSize.width: 360
-                    }
+                id: body
+                // 12px margin so the pointer tail outside the card isn't clipped
+                anchors.fill: parent
+                anchors.margins: -12
+                layer.enabled: root.visible
+                layer.effect: MultiEffect {
+                    maskEnabled: true
+                    maskInverted: true
+                    maskSource: biteMask
+                    maskThresholdMin: 0.5
+                    maskSpreadAtMin: 1.0
                 }
+
+                Rectangle {
+                    id: bg
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    radius: 18
+                    color: Qt.rgba(0.075, 0.085, 0.115, 1)
+                    border.color: Qt.rgba(1, 1, 1, 0.14)
+                    border.width: 1
+                }
+
+                // pointer towards the pin
+                Rectangle {
+                    width: 14; height: 14
+                    rotation: 45
+                    color: bg.color
+                    x: 12 + Math.max(16, Math.min(card.width - 30, root.anchorX - card.x - 7))
+                    y: 12 + (root.below ? -7 : card.height - 7)
+                }
+
                 Column {
-                    visible: root.thumbs.length > 1
-                    anchors { left: hero.right; leftMargin: 6; right: parent.right; top: parent.top; bottom: parent.bottom }
-                    spacing: 6
-                    Repeater {
-                        model: root.thumbs.slice(1, 3)
+                    id: col
+                    anchors { left: parent.left; right: parent.right; top: parent.top; margins: 24 }
+                    spacing: 10
+
+                    // Mosaic: one hero + up to two side thumbs
+                    Item {
+                        width: parent.width
+                        height: 128
                         Rectangle {
-                            required property var modelData
-                            width: parent.width
-                            height: root.thumbs.length > 2 ? (128 - 6) / 2 : 128
-                            radius: 10; clip: true
+                            id: hero
+                            anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
+                            width: root.thumbs.length > 1 ? parent.width * 0.64 : parent.width
+                            radius: 12; clip: true
                             color: Qt.rgba(1, 1, 1, 0.06)
                             Image {
                                 anchors.fill: parent
-                                source: parent.modelData
+                                source: root.thumbs.length > 0 ? root.thumbs[0] : ""
                                 fillMode: Image.PreserveAspectCrop
                                 asynchronous: true
-                                sourceSize.width: 200
+                                sourceSize.width: 360
+                            }
+                        }
+                        Column {
+                            visible: root.thumbs.length > 1
+                            anchors { left: hero.right; leftMargin: 6; right: parent.right; top: parent.top; bottom: parent.bottom }
+                            spacing: 6
+                            Repeater {
+                                model: root.thumbs.slice(1, 3)
+                                Rectangle {
+                                    required property var modelData
+                                    width: parent.width
+                                    height: root.thumbs.length > 2 ? (128 - 6) / 2 : 128
+                                    radius: 10; clip: true
+                                    color: Qt.rgba(1, 1, 1, 0.06)
+                                    Image {
+                                        anchors.fill: parent
+                                        source: parent.modelData
+                                        fillMode: Image.PreserveAspectCrop
+                                        asynchronous: true
+                                        sourceSize.width: 200
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Column {
+                        width: parent.width
+                        spacing: 2
+                        Label {
+                            width: parent.width
+                            text: root.offlineName !== "" ? root.offlineName
+                                  : (root.place ? root.place.lat.toFixed(4) + "°, " + root.place.lon.toFixed(4) + "°" : "")
+                            color: "white"
+                            font.pixelSize: 15
+                            font.weight: Font.DemiBold
+                            elide: Text.ElideRight
+                        }
+                        Label {
+                            width: parent.width
+                            visible: text !== ""
+                            text: root.address
+                            color: Qt.rgba(1, 1, 1, 0.78)
+                            font.pixelSize: 12
+                            wrapMode: Text.WordWrap
+                            maximumLineCount: 2
+                            elide: Text.ElideRight
+                        }
+                    }
+
+                    Row {
+                        width: parent.width
+                        spacing: 8
+                        Label {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: parent.width - openBtn.width - 8
+                            color: Qt.rgba(1, 1, 1, 0.80)
+                            font.pixelSize: 12
+                            font.weight: Font.Medium
+                            elide: Text.ElideRight
+                            text: {
+                                if (!root.place) return ""
+                                var n = root.place.count
+                                var s = n + " " + (n === 1 ? I18n.t(Settings.language, "photo_one")
+                                                           : I18n.t(Settings.language, "photo_many"))
+                                if (root.placeCount > 1) s += " · " + root.placeCount + " " + I18n.t(Settings.language, "places_lower")
+                                return s
+                            }
+                        }
+                        Rectangle {
+                            id: openBtn
+                            width: openLbl.implicitWidth + 28; height: 34; radius: 17
+                            color: openMa.pressed ? Qt.darker(ThemeManager.primary, 1.15) : ThemeManager.primary
+                            Label {
+                                id: openLbl
+                                anchors.centerIn: parent
+                                text: I18n.t(Settings.language, "open_action")
+                                color: ThemeManager.onPrimary
+                                font.pixelSize: 13; font.weight: Font.DemiBold
+                            }
+                            MouseArea {
+                                id: openMa
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.openRequested(root.place)
                             }
                         }
                     }
                 }
             }
+        }
 
-            Column {
-                width: parent.width
-                spacing: 2
-                Label {
-                    width: parent.width
-                    text: root.offlineName !== "" ? root.offlineName
-                          : (root.place ? root.place.lat.toFixed(4) + "°, " + root.place.lon.toFixed(4) + "°" : "")
-                    color: "white"
-                    font.pixelSize: 15
-                    font.weight: Font.DemiBold
-                    elide: Text.ElideRight
-                }
-                Label {
-                    width: parent.width
-                    visible: text !== ""
-                    text: root.address
-                    color: Qt.rgba(1, 1, 1, 0.78)
-                    font.pixelSize: 12
-                    wrapMode: Text.WordWrap
-                    maximumLineCount: 2
-                    elide: Text.ElideRight
-                }
-            }
-
-            Row {
-                width: parent.width
-                spacing: 8
-                Label {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - openBtn.width - 8
-                    color: Qt.rgba(1, 1, 1, 0.80)
-                    font.pixelSize: 12
-                    font.weight: Font.Medium
-                    elide: Text.ElideRight
-                    text: {
-                        if (!root.place) return ""
-                        var n = root.place.count
-                        var s = n + " " + (n === 1 ? I18n.t(Settings.language, "photo_one")
-                                                   : I18n.t(Settings.language, "photo_many"))
-                        if (root.placeCount > 1) s += " · " + root.placeCount + " " + I18n.t(Settings.language, "places_lower")
-                        return s
-                    }
-                }
-                Rectangle {
-                    id: openBtn
-                    width: openLbl.implicitWidth + 28; height: 34; radius: 17
-                    color: openMa.pressed ? Qt.darker(ThemeManager.primary, 1.15) : ThemeManager.primary
-                    Label {
-                        id: openLbl
-                        anchors.centerIn: parent
-                        text: I18n.t(Settings.language, "open_action")
-                        color: ThemeManager.onPrimary
-                        font.pixelSize: 13; font.weight: Font.DemiBold
-                    }
-                    MouseArea {
-                        id: openMa
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.openRequested(root.place)
-                    }
-                }
+        // the bite: a circle at the corner, cut out of `body`
+        Item {
+            id: biteMask
+            anchors.fill: parent
+            anchors.margins: -12
+            visible: false
+            layer.enabled: true
+            Rectangle {
+                width: card.biteR * 2; height: width; radius: width / 2
+                x: 12 + card.biteC.x - card.biteR
+                y: 12 + card.biteC.y - card.biteR
             }
         }
 
-        // close
+        // close button sitting in the bite, half outside the card
         Rectangle {
-            anchors { top: parent.top; right: parent.right; margins: 18 }
-            width: 26; height: 26; radius: 13
-            color: closeMa.containsMouse ? Qt.rgba(0, 0, 0, 0.75) : Qt.rgba(0, 0, 0, 0.55)
-            border.color: Qt.rgba(1, 1, 1, 0.25)
-            MaterialSymbol { anchors.centerIn: parent; name: "close"; size: 16; color: "white" }
+            width: 30; height: 30; radius: 15
+            x: card.biteC.x - width / 2
+            y: card.biteC.y - height / 2
+            color: closeMa.pressed ? Qt.rgba(0.20, 0.22, 0.28, 1)
+                 : closeMa.containsMouse ? Qt.rgba(0.16, 0.18, 0.24, 1) : Qt.rgba(0.11, 0.12, 0.16, 1)
+            border.color: Qt.rgba(1, 1, 1, closeMa.containsMouse ? 0.40 : 0.22)
+            border.width: 1
+            scale: closeMa.containsMouse ? 1.08 : 1
+            Behavior on scale { NumberAnimation { duration: 120 } }
+            MaterialSymbol { anchors.centerIn: parent; name: "close"; size: 17; color: "white" }
             MouseArea {
                 id: closeMa
                 anchors.fill: parent
+                anchors.margins: -4
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: root.closeRequested()
             }
-        }
-
-        // pointer towards the pin
-        Rectangle {
-            width: 14; height: 14
-            rotation: 45
-            color: card.color
-            x: Math.max(16, Math.min(card.width - 30, root.anchorX - card.x - 7))
-            y: root.below ? -7 : card.height - 7
-            z: -1
+            ToolTip.visible: closeMa.containsMouse
+            ToolTip.delay: 600
+            ToolTip.text: I18n.t(Settings.language, "close")
         }
     }
 }

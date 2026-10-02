@@ -449,8 +449,9 @@ void GlobeItem::pushStyle() {
     rgba(m_cityColor, s.city);
     rgba(m_cityHaloColor, s.city_halo);
     rgba(m_casingColor, s.casing);
+    rgba(m_landEdgeColor, s.land_edge);
     s.dot_spacing = float(m_dotSpacing);
-    s.dot_size = 0.30f;
+    s.dot_size = 0.26f;  // finer halftone: less visual noise behind labels
     s.coast_width = 0.9f;
     s.border_width = 1.15f;
     s.state_width = 0.75f;

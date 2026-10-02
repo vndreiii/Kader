@@ -13,6 +13,7 @@ class SettingsManager : public QObject {
     Q_PROPERTY(bool parallelThumbnails READ parallelThumbnails WRITE setParallelThumbnails NOTIFY parallelThumbnailsChanged)
     Q_PROPERTY(int  resourceMode READ resourceMode WRITE setResourceMode NOTIFY resourceModeChanged)
     Q_PROPERTY(bool use3DGlobe READ use3DGlobe WRITE setUse3DGlobe NOTIFY use3DGlobeChanged)
+    Q_PROPERTY(bool placesPanelCompact READ placesPanelCompact WRITE setPlacesPanelCompact NOTIFY placesPanelCompactChanged)
     Q_PROPERTY(QString homePath READ homePath CONSTANT)
     Q_PROPERTY(bool autoUpdate READ autoUpdate WRITE setAutoUpdate NOTIFY autoUpdateChanged)
     Q_PROPERTY(QString skippedVersion READ skippedVersion WRITE setSkippedVersion NOTIFY skippedVersionChanged)
@@ -48,6 +49,8 @@ public:
     // Places view: true = 3D rotating globe, false = classic 2D map.
     bool use3DGlobe() const;
     void setUse3DGlobe(bool use);
+    bool placesPanelCompact() const;
+    void setPlacesPanelCompact(bool compact);
 
     // Updater: check GitHub releases automatically; a version the user chose
     // to skip is not offered again (a newer one is).
@@ -79,6 +82,7 @@ signals:
     void parallelThumbnailsChanged();
     void resourceModeChanged();
     void use3DGlobeChanged();
+    void placesPanelCompactChanged();
     void autoUpdateChanged();
     void skippedVersionChanged();
 

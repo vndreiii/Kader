@@ -157,6 +157,17 @@ void SettingsManager::setUse3DGlobe(bool use) {
     }
 }
 
+bool SettingsManager::placesPanelCompact() const {
+    return m_data.value("placesPanelCompact").toBool(false);
+}
+void SettingsManager::setPlacesPanelCompact(bool compact) {
+    if (placesPanelCompact() != compact) {
+        m_data["placesPanelCompact"] = compact;
+        save();
+        emit placesPanelCompactChanged();
+    }
+}
+
 int SettingsManager::workerThreads() const {
     int cores = QThread::idealThreadCount();
     if (cores < 1) cores = 1;

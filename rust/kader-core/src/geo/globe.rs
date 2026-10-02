@@ -97,6 +97,9 @@ pub struct Style {
     pub city_halo: [u8; 4],
     /// Dark casing drawn under coast and border lines for contrast.
     pub casing: [u8; 4],
+    /// Land dot colour at the globe's limb; dots blend from here to `land`
+    /// at the centre of the view.
+    pub land_edge: [u8; 4],
     /// Target on-screen spacing of land dots, logical px.
     pub dot_spacing: f32,
     /// Dot radius as a fraction of the spacing.
@@ -123,6 +126,7 @@ impl Default for Style {
             city: [255, 255, 255, 255],
             city_halo: [10, 12, 20, 200],
             casing: [6, 8, 14, 200],
+            land_edge: [120, 130, 170, 120],
             dot_spacing: 7.0,
             dot_size: 0.30,
             coast_width: 0.9,
@@ -637,7 +641,7 @@ impl Globe {
         let cos_rho = (rho + 0.6 * s).min(PI).cos();
         let margin = radius + 2.0;
         let (w, h) = (self.width, self.height);
-        let base = self.style.land;
+        let (base, edge) = (self.style.land, self.style.land_edge);
 
         let lat_lo = (self.cam.lat - rho - s).max(-FRAC_PI_2);
         let lat_hi = (self.cam.lat + rho + s).min(FRAC_PI_2);
@@ -741,7 +745,8 @@ impl Globe {
                             * self.dot_dim
                             * (0.38 + 0.62 * d.sqrt())
                             * smoothstep(0.0, 0.08, d);
-                        let rgba = premul(base, shade as f32);
+                        // colour gradient: dim, cool limb → brighter centre
+                        let rgba = premul(mix(edge, base, d.powf(0.7) as f32), shade as f32);
                         self.push_ellipse(x, y, dir, radius * d.max(0.06), radius, rgba);
                     }
                     k += 2;
@@ -1141,6 +1146,16 @@ impl Globe {
 }
 
 #[inline]
+/// Straight-alpha blend of two colours, `t` = 0 → `a`, 1 → `b`.
+fn mix(a: [u8; 4], b: [u8; 4], t: f32) -> [u8; 4] {
+    let t = t.clamp(0.0, 1.0);
+    let mut out = [0u8; 4];
+    for i in 0..4 {
+        out[i] = (f32::from(a[i]) + (f32::from(b[i]) - f32::from(a[i])) * t).round() as u8;
+    }
+    out
+}
+
 fn premul(c: [u8; 4], alpha: f32) -> [u8; 4] {
     let a = (f32::from(c[3]) / 255.0 * alpha.clamp(0.0, 1.0)).clamp(0.0, 1.0);
     [
