@@ -66,8 +66,22 @@ ApplicationWindow {
             if (!window._globeViewInst) window._globeViewInst = globeView.createObject(null)
             inst = window._globeViewInst
         } else {
-            if (!window._mapViewInst) window._mapViewInst = mapView.createObject(null)
+            if (!window._mapViewInst) {
+                // Loaded by URL so QtLocation is only pulled in when the classic
+                // map is actually used (and is optional at runtime).
+                var comp = Qt.createComponent("qrc:/Kader/qml/views/MapView.qml")
+                if (comp.status === Component.Ready) {
+                    window._mapViewInst = comp.createObject(null)
+                    window._mapViewInst.openViewer.connect(window._openPlaceItems)
+                } else {
+                    console.warn("2D map unavailable (QtLocation missing?):", comp.errorString())
+                }
+            }
             inst = window._mapViewInst
+            if (!inst) {
+                if (!window._globeViewInst) window._globeViewInst = globeView.createObject(null)
+                inst = window._globeViewInst
+            }
         }
         mainStack.replace(inst)
     }
@@ -79,6 +93,18 @@ ApplicationWindow {
     }
 
     property var _aiDocResults: []
+
+    // Open the viewer on every photo of a place (globe / map pin cards).
+    function _openPlaceItems(data, items) {
+        var list = (items && items.length > 0) ? items : [data]
+        var idx = 0
+        for (var i = 0; i < list.length; i++)
+            if (list[i].id === data.id) { idx = i; break }
+        viewerOverlay.allItems = list
+        viewerOverlay.currentIndex = idx
+        viewerOverlay.mediaData = list[idx]
+        viewerOverlay.active = true
+    }
 
     FontLoader {
         id: materialSymbolsFont
@@ -1100,26 +1126,9 @@ ApplicationWindow {
     }
 
     Component {
-        id: mapView
-        MapView {
-            onOpenViewer: (data) => {
-                viewerOverlay.mediaData = data
-                viewerOverlay.currentIndex = 0
-                viewerOverlay.allItems = [data]
-                viewerOverlay.active = true
-            }
-        }
-    }
-
-    Component {
         id: globeView
         GlobeView {
-            onOpenViewer: (data) => {
-                viewerOverlay.mediaData = data
-                viewerOverlay.currentIndex = 0
-                viewerOverlay.allItems = [data]
-                viewerOverlay.active = true
-            }
+            onOpenViewer: (data, items) => window._openPlaceItems(data, items)
         }
     }
 

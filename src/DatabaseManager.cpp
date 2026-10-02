@@ -17,6 +17,8 @@
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include <QDBusReply>
+#include <cmath>
+#include <algorithm>
 
 DatabaseManager::DatabaseManager(QObject *parent) : QObject(parent) {
     m_dbPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/gallery.db";
@@ -477,6 +479,46 @@ QVariantList DatabaseManager::getGeotaggedLocations() {
         m["is_hidden"]     = query.value("is_hidden").toBool();
         m["path"]          = "file://" + fp;
         m["thumb"]         = ThumbnailGenerator::thumbnailUrl(fp);
+        list.append(m);
+    }
+    return list;
+}
+
+QVariantList DatabaseManager::getMediaForPlaces(const QVariantList &places) {
+    checkConnection();
+    QVariantList list;
+    if (places.isEmpty())
+        return list;
+    // Bound the statement size; a cluster rarely has more than a few dozen places.
+    const int n = std::min<int>(places.size(), 400);
+    QStringList clauses;
+    clauses.reserve(n);
+    for (int i = 0; i < n; ++i)
+        clauses << QStringLiteral("(ROUND(latitude,2) = ? AND ROUND(longitude,2) = ?)");
+    QSqlQuery q(threadDb());
+    q.prepare(QStringLiteral(
+        "SELECT * FROM media WHERE is_trashed = 0 AND COALESCE(is_hidden,0) = 0 "
+        "AND COALESCE(is_ignored,0) = 0 AND latitude IS NOT NULL AND (")
+        + clauses.join(QStringLiteral(" OR ")) + QStringLiteral(") ORDER BY creation_date DESC LIMIT 5000"));
+    for (int i = 0; i < n; ++i) {
+        const QVariantMap p = places[i].toMap();
+        // Same rounding as getGeotaggedLocations() so the groups match exactly.
+        q.addBindValue(std::round(p.value(QStringLiteral("lat")).toDouble() * 100.0) / 100.0);
+        q.addBindValue(std::round(p.value(QStringLiteral("lon")).toDouble() * 100.0) / 100.0);
+    }
+    if (!q.exec()) {
+        qWarning() << "getMediaForPlaces failed:" << q.lastError().text();
+        return list;
+    }
+    const QSqlRecord rec = q.record();
+    const int fpCol = rec.indexOf(QStringLiteral("file_path"));
+    while (q.next()) {
+        QVariantMap m;
+        for (int i = 0; i < rec.count(); ++i)
+            m.insert(rec.fieldName(i), q.value(i));
+        const QString fp = q.value(fpCol).toString();
+        m.insert(QStringLiteral("thumb"), ThumbnailGenerator::thumbnailUrl(fp));
+        m.insert(QStringLiteral("path"), QStringLiteral("file://") + fp);
         list.append(m);
     }
     return list;

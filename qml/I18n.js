@@ -378,6 +378,9 @@ var _s = {
     },
     "en": {
         "timeline": "Gallery", "albums": "Albums", "videos": "Videos",
+        "photo_one": "photo", "photo_many": "photos", "places_lower": "places",
+        "globe_zoom_in": "Zoom in", "globe_zoom_out": "Zoom out", "globe_reset": "Show whole globe",
+        "globe_spin": "Auto-rotate", "globe_loading": "Loading the world…", "place_near": "Near %1",
         "map": "Map", "places": "Places", "favorites": "Favorites",
         "hidden": "Hidden", "trash": "Trash", "settings": "Settings",
         "refresh_library": "Refresh library", "add_directory": "Add folder",

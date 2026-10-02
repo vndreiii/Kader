@@ -17,10 +17,12 @@
 #include <numeric>
 #include <thread>
 
+#if KADER_HAVE_LLAMA
 #include <llama.h>
 #include <llama-cpp.h>
 #include <mtmd.h>
 #include <mtmd-helper.h>
+#endif
 
 #include <poppler/cpp/poppler-document.h>
 #include <poppler/cpp/poppler-page.h>
@@ -55,6 +57,8 @@ static QString extractPdfText(const QString &path)
 }
 
 // ─── SemanticWorker ───────────────────────────────────────────────────────────
+
+#if KADER_HAVE_LLAMA
 
 SemanticWorker::SemanticWorker(DatabaseManager *db, QObject *parent)
     : QObject(parent), m_db(db)
@@ -222,6 +226,26 @@ std::vector<float> SemanticWorker::embedText(const QString &text)
     }
     return result;
 }
+
+#else // !KADER_HAVE_LLAMA — build without llama.cpp: search reports itself unavailable
+
+SemanticWorker::SemanticWorker(DatabaseManager *db, QObject *parent)
+    : QObject(parent), m_db(db) {}
+
+SemanticWorker::~SemanticWorker() = default;
+
+void SemanticWorker::loadModel(const QString &, const QString &)
+{
+    emit workerError(QStringLiteral("AI search is not available in this build (compiled without llama.cpp)"));
+    emit loaded(false);
+}
+
+void SemanticWorker::unloadModel() { emit unloaded(); }
+
+std::vector<float> SemanticWorker::embedImage(const QString &) { return {}; }
+std::vector<float> SemanticWorker::embedText(const QString &) { return {}; }
+
+#endif
 
 void SemanticWorker::generateTextEmbedding(const QString &text, int queryId)
 {
