@@ -36,6 +36,23 @@ pkg_check_modules(VIPS REQUIRED IMPORTED_TARGET vips-cpp)
 pkg_check_modules(EXIV2 REQUIRED IMPORTED_TARGET exiv2)
 pkg_check_modules(LIBRAW REQUIRED IMPORTED_TARGET libraw_r)
 pkg_check_modules(POPPLER REQUIRED IMPORTED_TARGET poppler-cpp)
+if(WIN32)
+    # Some MSYS2 .pc files carry MSYS-style paths ("/ucrt64/include") that
+    # native CMake can't resolve; they're the compiler's default include
+    # directory anyway, so drop include paths that don't exist.
+    foreach(_pc VIPS EXIV2 LIBRAW POPPLER)
+        get_target_property(_dirs PkgConfig::${_pc} INTERFACE_INCLUDE_DIRECTORIES)
+        if(_dirs)
+            set(_kept)
+            foreach(_d IN LISTS _dirs)
+                if(EXISTS "${_d}")
+                    list(APPEND _kept "${_d}")
+                endif()
+            endforeach()
+            set_target_properties(PkgConfig::${_pc} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${_kept}")
+        endif()
+    endforeach()
+endif()
 
 # Sibling-app event bus (private; optional so public CI and AppImages build).
 find_package(MilfsConnect QUIET)
