@@ -42,6 +42,7 @@ Item {
         if (y < edge) listView.contentY = Math.max(0, listView.contentY - (edge - y) * 0.5)
         else if (y > listView.height - edge) listView.contentY = Math.min(maxY, listView.contentY + (y - listView.height + edge) * 0.5)
     }
+    property bool _tileScrolling: false   // a tile is scrolling the grid by drag
     function selectedIds() { return Object.keys(_selSet).map(Number) }
 
     // Esc (window-wide "back"): leave selection mode
@@ -187,7 +188,7 @@ Item {
                             // dragging, flicking or scrubbing — that read as
                             // the grid "rejecting" the drag and snapping back.
                             var interacting = listView.dragging || listView.flicking
-                                              || listView.moving || scrubber._dragging
+                                              || listView.moving || scrubber._dragging || root._tileScrolling
                             if (!interacting) {
                                 var maxY = Math.max(0, listView.contentHeight - listView.height)
                                 listView.contentY = Math.min(root._savedY, maxY)
@@ -250,6 +251,8 @@ Item {
                                 width:  modelData ? (modelData.item_width  || Math.round(rowItem._rowH * 1.33)) : Math.round(rowItem._rowH * 1.33)
                                 height: rowItem._rowH
                                 listMode: TimelineModel.layoutMode === 2
+                                scroller: listView
+                                onScrollingChanged: (on) => root._tileScrolling = on
                                 tileData: modelData
                                 selectable: root.selectionMode
                                 selected: modelData ? root.isSelected(modelData.id) : false

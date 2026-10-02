@@ -17,6 +17,9 @@ Item {
     // hold-then-drag: select every tile the pointer passes (scene coordinates)
     signal dragSelectAt(real sceneX, real sceneY)
     property bool _dragSelecting: false
+    // the Flickable the tile sits in: a quick drag scrolls it (see MouseArea)
+    property Flickable scroller: null
+    signal scrollingChanged(bool on)
     // List view: a row with a small thumbnail and the file's details
     property bool listMode: false
     readonly property real _radius: listMode ? 10 : 16
@@ -165,7 +168,6 @@ Item {
                     color: (root._d.is_favorite ? true : false) ? ThemeManager.tertiaryContainer : "white"
                 }
             }
-            MouseArea { anchors.fill: parent; hoverEnabled: true; onClicked: root.toggleFav() }
         }
 
         // Date meta on hover
@@ -300,175 +302,99 @@ Item {
     property bool   _isHidden:   root._d.is_hidden   ? true : false
     property string _folderPath: root._d.folder_path || ""
 
-    // Context menu + album picker are created lazily (only on first right-click /
-    // first "Send to album"). Eagerly instantiating these for every tile was a
-    // big per-tile cost that hurt scroll when delegates recycle.
+    // Context menu (shared with the Search page), created on first use —
+    // instantiating it for every tile hurt scrolling as delegates recycle.
     function _showMenu() {
         menuLoader.active = true
         menuLoader.item.popup()
     }
-
     Loader {
         id: menuLoader
         active: false
-        sourceComponent: M3Menu {
-            M3MenuItem {
-                iconName: "check_circle"
-                text: I18n.t(Settings.language, "ctx_select")
-                onTriggered: root.enterSelectionMode()
-            }
-            M3MenuItem {
-                iconName: root._isFav ? "heart_minus" : "favorite"
-                text: root._isFav ? "Unfavorite" : "Favorite"
-                onTriggered: { if (root._mediaId) { DB.toggleFavorite(root._mediaId); TimelineModel.refresh() } }
-            }
-            M3MenuItem {
-                iconName: "folder_open"
-                text: I18n.t(Settings.language, "ctx_open_folder")
-                onTriggered: { if (root._filePath) DB.revealInFolder(root._filePath) }
-            }
-            M3MenuItem {
-                iconName: "photo_album"
-                text: I18n.t(Settings.language, "ctx_send_album")
-                visible: TimelineModel.filterMode !== 3 /* HiddenMode */
-                onTriggered: {
-                    sendLoader.active = true
-                    sendLoader.item.albumList = DB.getAlbumList()
-                    sendLoader.item.open()
-                }
-            }
-            M3MenuItem {
-                iconName: root._isHidden ? "visibility" : "visibility_off"
-                text: root._isHidden ? "Unhide" : "Hide"
-                onTriggered: {
-                    if (root._mediaId) {
-                        DB.setHidden(root._mediaId, !root._isHidden)
-                        TimelineModel.refresh()
-                    }
-                }
-            }
-            M3MenuItem {
-                iconName: "block"
-                text: I18n.t(Settings.language, "ctx_add_ignored")
-                onTriggered: {
-                    if (root._mediaId) {
-                        DB.setIgnored(root._mediaId, true)
-                        TimelineModel.refresh()
-                    }
-                }
-            }
-            M3MenuItem {
-                iconName: root._isTrashed ? "restore_from_trash" : "delete"
-                text: root._isTrashed ? "Restore" : "Move to Trash"
-                onTriggered: {
-                    if (root._mediaId) {
-                        DB.setTrashed(root._mediaId, !root._isTrashed)
-                        TimelineModel.refresh()
-                    }
-                }
-            }
-            M3MenuItem {
-                iconName: "delete_forever"
-                destructive: true
-                text: I18n.t(Settings.language, "tip_delete_perm")
-                onTriggered: {
-                    if (root._mediaId) { DB.deleteMediaPermanently(root._mediaId); TimelineModel.refresh() }
-                }
-            }
-        }
-    }
-
-    // Album picker popup for "Send to album..." (lazy)
-    Loader {
-        id: sendLoader
-        active: false
-        sourceComponent: Popup {
-            parent: Overlay.overlay
-            modal: true
-            anchors.centerIn: parent
-            width: 260
-            padding: 8
-            closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-
-            property var albumList: []
-
-            background: Rectangle {
-                radius: 16
-                color: ThemeManager.surfaceContainer
-            }
-
-            Column {
-                width: parent.width - parent.padding * 2
-                spacing: 0
-
-                Label {
-                    width: parent.width
-                    text: I18n.t(Settings.language, "ctx_send_album_title")
-                    font.pixelSize: ThemeManager.fontLabelL; font.weight: Font.Medium
-                    color: ThemeManager.onSurfaceVariant
-                    leftPadding: 8; topPadding: 4; bottomPadding: 8
-                }
-
-                Repeater {
-                    model: parent.parent.albumList
-                    delegate: Rectangle {
-                        width: parent.width; height: 44; radius: ThemeManager.radiusSm
-                        color: sendMa.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
-                        Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
-                        Row {
-                            anchors.left: parent.left; anchors.leftMargin: 10
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: 8
-                            M3Icon { name: "folder"; size: 16; color: ThemeManager.onSurfaceVariant; anchors.verticalCenter: parent.verticalCenter }
-                            Label {
-                                text: modelData.name || ""
-                                font.pixelSize: ThemeManager.fontLabelL; color: ThemeManager.onSurface
-                                elide: Text.ElideRight
-                                width: 200
-                            }
-                        }
-                        MouseArea {
-                            id: sendMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                var targetPath = modelData.path || ""
-                                if (root._mediaId && targetPath) {
-                                    DB.moveMediaToAlbum(root._mediaId, targetPath)
-                                    TimelineModel.refresh()
-                                    AlbumModel.refresh()
-                                }
-                                sendLoader.item.close()
-                            }
-                        }
-                    }
-                }
-            }
+        sourceComponent: MediaMenu {
+            media: root._d
+            onSelectRequested: root.enterSelectionMode()
         }
     }
 
     // ── Mouse area ────────────────────────────────────────────────────────
+    // A press is a click, a hold or a drag, decided here rather than by the
+    // Flickable, so touchpad wobble can't turn a hold into a scroll:
+    //   • still for 300 ms → selection starts here; keep holding and drag to
+    //     select everything passed over
+    //   • moves more than 12 px first → scrolls the grid (with a fling)
+    //   • neither → a click
     MouseArea {
         id: mouseArea
         anchors.fill: parent
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton
-        // Hold a photo to start selecting (it gets selected); keep holding and
-        // drag to select everything you pass over. A quick drag still scrolls.
-        pressAndHoldInterval: 350
-        preventStealing: root._dragSelecting
-        onPressAndHold: (mouse) => {
+        preventStealing: true
+
+        property int _mode: 0          // 0 idle, 1 undecided, 2 scrolling, 3 selecting
+        property bool _wasDrag: false
+        property real _sx: 0
+        property real _sy: 0
+        property real _startY: 0
+        property real _lastY: 0
+        property real _lastT: 0
+        property real _vy: 0
+
+        Timer {
+            id: holdTimer
+            interval: 300
+            onTriggered: {
+                if (mouseArea._mode !== 1) return
+                mouseArea._mode = 3
+                root._dragSelecting = true
+                if (root.selectable) { if (!root.selected) root.selectToggle() }
+                else root.enterSelectionMode()
+            }
+        }
+        function _end() {
+            holdTimer.stop()
+            if (_mode === 2) root.scrollingChanged(false)
+            _wasDrag = _mode >= 2
+            _mode = 0
+            root._dragSelecting = false
+        }
+
+        onPressed: (mouse) => {
+            _wasDrag = false
             if (mouse.button !== Qt.LeftButton) return
-            root._dragSelecting = true
-            if (root.selectable) { if (!root.selected) root.selectToggle() }
-            else root.enterSelectionMode()
+            var p = mapToItem(null, mouse.x, mouse.y)
+            _sx = p.x; _sy = p.y; _lastY = p.y; _lastT = Date.now(); _vy = 0
+            _mode = 1
+            if (root.scroller) { root.scroller.cancelFlick(); _startY = root.scroller.contentY }
+            holdTimer.restart()
         }
         onPositionChanged: (mouse) => {
-            if (!root._dragSelecting) return
+            if (!pressed || _mode === 0) return
             var p = mapToItem(null, mouse.x, mouse.y)
-            root.dragSelectAt(p.x, p.y)
+            if (_mode === 1 && Math.abs(p.x - _sx) + Math.abs(p.y - _sy) > 12) {
+                holdTimer.stop()
+                _mode = 2
+                root.scrollingChanged(true)
+            }
+            if (_mode === 2 && root.scroller) {
+                var f = root.scroller
+                var maxY = Math.max(f.originY, f.originY + f.contentHeight - f.height)
+                f.contentY = Math.max(f.originY, Math.min(maxY, _startY - (p.y - _sy)))
+                var now = Date.now(), dt = now - _lastT
+                if (dt > 0) _vy = 0.7 * ((p.y - _lastY) / dt * 1000) + 0.3 * _vy
+                _lastY = p.y; _lastT = now
+            } else if (_mode === 3) {
+                root.dragSelectAt(p.x, p.y)
+            }
         }
-        onReleased: root._dragSelecting = false
-        onCanceled: root._dragSelecting = false
+        onReleased: {
+            if (_mode === 2 && root.scroller && Math.abs(_vy) > 150 && Date.now() - _lastT < 90)
+                root.scroller.flick(0, _vy)
+            _end()
+        }
+        onCanceled: _end()
         onClicked: (mouse) => {
+            if (_wasDrag) return
             if (mouse.button === Qt.RightButton) {
                 if (root.selectable) root.selectToggle()
                 else root._showMenu()
@@ -478,5 +404,15 @@ Item {
                 root.open()
             }
         }
+    }
+
+    // Favourite toggle's click target, above the tile's MouseArea (the heart
+    // itself is drawn inside the clipped picture). Hover passes through.
+    MouseArea {
+        visible: !root.listMode
+        anchors { top: frame.top; right: frame.right }
+        width: 48; height: 48
+        cursorShape: Qt.PointingHandCursor
+        onClicked: root.toggleFav()
     }
 }

@@ -261,6 +261,7 @@ qt_add_qml_module(KaderApp
         qml/components/NameLabel.qml
         qml/components/PhotoPin.qml
         qml/components/PersonMenu.qml
+        qml/components/MediaMenu.qml
         qml/components/M3CircularProgress.qml
         qml/components/WindowControls.qml
         qml/views/SearchView.qml

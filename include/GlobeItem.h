@@ -172,6 +172,8 @@ protected:
     void wheelEvent(QWheelEvent *e) override;
     void keyPressEvent(QKeyEvent *e) override;
     void touchEvent(QTouchEvent *e) override;
+    QPointF m_gesturePos;             // last touchpad-pinch centroid
+    bool event(QEvent *e) override;   // touchpad pinch (QNativeGestureEvent)
 
 private:
     friend class GlobeTicker;

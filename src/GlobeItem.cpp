@@ -5,6 +5,8 @@
 #include <QFile>
 #include <QStandardPaths>
 #include <QFutureWatcher>
+#include <QInputDevice>
+#include <QNativeGestureEvent>
 #include <QQuickWindow>
 #include <QSGGeometryNode>
 #include <QSGMaterial>
@@ -790,6 +792,24 @@ void GlobeItem::hoverLeaveEvent(QHoverEvent *) {
 }
 
 void GlobeItem::wheelEvent(QWheelEvent *e) {
+    const bool touchpad = !e->pixelDelta().isNull()
+        || (e->device() && e->device()->type() == QInputDevice::DeviceType::TouchPad);
+    const bool pinch = e->modifiers() & Qt::ControlModifier;   // Windows sends pinch as Ctrl+wheel
+    if (touchpad && !pinch) {
+        // two-finger scroll moves the globe like dragging it
+        const QPointF d = e->pixelDelta().isNull() ? QPointF(e->angleDelta()) / 4.0 : QPointF(e->pixelDelta());
+        if (d.isNull()) {
+            e->ignore();
+            return;
+        }
+        kg_globe_drag_begin(m_globe);
+        kg_globe_drag(m_globe, d.x(), d.y());
+        kg_globe_drag_end(m_globe, 0, 0);
+        emit interactionStarted();
+        requestFrame();
+        e->accept();
+        return;
+    }
     double steps;
     if (!e->pixelDelta().isNull())
         steps = e->pixelDelta().y() / 160.0; // touchpads: fine-grained
@@ -799,7 +819,8 @@ void GlobeItem::wheelEvent(QWheelEvent *e) {
         e->ignore();
         return;
     }
-    kg_globe_zoom_by(m_globe, std::pow(2.0, steps * 0.45), e->position().x(), e->position().y(), true);
+    // a touchpad pinch follows the fingers; a mouse wheel notch eases
+    kg_globe_zoom_by(m_globe, std::pow(2.0, steps * 0.45), e->position().x(), e->position().y(), !touchpad);
     emit interactionStarted();
     requestFrame();
     e->accept();
@@ -823,6 +844,40 @@ void GlobeItem::keyPressEvent(QKeyEvent *e) {
     }
     requestFrame();
     e->accept();
+}
+
+// Touchpad pinch: zoom around the fingers and follow them as they move, so
+// zooming and panning happen together.
+bool GlobeItem::event(QEvent *e) {
+    if (e->type() != QEvent::NativeGesture)
+        return QQuickItem::event(e);
+    auto *g = static_cast<QNativeGestureEvent *>(e);
+    const QPointF p = g->position();
+    switch (g->gestureType()) {
+    case Qt::BeginNativeGesture:
+        m_gesturePos = p;
+        kg_globe_drag_begin(m_globe);
+        emit interactionStarted();
+        break;
+    case Qt::ZoomNativeGesture:
+        if (!m_gesturePos.isNull())
+            kg_globe_drag(m_globe, p.x() - m_gesturePos.x(), p.y() - m_gesturePos.y());
+        m_gesturePos = p;
+        kg_globe_zoom_by(m_globe, 1.0 + g->value(), p.x(), p.y(), false);
+        break;
+    case Qt::PanNativeGesture:
+        kg_globe_drag(m_globe, g->delta().x(), g->delta().y());
+        break;
+    case Qt::EndNativeGesture:
+        kg_globe_drag_end(m_globe, 0, 0);
+        m_gesturePos = QPointF();
+        break;
+    default:
+        return QQuickItem::event(e);
+    }
+    requestFrame();
+    g->accept();
+    return true;
 }
 
 void GlobeItem::touchEvent(QTouchEvent *e) {

@@ -29,6 +29,36 @@ Item {
     property var colorList: []
     property bool _loaded: false
 
+    // ── selection (one grid at a time) ─────────────────────────────────
+    property var selGrid: null
+    function _gridSel(g) {
+        if (g.selecting) {
+            if (selGrid && selGrid !== g) selGrid.clearSelection()
+            selGrid = g
+        } else if (selGrid === g) {
+            selGrid = null
+        }
+    }
+    // re-read results after the library changed (menu or selection actions)
+    function refreshResults() {
+        if (query.length > 0) result = Analyzer.search(query)
+        if (aiItems.length > 0) aiItems = Analyzer.mediaByIds(aiItems.map(function (m) { return m.id }))
+    }
+    function _selItems() {
+        if (!selGrid) return []
+        var out = []
+        for (var i = 0; i < selGrid.items.length; i++)
+            if (selGrid.selected[selGrid.items[i].id]) out.push(selGrid.items[i])
+        return out
+    }
+    function _applySel(fn) {
+        var list = _selItems()
+        for (var i = 0; i < list.length; i++) fn(list[i])
+        selGrid.clearSelection()
+        TimelineModel.refresh()
+        refreshResults()
+    }
+
     function reload() {
         peopleList = Analyzer.people()
         memoriesList = Analyzer.memories()
@@ -53,6 +83,7 @@ Item {
     // Esc (window-wide "back"): the open sub-page's own step, then back to
     // the Search home, then clear the search
     function handleBack() {
+        if (selGrid) { selGrid.clearSelection(); return true }
         var cur = stack.currentItem
         if (cur && typeof cur.handleBack === "function" && cur.handleBack()) return true
         if (stack.depth > 1) { stack.pop(); return true }
@@ -305,6 +336,10 @@ Item {
                         visible: (root.result.media || []).length > 0
                         items: root.result.media || []
                         maxRows: 2
+                        selectable: true
+                        scroller: home
+                        onSelectingChanged: root._gridSel(this)
+                        onMediaChanged: root.refreshResults()
                         onOpenItem: (i) => root.openViewer(items[i], items)
                     }
 
@@ -320,6 +355,10 @@ Item {
                         loading: root.aiBusy
                         items: root.aiItems
                         maxRows: 3
+                        selectable: true
+                        scroller: home
+                        onSelectingChanged: root._gridSel(this)
+                        onMediaChanged: root.refreshResults()
                         onOpenItem: (i) => root.openViewer(items[i], items)
                     }
                     Label {
@@ -380,7 +419,14 @@ Item {
                         ListView {
                             visible: Analyzer.facesEnabled && (root.peopleList.length > 0 || !root._loaded)
                             Layout.fillWidth: true
-                            Layout.preferredHeight: 148
+                            // room around the faces for their hover grow (the
+                            // list clips); the negative margin keeps them aligned
+                            Layout.preferredHeight: 156
+                            Layout.leftMargin: -8
+                            Layout.rightMargin: -8
+                            leftMargin: 8
+                            rightMargin: 8
+                            topMargin: 6
                             orientation: ListView.Horizontal
                             spacing: 18
                             clip: true
@@ -612,6 +658,8 @@ Item {
                 anchors { top: gh.bottom; left: parent.left; right: parent.right; bottom: parent.bottom; leftMargin: 24; rightMargin: 24 }
                 items: parent.items
                 minCell: 170
+                selectable: true
+                onSelectingChanged: root._gridSel(this)
                 onOpenItem: (i) => root.openViewer(items[i], items)
             }
         }
@@ -619,4 +667,51 @@ Item {
 
     Component { id: personPage; PersonPage { onBack: stack.pop(); onOpenViewer: (d, items) => root.openViewer(d, items); onOpenPerson: (id) => { stack.pop(StackView.Immediate); root.openPerson(id) } } }
     Component { id: peoplePage; PeoplePage { onBack: stack.pop(); onOpenPerson: (id) => root.openPerson(id) } }
+
+    // ── selection bar ────────────────────────────────────────────────────
+    Rectangle {
+        id: selBar
+        visible: opacity > 0
+        opacity: root.selGrid ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: ThemeManager.durShort } }
+        anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: 24 }
+        z: 100
+        height: 56
+        width: selRow.implicitWidth + 24
+        radius: 28
+        color: ThemeManager.surfaceContainerHighest
+        border.color: ThemeManager.outlineVariant
+        border.width: 1
+        RowLayout {
+            id: selRow
+            anchors.centerIn: parent
+            spacing: 4
+            M3Button {
+                flat: true
+                text: "✕"
+                onClicked: if (root.selGrid) root.selGrid.clearSelection()
+            }
+            Label {
+                text: root._t("n_selected").arg(root.selGrid ? root.selGrid.selectedCount : 0)
+                color: ThemeManager.onSurface
+                font.pixelSize: 15
+                rightPadding: 8
+            }
+            M3Button {
+                flat: true
+                text: "Favorite"
+                onClicked: root._applySel(function (m) { if (!m.is_favorite) DB.toggleFavorite(m.id) })
+            }
+            M3Button {
+                flat: true
+                text: "Hide"
+                onClicked: root._applySel(function (m) { DB.setHidden(m.id, true) })
+            }
+            M3Button {
+                flat: true
+                text: "Move to Trash"
+                onClicked: root._applySel(function (m) { DB.setTrashed(m.id, true) })
+            }
+        }
+    }
 }

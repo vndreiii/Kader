@@ -19,6 +19,17 @@ GridView {
     property var selected: ({})
     readonly property int selectedCount: Object.keys(selected).length
     signal openItem(int index)
+    signal mediaChanged()             // the right-click menu changed the library
+    // the Flickable a quick drag scrolls: the grid itself, or (for preview
+    // grids, which don't scroll) the page around them
+    property Flickable scroller: interactive ? root : null
+    function _selectAtScene(sx, sy) {
+        var p = root.mapFromItem(null, sx, sy)
+        var i = root.indexAt(p.x + root.contentX, p.y + root.contentY)
+        if (i < 0 || i >= root._shown || !root.items[i]) return
+        var id = root.items[i].id
+        if (!root.selected[id]) root.toggleSelected(id)
+    }
     function toggleSelected(id) {
         var s = Object.assign({}, selected)
         if (s[id]) delete s[id]; else s[id] = true
@@ -110,20 +121,81 @@ GridView {
                 hoverEnabled: true
                 enabled: !root.loading
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
-                pressAndHoldInterval: 450
                 cursorShape: Qt.PointingHandCursor
-                onPressAndHold: {
-                    if (!root.selectable || !cell.media) return
-                    root.selecting = true
-                    root.toggleSelected(cell.media.id)
-                }
-                onClicked: (mouse) => {
-                    if (root.selectable && cell.media && (root.selecting || mouse.button === Qt.RightButton)) {
+                preventStealing: true
+                // click / hold (300 ms, then drag to select more) / quick drag
+                // to scroll — same as the gallery's tiles
+                property int _mode: 0          // 0 idle, 1 undecided, 2 scrolling, 3 selecting
+                property bool _wasDrag: false
+                property real _sx: 0
+                property real _sy: 0
+                property real _startY: 0
+                property real _lastY: 0
+                property real _lastT: 0
+                property real _vy: 0
+                Timer {
+                    id: holdTimer
+                    interval: 300
+                    onTriggered: {
+                        if (hover._mode !== 1 || !root.selectable || !cell.media) return
+                        hover._mode = 3
                         root.selecting = true
+                        if (!root.selected[cell.media.id]) root.toggleSelected(cell.media.id)
+                    }
+                }
+                function _end() { holdTimer.stop(); _wasDrag = _mode >= 2; _mode = 0 }
+                onPressed: (mouse) => {
+                    _wasDrag = false
+                    if (mouse.button !== Qt.LeftButton) return
+                    var p = mapToItem(null, mouse.x, mouse.y)
+                    _sx = p.x; _sy = p.y; _lastY = p.y; _lastT = Date.now(); _vy = 0
+                    _mode = 1
+                    if (root.scroller) { root.scroller.cancelFlick(); _startY = root.scroller.contentY }
+                    holdTimer.restart()
+                }
+                onPositionChanged: (mouse) => {
+                    if (!pressed || _mode === 0) return
+                    var p = mapToItem(null, mouse.x, mouse.y)
+                    if (_mode === 1 && Math.abs(p.x - _sx) + Math.abs(p.y - _sy) > 12) { holdTimer.stop(); _mode = 2 }
+                    if (_mode === 2 && root.scroller) {
+                        var f = root.scroller
+                        var maxY = Math.max(f.originY, f.originY + f.contentHeight - f.height)
+                        f.contentY = Math.max(f.originY, Math.min(maxY, _startY - (p.y - _sy)))
+                        var now = Date.now(), dt = now - _lastT
+                        if (dt > 0) _vy = 0.7 * ((p.y - _lastY) / dt * 1000) + 0.3 * _vy
+                        _lastY = p.y; _lastT = now
+                    } else if (_mode === 3) {
+                        root._selectAtScene(p.x, p.y)
+                    }
+                }
+                onReleased: {
+                    if (_mode === 2 && root.scroller && Math.abs(_vy) > 150 && Date.now() - _lastT < 90)
+                        root.scroller.flick(0, _vy)
+                    _end()
+                }
+                onCanceled: _end()
+                onClicked: (mouse) => {
+                    if (_wasDrag || !cell.media) return
+                    if (root.selecting && root.selectable) {
                         root.toggleSelected(cell.media.id)
-                    } else if (mouse.button === Qt.LeftButton) {
+                    } else if (mouse.button === Qt.RightButton) {
+                        menuLoader.active = true
+                        menuLoader.item.popup()
+                    } else {
                         root.openItem(cell.index)
                     }
+                }
+            }
+            Loader {
+                id: menuLoader
+                active: false
+                sourceComponent: MediaMenu {
+                    media: cell.media
+                    onSelectRequested: if (root.selectable && cell.media) {
+                        root.selecting = true
+                        if (!root.selected[cell.media.id]) root.toggleSelected(cell.media.id)
+                    }
+                    onChanged: root.mediaChanged()
                 }
             }
         }
