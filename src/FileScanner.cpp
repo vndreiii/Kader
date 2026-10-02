@@ -3,19 +3,12 @@
 #include "MediaRepository.h"
 #include "ThumbnailGenerator.h"
 #include <exiv2/exiv2.hpp>
-#include <fcntl.h>
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <sys/stat.h>
 #include <sys/resource.h>
-#include <dirent.h>
-#include <string.h>
 #include <algorithm>
 #include <thread>
-#include <mutex>
-#include <queue>
-#include <condition_variable>
-#include <chrono>
 #include <QtConcurrent>
 #include <QFileInfo>
 #include <QDir>
@@ -27,6 +20,9 @@
 #include <QProcess>
 #include <QSize>
 #include <QDebug>
+#include <QElapsedTimer>
+#include <QTimeZone>
+#include "kader_core.h"
 #include <vips/vips8>
 
 namespace {
@@ -95,52 +91,6 @@ void deprioritiseCurrentThread() {
 }
 
 } // namespace
-
-struct linux_dirent64 {
-    unsigned long long d_ino;
-    long long          d_off;
-    unsigned short     d_reclen;
-    unsigned char      d_type;
-    char               d_name[];
-};
-
-class InternalWorkQueue {
-    std::queue<std::string> queue;
-    std::mutex mutex;
-    std::condition_variable cv;
-    std::atomic<int> active_workers{0};
-    bool stop = false;
-
-public:
-    void push(std::string path) {
-        {
-            std::lock_guard<std::mutex> lock(mutex);
-            queue.push(std::move(path));
-        }
-        cv.notify_one();
-    }
-
-    bool pop(std::string& path) {
-        std::unique_lock<std::mutex> lock(mutex);
-        cv.wait(lock, [this] { return !queue.empty() || stop; });
-        if (stop && queue.empty()) return false;
-        path = std::move(queue.front());
-        queue.pop();
-        active_workers++;
-        return true;
-    }
-
-    void worker_done() {
-        active_workers--;
-        if (active_workers == 0 && queue.empty()) {
-            {
-                std::lock_guard<std::mutex> lock(mutex);
-                stop = true;
-            }
-            cv.notify_all();
-        }
-    }
-};
 
 FileScanner::FileScanner(DatabaseManager *db, QObject *parent) : QObject(parent), m_db(db) {
     // Exiv2 prints a warning to stderr for every slightly non-standard file
@@ -225,13 +175,81 @@ void FileScanner::startScan(const QString &rootPath) {
     });
 }
 
-void FileScanner::runScan(const std::string &rootPath, const std::vector<std::string> &exclusions) {
-    auto start = std::chrono::high_resolution_clock::now();
+namespace {
 
-    // This body also does the per-file EXIF/ffprobe pass, which is the most
-    // CPU-hungry part of a scan. It runs on a shared QtConcurrent pool thread,
-    // so restore the original priority on the way out rather than leaving the
-    // thread niced for whatever task the pool hands it next.
+// GPS from Exiv2 (fallback path for formats the Rust probe doesn't read).
+bool exivGps(const Exiv2::ExifData &exif, double &lat, double &lon) {
+    auto itLat    = exif.findKey(Exiv2::ExifKey("Exif.GPSInfo.GPSLatitude"));
+    auto itLatRef = exif.findKey(Exiv2::ExifKey("Exif.GPSInfo.GPSLatitudeRef"));
+    auto itLon    = exif.findKey(Exiv2::ExifKey("Exif.GPSInfo.GPSLongitude"));
+    auto itLonRef = exif.findKey(Exiv2::ExifKey("Exif.GPSInfo.GPSLongitudeRef"));
+    if (itLat == exif.end() || itLon == exif.end()) return false;
+    auto toDeg = [](const Exiv2::Value &v) {
+        double out = 0, div = 1;
+        for (int i = 0; i < 3 && i < static_cast<int>(v.count()); ++i, div *= 60) {
+            const auto r = v.toRational(i);
+            if (r.second != 0) out += static_cast<double>(r.first) / r.second / div;
+        }
+        return out;
+    };
+    lat = toDeg(itLat->value());
+    lon = toDeg(itLon->value());
+    if (itLatRef != exif.end() && itLatRef->toString() == "S") lat = -lat;
+    if (itLonRef != exif.end() && itLonRef->toString() == "W") lon = -lon;
+    return true;
+}
+
+// Slow path for files the Rust probe could not fully read (CR3, exotic RAW,
+// MKV/AVI…): Exiv2 for EXIF, libvips for pixel size, ffprobe for video.
+void fillWithFallbacks(MediaEntry &entry) {
+    if (entry.mimeType.startsWith(QLatin1String("image/"))) {
+        try {
+            auto image = Exiv2::ImageFactory::open(entry.filePath.toStdString());
+            image->readMetadata();
+            const Exiv2::ExifData &exif = image->exifData();
+            if (!entry.creationDate.isValid() || entry.creationDate == entry.modifiedDate) {
+                for (const char *key : {"Exif.Photo.DateTimeOriginal", "Exif.Image.DateTime"}) {
+                    auto it = exif.findKey(Exiv2::ExifKey(key));
+                    if (it != exif.end()) {
+                        QDateTime dt = QDateTime::fromString(QString::fromStdString(it->toString()),
+                                                             QStringLiteral("yyyy:MM:dd HH:mm:ss"));
+                        if (dt.isValid()) { entry.creationDate = dt; break; }
+                    }
+                }
+            }
+            if (entry.latitude == 0.0 && entry.longitude == 0.0)
+                exivGps(exif, entry.latitude, entry.longitude);
+            if (entry.width <= 0 || entry.height <= 0) {
+                auto itW = exif.findKey(Exiv2::ExifKey("Exif.Photo.PixelXDimension"));
+                auto itH = exif.findKey(Exiv2::ExifKey("Exif.Photo.PixelYDimension"));
+                if (itW != exif.end()) entry.width  = static_cast<int>(exivInt(itW->value()));
+                if (itH != exif.end()) entry.height = static_cast<int>(exivInt(itH->value()));
+            }
+        } catch (...) {}
+        if (entry.width <= 0 || entry.height <= 0) {
+            const QSize sz = probeImageDimensions(entry.filePath);
+            if (sz.isValid()) { entry.width = sz.width(); entry.height = sz.height(); }
+        }
+    } else if (entry.mimeType.startsWith(QLatin1String("video/"))) {
+        int vw = 0, vh = 0;
+        double dur = 0.0;
+        if (probeVideo(entry.filePath, vw, vh, dur)) {
+            entry.width = vw; entry.height = vh; entry.duration = dur;
+        }
+    }
+}
+
+struct ProgressCtx { FileScanner *scanner; };
+
+} // namespace
+
+void FileScanner::runScan(const std::string &rootPath, const std::vector<std::string> &exclusions) {
+    QElapsedTimer clock;
+    clock.start();
+
+    // This body also runs the metadata pass. It runs on a shared QtConcurrent
+    // pool thread, so restore the original priority on the way out rather
+    // than leaving the thread niced for whatever task the pool hands it next.
     const int callerPriority = getpriority(PRIO_PROCESS, static_cast<id_t>(syscall(SYS_gettid)));
     deprioritiseCurrentThread();
     struct PriorityRestore {
@@ -239,198 +257,104 @@ void FileScanner::runScan(const std::string &rootPath, const std::vector<std::st
         ~PriorityRestore() { setpriority(PRIO_PROCESS, static_cast<id_t>(syscall(SYS_gettid)), priority); }
     } restorePriority{callerPriority};
 
-    InternalWorkQueue wq;
-    wq.push(rootPath);
+    const int threads = std::max(1, m_maxThreads.load() > 0 ? m_maxThreads.load()
+                                                          : int(std::thread::hardware_concurrency()));
 
-    std::atomic<size_t> dirsScanned{0};
-    std::mutex pathsMutex;
-    struct FoundFileInfo {
-        QString path;
-        qint64 size;
-    };
-    QList<FoundFileInfo> foundFiles;
-    
-    int numThreads = m_maxThreads.load();
-    if (numThreads <= 0)
-        numThreads = std::thread::hardware_concurrency();
-    numThreads = std::max(1, numThreads);
-    std::vector<std::thread> workers;
+    // 1. Parallel walk (Rust): every media file with its size and mtime.
+    std::vector<const char *> exts, excl;
+    for (const std::string &e : m_mediaExtensions) exts.push_back(e.c_str());
+    for (const std::string &e : exclusions) excl.push_back(e.c_str());
+    ProgressCtx ctx{this};
+    KsScan *scan = ks_scan_dir(rootPath.c_str(), exts.data(), exts.size(), excl.data(), excl.size(),
+                               uint32_t(threads),
+                               [](void *user, size_t found) {
+                                   emit static_cast<ProgressCtx *>(user)->scanner->scanProgress(int(found));
+                               },
+                               &ctx);
+    const size_t found = ks_scan_count(scan);
+    const size_t dirs = ks_scan_dirs(scan);
+    qDebug() << "Scan found" << found << "candidate files in" << dirs << "directories in"
+             << clock.elapsed() << "ms";
 
-    for (int i = 0; i < numThreads; ++i) {
-        workers.emplace_back([this, &wq, &dirsScanned, &pathsMutex, &foundFiles, &exclusions]() {
-            deprioritiseCurrentThread();
-            std::string path;
-            while (wq.pop(path)) {
-                int fd = open(path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
-                if (fd != -1) {
-                    dirsScanned++;
-                    char buf[32768];
-                    while (true) {
-                        long nread = syscall(SYS_getdents64, fd, buf, sizeof(buf));
-                        if (nread <= 0) break;
+    // 2. One query for everything the index already has under this root.
+    const QString root = QString::fromStdString(rootPath);
+    const QHash<QString, qint64> known = m_db->indexSnapshot(root);
 
-                        for (long bpos = 0; bpos < nread; ) {
-                            struct linux_dirent64 *d = (struct linux_dirent64 *) (buf + bpos);
-                            if (strcmp(d->d_name, ".") != 0 && strcmp(d->d_name, "..") != 0) {
-                                std::string fullPath = path;
-                                if (fullPath.back() != '/') fullPath += "/";
-                                fullPath += d->d_name;
-
-                                bool isDir = (d->d_type == DT_DIR);
-                                bool isReg = (d->d_type == DT_REG);
-
-                                if (d->d_type == DT_UNKNOWN) {
-                                    struct stat st;
-                                    if (stat(fullPath.c_str(), &st) == 0) {
-                                        isDir = S_ISDIR(st.st_mode);
-                                        isReg = S_ISREG(st.st_mode);
-                                    }
-                                }
-
-                                if (isDir) {
-                                    bool excluded = false;
-                                    for (const auto &pat : exclusions)
-                                        if (!pat.empty() && fullPath.find(pat) != std::string::npos) { excluded = true; break; }
-                                    if (excluded) { bpos += d->d_reclen; continue; }
-                                    wq.push(fullPath);
-                                } else if (isReg) {
-                                    const char* dot = strrchr(d->d_name, '.');
-                                    if (dot) {
-                                        std::string ext = dot;
-                                        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-                                        if (m_mediaExtensions.count(ext)) {
-                                            struct stat st;
-                                            if (stat(fullPath.c_str(), &st) == 0) {
-                                                int newCount;
-                                                {
-                                                    std::lock_guard<std::mutex> lock(pathsMutex);
-                                                    foundFiles.append({QString::fromStdString(fullPath), (qint64)st.st_size});
-                                                    newCount = foundFiles.size();
-                                                }
-                                                if (newCount % 50 == 0) {
-                                                    emit scanProgress(newCount);
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            bpos += d->d_reclen;
-                        }
-                    }
-                    close(fd);
-                }
-                wq.worker_done();
-            }
-        });
+    struct Pending { QByteArray path; qint64 size; qint64 mtime; };
+    std::vector<Pending> pending;
+    pending.reserve(found / 8 + 16);
+    for (size_t i = 0; i < found; ++i) {
+        const uint8_t *p = nullptr; size_t len = 0; uint64_t size = 0; int64_t mtime = 0;
+        if (!ks_scan_entry(scan, i, &p, &len, &size, &mtime)) continue;
+        const QByteArray path(reinterpret_cast<const char *>(p), qsizetype(len));
+        const auto it = known.constFind(QFile::decodeName(path));
+        if (it != known.cend() && it.value() == qint64(size)) continue; // unchanged and complete
+        pending.push_back({path, qint64(size), mtime});
     }
+    ks_scan_free(scan);
 
-    for (auto& t : workers) t.join();
-
-    qDebug() << "Scan found" << foundFiles.size() << "candidate files in" << dirsScanned.load() << "directories";
-
-    QStringList finalPaths;
+    // 3. Metadata for new/changed files: Rust probes in parallel batches,
+    //    falling back to Exiv2/libvips/ffprobe only where needed.
     QMimeDatabase mimeDb;
     QVector<MediaEntry> newEntries;
-
-    auto parseGPS = [](const Exiv2::ExifData &exif,
-                       const char *latKey, const char *latRefKey,
-                       const char *lonKey, const char *lonRefKey,
-                       double &lat, double &lon) {
-        auto itLat    = exif.findKey(Exiv2::ExifKey(latKey));
-        auto itLatRef = exif.findKey(Exiv2::ExifKey(latRefKey));
-        auto itLon    = exif.findKey(Exiv2::ExifKey(lonKey));
-        auto itLonRef = exif.findKey(Exiv2::ExifKey(lonRefKey));
-        if (itLat == exif.end() || itLon == exif.end()) return false;
-
-        auto toDeg = [](const Exiv2::Value &v) {
-            double d = static_cast<double>(v.toRational(0).first) / v.toRational(0).second;
-            double m = static_cast<double>(v.toRational(1).first) / v.toRational(1).second;
-            double s = static_cast<double>(v.toRational(2).first) / v.toRational(2).second;
-            return d + m / 60.0 + s / 3600.0;
-        };
-
-        lat = toDeg(itLat->value());
-        lon = toDeg(itLon->value());
-        if (itLatRef != exif.end() && itLatRef->toString() == "S") lat = -lat;
-        if (itLonRef != exif.end() && itLonRef->toString() == "W") lon = -lon;
-        return true;
-    };
-
-    // Collect entries that need updating; parse EXIF here before the batch write.
-    for (const auto& info : foundFiles) {
-        finalPaths.append(info.path);
-        if (!m_db->needsUpdate(info.path, info.size)) continue;
-
-        QFileInfo fi(info.path);
-        MediaEntry entry;
-        entry.filePath   = info.path;
-        entry.folderPath = fi.absolutePath();
-        entry.fileSize   = info.size;
-        entry.mimeType     = mimeDb.mimeTypeForFile(fi).name();
-        entry.modifiedDate = fi.lastModified();
-        entry.creationDate = fi.lastModified(); // overridden below by EXIF if available
-
-        if (entry.mimeType.startsWith("image/")) {
-            try {
-                auto image = Exiv2::ImageFactory::open(info.path.toStdString());
-                image->readMetadata();
-                const Exiv2::ExifData &exif = image->exifData();
-
-                for (const char *key : {"Exif.Photo.DateTimeOriginal", "Exif.Image.DateTime"}) {
-                    auto it = exif.findKey(Exiv2::ExifKey(key));
-                    if (it != exif.end()) {
-                        QDateTime dt = QDateTime::fromString(
-                            QString::fromStdString(it->toString()), "yyyy:MM:dd HH:mm:ss");
-                        if (dt.isValid()) { entry.creationDate = dt; break; }
-                    }
-                }
-
-                parseGPS(exif,
-                         "Exif.GPSInfo.GPSLatitude",    "Exif.GPSInfo.GPSLatitudeRef",
-                         "Exif.GPSInfo.GPSLongitude",   "Exif.GPSInfo.GPSLongitudeRef",
-                         entry.latitude, entry.longitude);
-
-                auto itW = exif.findKey(Exiv2::ExifKey("Exif.Photo.PixelXDimension"));
-                auto itH = exif.findKey(Exiv2::ExifKey("Exif.Photo.PixelYDimension"));
-                if (itW != exif.end()) entry.width  = static_cast<int>(exivInt(itW->value()));
-                if (itH != exif.end()) entry.height = static_cast<int>(exivInt(itH->value()));
-
-            } catch (...) {}
-
-            // Fallback for images without EXIF dimensions (PNG, screenshots,
-            // stripped JPEGs, RAW): read the real size from the decoder header.
-            if (entry.width <= 0 || entry.height <= 0) {
-                QSize sz = probeImageDimensions(info.path);
-                if (sz.isValid()) {
-                    entry.width  = sz.width();
-                    entry.height = sz.height();
-                }
-            }
-        } else if (entry.mimeType.startsWith("video/")) {
-            int vw = 0, vh = 0;
-            double dur = 0.0;
-            if (probeVideo(info.path, vw, vh, dur)) {
-                entry.width    = vw;
-                entry.height   = vh;
-                entry.duration = dur;
-            }
+    newEntries.reserve(int(pending.size()));
+    constexpr size_t kBatch = 512;
+    int fallbacks = 0;
+    for (size_t base = 0; base < pending.size(); base += kBatch) {
+        const size_t n = std::min(kBatch, pending.size() - base);
+        std::vector<const uint8_t *> ptrs(n);
+        std::vector<size_t> lens(n);
+        for (size_t i = 0; i < n; ++i) {
+            ptrs[i] = reinterpret_cast<const uint8_t *>(pending[base + i].path.constData());
+            lens[i] = size_t(pending[base + i].path.size());
         }
+        std::vector<KsMeta> metas(n);
+        ks_probe_batch(ptrs.data(), lens.data(), n, uint32_t(threads), metas.data());
 
-        newEntries.append(entry);
+        for (size_t i = 0; i < n; ++i) {
+            const Pending &f = pending[base + i];
+            const KsMeta &m = metas[i];
+            MediaEntry entry;
+            entry.filePath = QFile::decodeName(f.path);
+            const int slash = entry.filePath.lastIndexOf(QLatin1Char('/'));
+            entry.folderPath = slash > 0 ? entry.filePath.left(slash) : QStringLiteral("/");
+            entry.fileSize = f.size;
+            // by extension only: never sniff file contents here
+            entry.mimeType = mimeDb.mimeTypeForFile(entry.filePath, QMimeDatabase::MatchExtension).name();
+            entry.modifiedDate = QDateTime::fromSecsSinceEpoch(f.mtime);
+            entry.creationDate = entry.modifiedDate;
+            if (m.flags & KS_DATE) {
+                const QDate d(m.year, m.month, m.day);
+                const QTime t(m.hour, m.minute, m.second);
+                const QDateTime dt = (m.flags & KS_DATE_UTC) ? QDateTime(d, t, QTimeZone::UTC).toLocalTime()
+                                                             : QDateTime(d, t);
+                if (dt.isValid()) entry.creationDate = dt;
+            }
+            if (m.flags & KS_SIZE) { entry.width = int(m.width); entry.height = int(m.height); }
+            if (m.flags & KS_GPS) { entry.latitude = m.lat; entry.longitude = m.lon; }
+            if (m.flags & KS_DURATION) entry.duration = m.duration;
+
+            const bool isVideo = entry.mimeType.startsWith(QLatin1String("video/"));
+            const bool complete = (m.flags & KS_KNOWN) && (m.flags & KS_SIZE) && (!isVideo || (m.flags & KS_DURATION));
+            if (!complete) {
+                fillWithFallbacks(entry);
+                ++fallbacks;
+            }
+            newEntries.append(std::move(entry));
+        }
+        emit scanProgress(int(found));
     }
 
-    // One transaction for all new/updated rows — crash-safe via WAL.
+    // 4. One transaction for all new/updated rows — crash-safe via WAL.
     if (!newEntries.isEmpty())
         m_db->addOrUpdateMediaBatch(newEntries);
+    m_db->updateDirectoryStats(root, int(found));
 
-    m_db->updateDirectoryStats(QString::fromStdString(rootPath), finalPaths.size());
-
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> diff = end - start;
+    qDebug() << "Scan of" << root << ":" << newEntries.size() << "new/changed," << fallbacks
+             << "needed fallbacks," << clock.elapsed() << "ms total";
 
     // Emit first so the UI refreshes immediately with the new items.
-    emit scanFinished((int)finalPaths.size(), (int)dirsScanned.load(), diff.count(), QString::fromStdString(rootPath));
+    emit scanFinished(int(found), int(dirs), clock.elapsed() / 1000.0, root);
 
     // Pre-generate thumbnails after the UI has already updated.
     // Runs in a separate detached task so it never blocks the main thread.

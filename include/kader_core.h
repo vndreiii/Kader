@@ -104,6 +104,47 @@ double kg_globe_project(KgGlobe *g, double lat, double lon, double *x, double *y
 bool kg_globe_unproject(KgGlobe *g, double x, double y, double *lat, double *lon);
 bool kg_globe_build(KgGlobe *g, const KgWorld *world, double dt, KgFrame *out);
 
+// ── Library scanning (src/scan, src/scan_ffi.rs) ───────────────────────────
+
+typedef struct KsScan KsScan;
+typedef void (*ks_progress_fn)(void *user, size_t found);
+
+typedef struct KsMeta {
+    uint32_t width, height;  // display size (EXIF orientation applied)
+    uint16_t orientation;
+    uint8_t flags;           // KS_* below
+    uint8_t _pad0;
+    uint16_t year;
+    uint8_t month, day, hour, minute, second, _pad1;
+    double lat, lon, duration;
+} KsMeta;
+
+enum {
+    KS_KNOWN = 1,      // format recognised and parsed
+    KS_SIZE = 2,
+    KS_DATE = 4,
+    KS_DATE_UTC = 8,   // date is UTC (video container); otherwise local time
+    KS_GPS = 16,
+    KS_VIDEO = 32,
+    KS_DURATION = 64,
+};
+
+// Parallel walk of `root` (threads 0 = all cores) for files whose lower-case
+// extension (".jpg") is in `exts`, skipping directories whose path contains
+// any of `exclusions`. `progress` is called from worker threads.
+KsScan *ks_scan_dir(const char *root, const char *const *exts, size_t n_exts,
+                    const char *const *exclusions, size_t n_exclusions, uint32_t threads,
+                    ks_progress_fn progress, void *user);
+size_t ks_scan_count(const KsScan *scan);
+size_t ks_scan_dirs(const KsScan *scan);
+bool ks_scan_entry(const KsScan *scan, size_t i, const uint8_t **path, size_t *path_len,
+                   uint64_t *size, int64_t *mtime);
+void ks_scan_free(KsScan *scan);
+
+// Header-only metadata of `n` files, probed in parallel into out[n].
+void ks_probe_batch(const uint8_t *const *paths, const size_t *lens, size_t n, uint32_t threads,
+                    KsMeta *out);
+
 #ifdef __cplusplus
 }
 #endif

@@ -8,6 +8,7 @@
 #include <QString>
 #include <QDateTime>
 #include <memory>
+#include <QHash>
 #include "MediaRepository.h"
 #include "AlbumRepository.h"
 
@@ -87,6 +88,12 @@ public:
 
     // Returns true if the file needs (re-)indexing: new, size changed, or missing EXIF.
     bool needsUpdate(const QString &filePath, qint64 size);
+
+    // What the index already knows about every file under `rootPath`, in one
+    // query (the scanner used to issue one query per file). Value: file size,
+    // or -1 when the row is incomplete (no date or no dimensions) and must be
+    // re-read. Safe to call from any thread.
+    QHash<QString, qint64> indexSnapshot(const QString &rootPath);
 
     // Encrypted thumbnail blob storage
     QByteArray getThumbnailBlob(const QString &filePath, int size); // non-const: calls checkConnection()

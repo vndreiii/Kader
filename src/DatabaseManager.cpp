@@ -368,6 +368,31 @@ bool DatabaseManager::needsUpdate(const QString &filePath, qint64 size) {
     return true; // Not in DB yet — insert it.
 }
 
+QHash<QString, qint64> DatabaseManager::indexSnapshot(const QString &rootPath) {
+    QSqlDatabase db = openThreadDb(m_dbPath);
+    QSqlQuery q(db);
+    q.setForwardOnly(true);
+    QString prefix = rootPath;
+    if (!prefix.endsWith(QLatin1Char('/')))
+        prefix += QLatin1Char('/');
+    // Range scan on the UNIQUE(file_path) index instead of LIKE (which can't
+    // use it): every path starting with "prefix" sorts in [prefix, prefix+U+FFFF).
+    q.prepare(QStringLiteral("SELECT file_path, file_size, creation_date, width, height FROM media "
+                             "WHERE file_path >= ? AND file_path < ?"));
+    q.addBindValue(prefix);
+    q.addBindValue(prefix + QChar(0xFFFF));
+    QHash<QString, qint64> out;
+    if (!q.exec()) {
+        qWarning() << "indexSnapshot failed:" << q.lastError().text();
+        return out;
+    }
+    while (q.next()) {
+        const bool complete = q.value(2).toLongLong() != 0 && q.value(3).toInt() != 0 && q.value(4).toInt() != 0;
+        out.insert(q.value(0).toString(), complete ? q.value(1).toLongLong() : -1);
+    }
+    return out;
+}
+
 QVariantList DatabaseManager::getAlbums(bool hideIgnored) {
     checkConnection();
 
