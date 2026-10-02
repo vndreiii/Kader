@@ -14,6 +14,12 @@ Item {
     implicitWidth: 120
     implicitHeight: Math.max(lbl.implicitHeight, 30)
 
+    // Esc (window-wide "back"): cancel an edit in progress
+    function handleBack() {
+        if (!root.editing) return false
+        root.editing = false
+        return true
+    }
     function startEdit() {
         field.text = root.name
         root.editing = true

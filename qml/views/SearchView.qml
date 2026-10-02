@@ -50,10 +50,23 @@ Item {
         }
     }
 
+    // Esc (window-wide "back"): the open sub-page's own step, then back to
+    // the Search home, then clear the search
+    function handleBack() {
+        var cur = stack.currentItem
+        if (cur && typeof cur.handleBack === "function" && cur.handleBack()) return true
+        if (stack.depth > 1) { stack.pop(); return true }
+        if (query.length > 0) { root.boxText(""); runSearch("", false); return true }
+        return false
+    }
+    // The box lives in the home page's Component, out of reach by id:
+    // these tell it what to show / to take focus.
+    signal boxText(string text)
+    signal focusBox()
     function setQuery(q) {
-        searchBox.text = q
+        root.boxText(q)
         runSearch(q, true)
-        searchBox.forceActiveFocus()
+        root.focusBox()
     }
     function runSearch(q, withAi) {
         query = q.trim()
@@ -163,6 +176,12 @@ Item {
                             placeholderTextColor: ThemeManager.onSurfaceVariant
                             onTextEdited: root.runSearch(text, false)
                             onAccepted: root.runSearch(text, true)
+                            Component.onCompleted: text = root.query
+                            Connections {
+                                target: root
+                                function onBoxText(t) { searchBox.text = t }
+                                function onFocusBox() { searchBox.forceActiveFocus() }
+                            }
                         }
                         // visual-search state
                         Rectangle {

@@ -378,6 +378,10 @@ var _s = {
     },
     "en": {
         "timeline": "Gallery", "albums": "Albums", "videos": "Videos",
+        "view_options": "View", "layout_title": "Layout", "density_title": "Size",
+        "layout_mosaic": "Mosaic", "layout_grid": "Grid", "layout_list": "List",
+        "suggest_person": "Person", "suggest_place": "Place", "suggest_album": "Album",
+        "suggest_color": "Colour", "suggest_month": "Month", "suggest_year": "Year",
         "photo_one": "photo", "photo_many": "photos", "places_lower": "places",
         "globe_zoom_in": "Zoom in", "globe_zoom_out": "Zoom out", "globe_reset": "Show whole globe",
         "panel_expand": "Show list", "panel_collapse": "Collapse list", "places_filter": "Filter places",

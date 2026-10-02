@@ -44,7 +44,13 @@ Item {
     }
     function selectedIds() { return Object.keys(_selSet).map(Number) }
 
-    Keys.onEscapePressed: if (selectionMode) clearSelection()
+    // Esc (window-wide "back"): leave selection mode
+    function handleBack() {
+        if (!selectionMode) return false
+        clearSelection()
+        return true
+    }
+    Keys.onEscapePressed: handleBack()
 
     // Push content width to TimelineModel for aspect-ratio row packing.
     // Debounced so window-resize doesn't hammer the model.
@@ -243,6 +249,7 @@ Item {
                             Tile {
                                 width:  modelData ? (modelData.item_width  || Math.round(rowItem._rowH * 1.33)) : Math.round(rowItem._rowH * 1.33)
                                 height: rowItem._rowH
+                                listMode: TimelineModel.layoutMode === 2
                                 tileData: modelData
                                 selectable: root.selectionMode
                                 selected: modelData ? root.isSelected(modelData.id) : false

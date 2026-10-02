@@ -113,6 +113,10 @@ public:
     // {chips: [{kind,label,key}], media: [...], residual: "words no
     // structured filter matched" (for semantic search)}
     Q_INVOKABLE QVariantMap search(const QString &query);
+    // Autocomplete for the search boxes: completes the word being typed with
+    // people, places, albums, colours, months and years in the library.
+    // [{kind, label, text (the whole completed query), face?}]
+    Q_INVOKABLE QVariantList suggest(const QString &query, int limit = 8);
     Q_INVOKABLE QVariantList mediaByIds(const QVariantList &ids);
     Q_INVOKABLE QVariantList mediaForKey(const QString &key);
 

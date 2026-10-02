@@ -57,6 +57,14 @@ void TimelineModel::setNumColumns(int n) {
     }
 }
 
+void TimelineModel::setLayoutMode(int mode) {
+    mode = qBound(0, mode, 2);
+    if (mode == m_layoutMode) return;
+    m_layoutMode = mode;
+    emit layoutModeChanged();
+    repack();   // geometry only — the item set is unchanged
+}
+
 void TimelineModel::setFolderFilter(const QString &folder) {
     if (m_folderFilter != folder) {
         m_folderFilter = folder;
@@ -372,8 +380,30 @@ void TimelineModel::repack() {
     QVariantList rowBuf;       // items being packed into the current row
     float        rowArSum = 0; // sum of aspect-ratios in rowBuf (for width calc)
 
+    // Grid: square cells, about numColumns across at 1200 px.
+    // List: one item per row; density sets the row height.
+    const int   gridCols = qMax(2, qRound(m_numColumns * cw / 1200.0f));
+    const float gridSize = (cw - gap * (gridCols - 1)) / gridCols;
+    const float listH    = (m_numColumns >= 6) ? 52.0f : (m_numColumns == 5) ? 64.0f
+                         : (m_numColumns == 4) ? 80.0f : 96.0f;
+
     auto flushRow = [&](bool isLastRow) {
         if (rowBuf.isEmpty()) return;
+        if (m_layoutMode != 0) {
+            const float h = (m_layoutMode == 1) ? gridSize : listH;
+            const float w = (m_layoutMode == 1) ? gridSize : cw;
+            QVariantList rowItems;
+            for (const QVariant &v : rowBuf) {
+                QVariantMap m = v.toMap();
+                m["item_height"] = qRound(h);
+                m["item_width"]  = qRound(w);
+                rowItems.append(m);
+            }
+            m_rows.append({false, {}, rowItems, h});
+            rowBuf.clear();
+            rowArSum = 0;
+            return;
+        }
         int  n = rowBuf.size();
         float gaps = gap * (n - 1);
         float h = (cw - gaps) / qMax(0.01f, rowArSum);
@@ -442,9 +472,15 @@ void TimelineModel::repack() {
         map["thumb"]       = ThumbnailGenerator::thumbnailUrl(fp);
         map["path"]        = QUrl::fromLocalFile(fp).toString();
         map["_flat_index"] = flatIdx++;
+        map["type_label"]  = typeLabel(map.value("mime_type").toString());
         const float itemAr = aspectRatio(map, flatIdx - 1);
         rowBuf.append(map);
         rowArSum += itemAr;
+        if (m_layoutMode == 1) {
+            if (rowBuf.size() >= gridCols) flushRow(false);
+            continue;
+        }
+        if (m_layoutMode == 2) { flushRow(false); continue; }
         // Flush when projected row width reaches content width
         float projectedWidth = rowArSum * target + gap * (rowBuf.size() - 1);
         if (projectedWidth >= cw)

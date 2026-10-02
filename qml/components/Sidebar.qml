@@ -42,7 +42,8 @@ Rectangle {
         color: ThemeManager.secondaryContainer
         z: 0
 
-        Behavior on width { NumberAnimation { duration: ThemeManager.durMed; easing.type: Easing.OutQuint } }
+        // No width animation of its own: the sidebar's width already
+        // animates, and a second one made the pill trail behind it.
 
         // Animate y with a snappy bounce curve
         Behavior on y {

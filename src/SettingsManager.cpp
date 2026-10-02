@@ -72,6 +72,18 @@ void SettingsManager::setMosaicDensity(int d) {
     }
 }
 
+int SettingsManager::galleryLayout() const {
+    return qBound(0, m_data.value("galleryLayout").toInt(0), 2);
+}
+void SettingsManager::setGalleryLayout(int l) {
+    l = qBound(0, l, 2);
+    if (galleryLayout() != l) {
+        m_data["galleryLayout"] = l;
+        save();
+        emit galleryLayoutChanged();
+    }
+}
+
 int SettingsManager::rawFilter() const {
     return m_data.value("rawFilter").toInt(0);
 }

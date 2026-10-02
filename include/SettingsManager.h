@@ -8,6 +8,7 @@ class SettingsManager : public QObject {
     Q_PROPERTY(bool hideIgnoredInTimeline READ hideIgnoredInTimeline WRITE setHideIgnoredInTimeline NOTIFY hideIgnoredInTimelineChanged)
     Q_PROPERTY(bool usePulseAudio READ usePulseAudio WRITE setUsePulseAudio NOTIFY usePulseAudioChanged)
     Q_PROPERTY(int  mosaicDensity READ mosaicDensity WRITE setMosaicDensity NOTIFY mosaicDensityChanged)
+    Q_PROPERTY(int  galleryLayout READ galleryLayout WRITE setGalleryLayout NOTIFY galleryLayoutChanged)
     Q_PROPERTY(int  rawFilter READ rawFilter WRITE setRawFilter NOTIFY rawFilterChanged)
     Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY languageChanged)
     Q_PROPERTY(bool parallelThumbnails READ parallelThumbnails WRITE setParallelThumbnails NOTIFY parallelThumbnailsChanged)
@@ -32,6 +33,8 @@ public:
     void setUsePulseAudio(bool use);
 
     int  mosaicDensity() const;
+    int  galleryLayout() const;          // 0 mosaic, 1 grid, 2 list
+    void setGalleryLayout(int l);
     void setMosaicDensity(int d);
 
     // 0 = all, 1 = JPEG-only (hide RAW), 2 = RAW-only (hide JPEG)
@@ -87,6 +90,7 @@ signals:
     void hideIgnoredInTimelineChanged();
     void usePulseAudioChanged();
     void mosaicDensityChanged();
+    void galleryLayoutChanged();
     void rawFilterChanged();
     void languageChanged();
     void parallelThumbnailsChanged();

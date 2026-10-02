@@ -14,6 +14,12 @@ Item {
     property var locations: []
     // {lat, lon, count, places:[location…], cluster} of the open place card
     property var activePlace: null
+    // Esc (window-wide "back"): close the place card
+    function handleBack() {
+        if (!activePlace) return false
+        popup.close()
+        return true
+    }
 
     signal openViewer(var data, var items)
 
