@@ -349,6 +349,23 @@ Rectangle {
             }
         }
 
+        // Progressive load: the grid's cached 768px thumbnail stands in while
+        // the full-resolution decode runs, so a photo never opens to black.
+        Image {
+            id: previewImg
+            anchors.fill: parent
+            readonly property bool _needed: !root._isVideo && !root._isGif && mainImg.status !== Image.Ready
+            source: _needed && root.mediaData && root.mediaData.thumb ? root.mediaData.thumb : ""
+            visible: _needed && status === Image.Ready
+            fillMode: Image.PreserveAspectFit
+            asynchronous: true    // usually a pixmap-cache hit from the grid
+            smooth: true
+            transform: [
+                Scale { origin.x: previewImg.width/2; origin.y: previewImg.height/2; xScale: root._zoom; yScale: root._zoom },
+                Translate { x: root._panX; y: root._panY }
+            ]
+        }
+
         // Main / incoming image with zoom + pan
         Image {
             id: mainImg

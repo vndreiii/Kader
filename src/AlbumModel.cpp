@@ -73,6 +73,10 @@ void AlbumModel::refresh(bool hideIgnored) {
     applySort();
     qDebug() << "Album refresh: loaded" << m_data.size() << "albums";
     endResetModel();
+    if (!m_loaded) {
+        m_loaded = true;
+        emit loadedChanged();
+    }
 }
 
 void AlbumModel::setSearchFilter(const QString &query) {

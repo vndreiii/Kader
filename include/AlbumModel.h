@@ -27,6 +27,7 @@ public:
     QHash<int, QByteArray> roleNames() const override;
 
     Q_INVOKABLE void refresh(bool hideIgnored = true);
+    bool loaded() const { return m_loaded; }
 
     QString searchFilter() const { return m_searchFilter; }
     Q_INVOKABLE void setSearchFilter(const QString &query);
@@ -42,13 +43,18 @@ public:
     Q_INVOKABLE void setSortOrder(int order);
     Q_PROPERTY(int sortRole  READ sortRole  WRITE setSortRole  NOTIFY sortRoleChanged)
     Q_PROPERTY(int sortOrder READ sortOrder WRITE setSortOrder NOTIFY sortOrderChanged)
+    // false until the first refresh() — views show a loading skeleton meanwhile
+    Q_PROPERTY(bool loaded READ loaded NOTIFY loadedChanged)
+
 
 signals:
+    void loadedChanged();
     void searchFilterChanged();
     void sortRoleChanged();
     void sortOrderChanged();
 
 private:
+    bool m_loaded = false;
     void applySort();
 
     DatabaseManager *m_db;

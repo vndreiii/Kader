@@ -91,13 +91,23 @@ Item {
                         id: thumbContent
                         anchors.fill: parent
 
+                        Skeleton {
+                            anchors.fill: parent
+                            radius: 0   // the mask rounds it
+                            active: visible
+                            visible: coverImg.status !== Image.Ready
+                        }
+
                         Image {
+                            id: coverImg
                             anchors.fill: parent
                             source: {
                                 var p = model.cover || ""
                                 if (p && p.indexOf("://") === -1) return "file://" + p
                                 return p
                             }
+                            // covers are ~220px cells; never decode a full photo
+                            sourceSize: Qt.size(512, 512)
                             fillMode: Image.PreserveAspectCrop
                             asynchronous: true
                         }

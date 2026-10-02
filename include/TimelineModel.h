@@ -16,6 +16,9 @@ class TimelineModel : public QAbstractListModel {
     Q_PROPERTY(int sortRole  READ sortRole  WRITE setSortRole  NOTIFY sortRoleChanged)
     Q_PROPERTY(int sortOrder READ sortOrder WRITE setSortOrder NOTIFY sortOrderChanged)
     Q_PROPERTY(bool groupingEnabled READ groupingEnabled NOTIFY sortRoleChanged)
+    // false until the first refresh() — views show a loading skeleton meanwhile
+    Q_PROPERTY(bool loaded READ loaded NOTIFY loadedChanged)
+
 
 public:
     enum FilterMode { AllMode = 0, FavoritesMode = 1, TrashMode = 2, HiddenMode = 3 };
@@ -63,6 +66,7 @@ public:
     bool groupingEnabled() const;
 
     Q_INVOKABLE void refresh(bool hideIgnored = true);
+    bool loaded() const { return m_loaded; }
     Q_INVOKABLE QVariantList getFlatMediaList() const;
     Q_INVOKABLE QString monthAtRow(int row) const;
     Q_INVOKABLE void markAsViewed(int mediaId);
@@ -78,6 +82,7 @@ public:
     Q_INVOKABLE QVariantMap rowData(int row) const;
 
 signals:
+    void loadedChanged();
     void layoutChanged();
     void filterModeChanged();
     void numColumnsChanged();
@@ -90,6 +95,7 @@ signals:
     void sortOrderChanged();
 
 private:
+    bool m_loaded = false;
     // Each row is either a month header or a strip of up to numColumns photos.
     struct Row {
         bool         isHeader = false;

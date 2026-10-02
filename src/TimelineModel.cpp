@@ -269,6 +269,10 @@ void TimelineModel::refresh(bool hideIgnored) {
 
     m_media = std::move(allMedia);
     repack();
+    if (!m_loaded) {
+        m_loaded = true;
+        emit loadedChanged();
+    }
 }
 
 // Lay m_media out into rows. Callers that only changed geometry (setContentWidth,

@@ -102,6 +102,11 @@ FileScanner::FileScanner(DatabaseManager *db, QObject *parent) : QObject(parent)
     // Exiv2 prints a warning to stderr for every slightly non-standard file
     // (thousands per library); only real errors are worth surfacing.
     Exiv2::LogMsg::setLevel(Exiv2::LogMsg::error);
+    // scanFinished comes from the worker; count it down on the GUI thread
+    connect(this, &FileScanner::scanFinished, this, [this] {
+        if (m_activeScans > 0 && --m_activeScans == 0)
+            emit scanningChanged();
+    }, Qt::QueuedConnection);
     m_mediaExtensions = {
         // Standard images
         ".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tiff", ".tif", ".heic", ".heif",
@@ -169,6 +174,8 @@ QVariantList FileScanner::listSiblingMedia(const QString &filePath) const {
 
 void FileScanner::startScan(const QString &rootPath) {
     qDebug() << "Start scan requested for:" << rootPath;
+    if (m_activeScans++ == 0)
+        emit scanningChanged();
     emit scanStarted(rootPath);
     // getScanExclusions() is a SQL round-trip and startScan() is called from the
     // GUI thread (startup timer, QML, and the milfs-connect callback), so read
