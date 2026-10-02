@@ -40,6 +40,7 @@ Item {
     function _key(lat, lon) { return lat.toFixed(3) + "," + lon.toFixed(3) }
 
     onPlaceChanged: {
+        if (place && !_closing) { closeAnim.stop(); morph = 0; openAnim.restart() }
         address = ""
         if (!place) return
         var k = _key(place.lat, place.lon)
@@ -75,31 +76,60 @@ Item {
 
     // ── placement ───────────────────────────────────────────────────────────
     readonly property real cardW: 272
-    readonly property real cardH: card.implicitHeight
+    readonly property real cardH: col.implicitHeight + 24
     readonly property bool below: anchorY - anchorGap - cardH < 8
+
+    // ── morph: the pin's squircle grows into the card (and back on close) ──
+    // 0 = the pin (50×50 squircle above the anchor), 1 = the full card
+    property real morph: 0
+    property string pinThumb: ""              // photo shown while morphing
+    readonly property real _e: morph          // eased by the animations
+    readonly property real contentOpacity: Math.max(0, Math.min(1, (morph - 0.55) / 0.45))
+    readonly property rect pinRect: Qt.rect(anchorX - 25, anchorY - 69, 50, 50)
+    readonly property real finalX: Math.max(10, Math.min(width - cardW - 22, anchorX - cardW / 2))
+    readonly property real finalY: below ? Math.min(height - cardH - 10, anchorY + 14)
+                                         : Math.max(22, anchorY - anchorGap - cardH)
+    function lerp(a, b, t) { return a + (b - a) * t }
+    property bool _closing: false
+    // animate back into the pin, then let the owner clear the place
+    function close() {
+        if (!place || _closing) return
+        _closing = true
+        openAnim.stop()
+        closeAnim.restart()
+    }
+    NumberAnimation {
+        id: openAnim
+        target: root; property: "morph"
+        to: 1; duration: 420
+        easing.type: Easing.OutBack; easing.overshoot: 0.9
+    }
+    NumberAnimation {
+        id: closeAnim
+        target: root; property: "morph"
+        to: 0; duration: 260
+        easing.type: Easing.InOutCubic
+        onFinished: { root._closing = false; root.closeRequested() }
+    }
 
     x: 0; y: 0
     width: parent ? parent.width : 0
     height: parent ? parent.height : 0
     visible: opacity > 0.01
     opacity: shown && anchorVisible ? 1 : 0
-    Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+    // fades only when the place turns behind the globe; opening is the morph
+    Behavior on opacity { enabled: root.morph > 0.9; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
 
     // `card` positions everything; `body` is the visible card with a round
     // bite taken out of its top-right corner where the close button sits.
     Item {
         id: card
-        width: root.cardW
-        implicitHeight: col.implicitHeight + 24
-        height: implicitHeight
-        x: Math.max(10, Math.min(root.width - width - 22, root.anchorX - width / 2))
-        y: root.below ? Math.min(root.height - height - 10, root.anchorY + 14)
-                      : Math.max(22, root.anchorY - root.anchorGap - height)
-        scale: root.shown ? 1 : 0.94
-        transformOrigin: root.below ? Item.Top : Item.Bottom
-        Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack } }
+        x: root.lerp(root.pinRect.x, root.finalX, root._e)
+        y: root.lerp(root.pinRect.y, root.finalY, root._e)
+        width: Math.max(1, root.lerp(root.pinRect.width, root.cardW, root._e))
+        height: Math.max(1, root.lerp(root.pinRect.height, root.cardH, root._e))
 
-        readonly property real biteR: 21              // hole radius
+        readonly property real biteR: 21 * root.contentOpacity  // hole radius
         readonly property point biteC: Qt.point(width - 6, 6) // hole / button centre
 
         // shadow around the bitten shape
@@ -132,8 +162,36 @@ Item {
                     id: bg
                     anchors.fill: parent
                     anchors.margins: 12
-                    radius: 18
+                    radius: root.lerp(16, 18, Math.min(1, root.morph))
                     color: Qt.rgba(0.075, 0.085, 0.115, 1)
+                    // the pin's photo fills the growing shape, then gives way
+                    // to the card's content
+                    Rectangle {
+                        id: ghostMask
+                        anchors.fill: parent
+                        radius: bg.radius
+                        visible: false
+                        layer.enabled: true
+                    }
+                    Image {
+                        id: ghostImg
+                        anchors.fill: parent
+                        visible: false
+                        source: root.pinThumb !== "" ? root.pinThumb : (root.thumbs.length > 0 ? root.thumbs[0] : "")
+                        fillMode: Image.PreserveAspectCrop
+                        asynchronous: true
+                        sourceSize.width: 360
+                    }
+                    MultiEffect {
+                        anchors.fill: parent
+                        source: ghostImg
+                        visible: opacity > 0.01 && ghostImg.status === Image.Ready
+                        opacity: 1 - root.contentOpacity
+                        maskEnabled: true
+                        maskSource: ghostMask
+                        maskThresholdMin: 0.5
+                        maskSpreadAtMin: 1.0
+                    }
                     border.color: Qt.rgba(1, 1, 1, 0.14)
                     border.width: 1
                 }
@@ -142,6 +200,7 @@ Item {
                 Rectangle {
                     width: 14; height: 14
                     rotation: 45
+                    opacity: root.contentOpacity
                     color: bg.color
                     x: 12 + Math.max(16, Math.min(card.width - 30, root.anchorX - card.x - 7))
                     y: 12 + (root.below ? -7 : card.height - 7)
@@ -149,8 +208,13 @@ Item {
 
                 Column {
                     id: col
-                    anchors { left: parent.left; right: parent.right; top: parent.top; margins: 24 }
+                    // laid out at the final width so the card's height is known
+                    // while it morphs
+                    x: 24; y: 24
+                    width: root.cardW - 24
                     spacing: 10
+                    opacity: root.contentOpacity
+                    visible: opacity > 0.01
 
                     // Mosaic: one hero + up to two side thumbs
                     Item {
@@ -277,6 +341,8 @@ Item {
         // close button sitting in the bite, half outside the card
         Rectangle {
             width: 30; height: 30; radius: 15
+            opacity: root.contentOpacity
+            visible: opacity > 0.01
             x: card.biteC.x - width / 2
             y: card.biteC.y - height / 2
             color: closeMa.pressed ? Qt.rgba(0.20, 0.22, 0.28, 1)
@@ -292,7 +358,7 @@ Item {
                 anchors.margins: -4
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                onClicked: root.closeRequested()
+                onClicked: root.close()
             }
             ToolTip.visible: closeMa.containsMouse
             ToolTip.delay: 600

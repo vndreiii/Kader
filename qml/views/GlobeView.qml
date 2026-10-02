@@ -71,6 +71,7 @@ Item {
     // closest town is far away; coordinates as a last resort.
     function placeLabel(lat, lon) {
         var info = globe.ready ? globe.placeInfo(lat, lon) : ({})
+        if (!info.name && globe.ready) info = globe.placeInfo(lat, lon, 600)
         if (info.name) return info.km > 25 ? _t("place_near").arg(info.name) : info.name
         return lat.toFixed(4) + "°, " + lon.toFixed(4) + "°"
     }
@@ -86,11 +87,14 @@ Item {
             globe.expandCluster(cluster)
             return
         }
-        activePlace = { lat: info.lat, lon: info.lon, count: info.count, places: members, cluster: cluster }
+        activePlace = { lat: info.lat, lon: info.lon, count: info.count, places: members, cluster: cluster,
+                        // the photo the pin shows, so the morph starts from it
+                        thumb: (info.lead >= 0 && root.locations[info.lead] ? root.locations[info.lead].thumb : "")
+                               || (members.length > 0 ? members[0].thumb : "") }
     }
 
     function selectLocation(loc) {
-        activePlace = { lat: loc.lat, lon: loc.lon, count: loc.count, places: [loc], cluster: -1 }
+        activePlace = { lat: loc.lat, lon: loc.lon, count: loc.count, places: [loc], cluster: -1, thumb: loc.thumb || "" }
         globe.flyTo(loc.lat, loc.lon, 60)
     }
 
@@ -160,7 +164,7 @@ Item {
                 pinSize: Qt.size(56, 70)
 
                 onPinClicked: (cluster) => root.selectCluster(cluster)
-                onGlobeClicked: (lat, lon) => root.activePlace = null
+                onGlobeClicked: (lat, lon) => popup.close()
             }
 
             // ── place labels (pooled; positions come from the engine) ───────
@@ -243,7 +247,8 @@ Item {
                         readonly property bool stacked: members > 1 || count > 1
                         readonly property color ring: active ? root._accent : "white"
 
-                        visible: shown && popacity > 0.02
+                        // while open, the pin *is* the card (it morphed into it)
+                        visible: shown && popacity > 0.02 && !active
                         opacity: popacity
                         width: 56; height: 70
                         x: px - width / 2
@@ -359,6 +364,7 @@ Item {
                 anchors.fill: globe
                 z: 50
                 place: root.activePlace
+                pinThumb: root.activePlace && root.activePlace.thumb ? root.activePlace.thumb : ""
                 offlineName: root.activePlace && globe.ready ? root.placeLabel(root.activePlace.lat, root.activePlace.lon) : ""
                 property var _proj: ({ x: 0, y: 0, visible: false })
                 anchorX: _proj.x
