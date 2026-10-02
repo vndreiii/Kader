@@ -34,7 +34,9 @@ cmake --install "$src/build"
 for vendor in "$src"/build/vendor/*/libvendor-*.a; do
     [[ -f "$vendor" ]] || continue
     tmp="$(mktemp -d)"
-    (cd "$tmp" && ar x "$vendor" && ar rcs "$prefix/lib/libmtmd.a" ./*.o)
+    # object names are *.o, or *.obj with MinGW
+    (cd "$tmp" && ar x "$vendor" && shopt -s nullglob && objs=(./*.o ./*.obj) \
+        && if ((${#objs[@]})); then ar rcs "$prefix/lib/libmtmd.a" "${objs[@]}"; fi)
     rm -rf "$tmp"
 done
 echo "llama.cpp $LLAMA_TAG installed to $prefix"
