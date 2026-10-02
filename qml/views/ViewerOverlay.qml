@@ -186,10 +186,17 @@ Rectangle {
     }
 
     focus: active
-    Keys.onEscapePressed: {
-        if (root._videoFullscreen) toggleVideoFullscreen()
+    // Esc steps back one level: confirm → trim → info panel → video
+    // fullscreen → close the viewer. Also called by the main window's Esc.
+    function handleBack() {
+        if (deleteConfirm.showing) deleteConfirm.showing = false
+        else if (root._editMode) root._editMode = false
+        else if (root.infoPanelOpen) root.infoPanelOpen = false
+        else if (root._videoFullscreen) toggleVideoFullscreen()
         else root.active = false
+        return true
     }
+    Keys.onEscapePressed: handleBack()
     Keys.onLeftPressed:   { if (!root._vidFs) navigatePrev() }
     Keys.onRightPressed:  { if (!root._vidFs) navigateNext() }
 

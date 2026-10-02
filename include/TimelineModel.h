@@ -8,6 +8,8 @@ class TimelineModel : public QAbstractListModel {
     Q_OBJECT
     Q_PROPERTY(FilterMode filterMode READ filterMode WRITE setFilterMode NOTIFY filterModeChanged)
     Q_PROPERTY(int numColumns READ numColumns WRITE setNumColumns NOTIFY numColumnsChanged)
+    // 0 mosaic (justified rows), 1 grid (square cells), 2 list (one per row)
+    Q_PROPERTY(int layoutMode READ layoutMode WRITE setLayoutMode NOTIFY layoutModeChanged)
     Q_PROPERTY(QString folderFilter READ folderFilter WRITE setFolderFilter NOTIFY folderFilterChanged)
     Q_PROPERTY(QString searchFilter READ searchFilter WRITE setSearchFilter NOTIFY searchFilterChanged)
     Q_PROPERTY(QString mimeFilter   READ mimeFilter   WRITE setMimeFilter   NOTIFY mimeFilterChanged)
@@ -59,6 +61,8 @@ public:
     Q_INVOKABLE void setAiFilter(const QVariantList &ids);
     Q_INVOKABLE void clearAiFilter();
 
+    int  layoutMode() const { return m_layoutMode; }
+    void setLayoutMode(int mode);
     int  sortRole()  const { return m_sortRole; }
     void setSortRole(int role);
     int  sortOrder() const { return m_sortOrder; }
@@ -87,6 +91,7 @@ signals:
     void layoutChanged();
     void filterModeChanged();
     void numColumnsChanged();
+    void layoutModeChanged();
     void folderFilterChanged();
     void searchFilterChanged();
     void mimeFilterChanged();
@@ -127,6 +132,7 @@ private:
     QString          m_mimeFilter;
     QList<int>       m_aiFilterIds;
     bool             m_aiFilterActive = false;
+    int              m_layoutMode = 0;
     int              m_sortRole  = 0; // DatabaseManager::ByCreated
     int              m_sortOrder = 0; // DatabaseManager::Descending
 };

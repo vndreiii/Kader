@@ -407,6 +407,7 @@ int main(int argc, char *argv[]) {
     {
         int d = settingsManager.mosaicDensity();
         timelineModel.setNumColumns(7 - std::max(1, std::min(d, 4)));  // 1→6 … 4→3 columns
+        timelineModel.setLayoutMode(settingsManager.galleryLayout());
     }
 
     // Initial refresh runs once the window has shown its first frame (see
@@ -455,6 +456,9 @@ int main(int argc, char *argv[]) {
     QObject::connect(&settingsManager, &SettingsManager::mosaicDensityChanged, &app, [&]() {
         int d = settingsManager.mosaicDensity();
         timelineModel.setNumColumns(7 - std::max(1, std::min(d, 4)));  // 1→6 … 4→3 columns
+    });
+    QObject::connect(&settingsManager, &SettingsManager::galleryLayoutChanged, &app, [&]() {
+        timelineModel.setLayoutMode(settingsManager.galleryLayout());
     });
     QObject::connect(&settingsManager, &SettingsManager::rawFilterChanged, &app, [&]() {
         dbManager.setRawFilter(settingsManager.rawFilter());

@@ -1412,6 +1412,89 @@ QVariantList LibraryAnalyzer::mediaForKey(const QString &key) {
     return memoryMedia(key);
 }
 
+QVariantList LibraryAnalyzer::suggest(const QString &query, int limit) {
+    const QString ql = query.toLower();
+    const QString simple = ql.simplified();
+    if (simple.isEmpty() || ql.endsWith(QLatin1Char(' ')))
+        return {};
+    // complete the last word; whatever came before it stays as typed
+    const int cut = simple.lastIndexOf(QLatin1Char(' '));
+    const QString head = query.simplified().left(cut + 1);
+    const QString word = simple.mid(cut + 1);
+    if (word.isEmpty())
+        return {};
+
+    QVariantList out;
+    QSet<QString> seen;
+    // a candidate matches when any of its words starts with what's typed
+    // (or, for multi-word input, the whole phrase starts the candidate)
+    auto matches = [&](const QString &label) {
+        const QString l = label.toLower();
+        if (l.startsWith(simple) && cut >= 0)
+            return 2;
+        for (const QString &w : l.split(QRegularExpression(QStringLiteral("[\\s,/_-]+")), Qt::SkipEmptyParts))
+            if (w.startsWith(word))
+                return 1;
+        return 0;
+    };
+    auto add = [&](const QString &kind, const QString &label, const QVariant &face = {}) {
+        if (out.size() >= limit || label.isEmpty())
+            return;
+        const int m = matches(label);
+        if (!m || label.compare(word, Qt::CaseInsensitive) == 0)
+            return;
+        const QString text = (m == 2 ? QString() : head) + label;
+        if (seen.contains(text.toLower()))
+            return;
+        seen.insert(text.toLower());
+        QVariantMap s{{QStringLiteral("kind"), kind}, {QStringLiteral("label"), label}, {QStringLiteral("text"), text}};
+        if (face.isValid())
+            s.insert(QStringLiteral("face"), face);
+        out << s;
+    };
+
+    for (const QVariant &v : people(false)) {
+        const QVariantMap p = v.toMap();
+        add(QStringLiteral("person"), p.value(QStringLiteral("name")).toString(), p.value(QStringLiteral("cover")));
+    }
+    ensurePlaces();
+    {
+        QSet<QString> names;
+        for (const QString &n : std::as_const(m_placeOf))
+            names.insert(n);
+        QStringList sorted(names.cbegin(), names.cend());
+        sorted.sort(Qt::CaseInsensitive);
+        QSet<QString> countries;
+        for (const QString &n : std::as_const(sorted)) {
+            add(QStringLiteral("place"), n.section(QStringLiteral(", "), 0, 0));
+            countries.insert(n.section(QStringLiteral(", "), -1));
+        }
+        for (const QString &c : std::as_const(countries))
+            add(QStringLiteral("place"), c);
+    }
+    if (word.size() >= 2) {
+        QSqlQuery q(m_db->threadDb());
+        q.prepare(QStringLiteral("SELECT DISTINCT m.folder_path FROM media m WHERE %1 AND lower(m.folder_path) LIKE ? LIMIT 40")
+                      .arg(QLatin1String(kAlive)));
+        q.addBindValue(QStringLiteral("%") + word + QStringLiteral("%"));
+        q.exec();
+        while (q.next())
+            add(QStringLiteral("album"), q.value(0).toString().section(QLatin1Char('/'), -1));
+    }
+    for (int b = 1; b < 13; ++b)
+        add(QStringLiteral("color"), bucketName(b));
+    for (int m = 1; m <= 12; ++m)
+        add(QStringLiteral("month"), QLocale(QLocale::English).monthName(m));
+    if (word.at(0).isDigit()) {
+        QSqlQuery q(m_db->threadDb());
+        q.exec(QStringLiteral("SELECT DISTINCT strftime('%Y', m.creation_date, 'unixepoch', 'localtime') AS y FROM media m WHERE %1 ORDER BY y DESC")
+                   .arg(QLatin1String(kAlive)));
+        while (q.next())
+            add(QStringLiteral("year"), q.value(0).toString());
+    }
+    return out;
+}
+
 QVariantMap LibraryAnalyzer::search(const QString &query) {
     const QString ql = query.toLower().simplified();
     QVariantList chips;

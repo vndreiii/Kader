@@ -18,7 +18,10 @@ Item {
         TimelineModel.setFolderFilter("")
     }
 
+    function handleBack() { return grid.handleBack() }
+
     MediaGrid {
+        id: grid
         anchors.fill: parent
         onOpenViewer: (data, idx) => root.openViewer(data, idx)
     }

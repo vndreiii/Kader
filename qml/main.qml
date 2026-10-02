@@ -148,6 +148,96 @@ ApplicationWindow {
         }
     }
 
+    // Leave a pushed page (album detail …) — the top bar's back arrow.
+    function popPage() {
+        mainStack.pop()
+        // If we were in a filtered view and there's nothing left to go back to,
+        // the stack top is now the real previous view — infer currentView from it.
+        if (window.currentView === "hidden" || window.currentView === "trash" ||
+            window.currentView === "favorites") {
+            // These views replace the whole stack; back here means we ended up
+            // on a stale page — reset to a clean state.
+            window.currentView = "timeline"
+            window.detailTitle = ""
+            TimelineModel.setFolderFilter("")
+            TimelineModel.setMimeFilter("")
+            TimelineModel.filterMode = 0
+        }
+    }
+
+    // Esc is "back" everywhere, one step at a time. Popups and menus close
+    // themselves on Esc (the shortcut below is blocked while one is open);
+    // everything else goes through here, innermost first:
+    //   viewer → whatever has focus (inline rename, a text field) → the
+    //   current page's own steps (selection, place card, sub-page, search
+    //   text) → a pushed page → back to the gallery.
+    // A view takes part by defining handleBack(), returning true when it
+    // consumed the press.
+    function goBack() {
+        if (viewerOverlay.active) { viewerOverlay.handleBack(); return }
+        var f = window.activeFocusItem
+        for (var p = f; p; p = p.parent)
+            if (typeof p.handleBack === "function" && p.handleBack()) return
+        if (f && f.cursorPosition !== undefined && f.activeFocus) {
+            // a text field: the top search clears first; an empty field just
+            // lets go of focus and the press carries on going back
+            if (f === searchField && searchField.text.length > 0) { searchField.text = ""; return }
+            mainStack.forceActiveFocus()
+        }
+        if (searchPill._aiMode) { searchField.text = ""; window.exitAiSearch(); return }
+        var cur = mainStack.currentItem
+        if (cur && typeof cur.handleBack === "function" && cur.handleBack()) return
+        if (mainStack.depth > 1) { window.popPage(); return }
+        if (window.currentView !== "timeline") window.switchView("timeline")
+    }
+
+    // The top bar's sparkle: smart-search the gallery for what's typed (the
+    // results replace the grid until cleared). With nothing typed it toggles
+    // AI mode, so Enter searches by meaning instead of by file name. Without
+    // the AI models it falls back to the Search tab.
+    function runAiSearch(q) {
+        q = (q || "").trim()
+        if (!AI.modelsPresent) {
+            searchField.text = ""
+            window.openSearch(q)
+            return
+        }
+        if (q.length === 0) {
+            searchPill._aiMode = !searchPill._aiMode
+            if (!searchPill._aiMode) { TimelineModel.clearAiFilter(); window._aiDocResults = [] }
+            searchField.forceActiveFocus()
+            return
+        }
+        if (!AI.ready && !AI.loading) AI.loadModel()
+        if (["timeline", "videos", "favorites"].indexOf(window.currentView) < 0) window.switchView("timeline")
+        TimelineModel.setSearchFilter("")
+        AlbumModel.setSearchFilter("")
+        searchPill._aiMode = true
+        searchPill._aiSearching = true
+        AI.searchByText(q)
+    }
+    function exitAiSearch() {
+        searchPill._aiMode = false
+        searchPill._aiSearching = false
+        TimelineModel.clearAiFilter()
+        window._aiDocResults = []
+    }
+    Connections {
+        target: AI
+        function onSearchFinished(results) {
+            if (!searchPill._aiSearching) return
+            searchPill._aiSearching = false
+            var ids = [], docs = []
+            for (var i = 0; i < results.length; i++) {
+                if (results[i].type === "doc") docs.push(results[i])
+                else ids.push(results[i].id)
+            }
+            TimelineModel.setAiFilter(ids)
+            window._aiDocResults = docs
+        }
+        function onEngineError(msg) { searchPill._aiSearching = false }
+    }
+
     // From the top bar: open the Search tab with `q` (and search it now)
     function openSearch(q) {
         window.currentView = "search"
@@ -503,21 +593,7 @@ ApplicationWindow {
                         MouseArea {
                             id: backHover
                             anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                mainStack.pop()
-                                // If we were in a filtered view and there's nothing left to go back to,
-                                // the stack top is now the real previous view — infer currentView from it.
-                                if (window.currentView === "hidden" || window.currentView === "trash" ||
-                                    window.currentView === "favorites") {
-                                    // These views replace the whole stack; back here means we ended up
-                                    // on a stale page — reset to a clean state.
-                                    window.currentView = "timeline"
-                                    window.detailTitle = ""
-                                    TimelineModel.setFolderFilter("")
-                                    TimelineModel.setMimeFilter("")
-                                    TimelineModel.filterMode = 0
-                                }
-                            }
+                            onClicked: window.popPage()
                         }
                     }
 
@@ -547,28 +623,34 @@ ApplicationWindow {
 
                     Item { Layout.fillWidth: true }
 
-                    // ── Density button (mosaic columns) ───────────────────────
+                    // ── View button: layout (mosaic / grid / list) + size ─────
                     Rectangle {
                         id: densityBtn
                         readonly property var _views: ["timeline","videos","favorites","trash","hidden","albums"]
+                        // layouts apply to the photo views; albums only have sizes
+                        readonly property bool _layouts: window.currentView !== "albums"
+                        readonly property var _layoutIcons: ["view_quilt", "grid_view", "view_list"]
                         visible: _views.indexOf(window.currentView) >= 0
                         height: 48; width: 48
                         Layout.rightMargin: -8   // match the sort↔search gap (equal spacing)
                         radius: densityMenu.opened ? ThemeManager.radiusLg : 24
                         Behavior on radius { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+                        // state layer on top of the container (not instead of it), so
+                        // hovering darkens nothing and the neighbour never looks lit
                         color: densityMenu.opened
                                ? Qt.alpha(ThemeManager.primary, 0.10)
-                               : (densityBtnMA.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.06)
+                               : (densityBtnMA.containsMouse ? Qt.tint(ThemeManager.surfaceContainer, Qt.alpha(ThemeManager.onSurface, 0.08))
                                                              : ThemeManager.surfaceContainer)
                         Behavior on color { ColorAnimation { duration: 120 } }
 
-                        M3Icon {
+                        MaterialSymbol {
                             anchors.centerIn: parent
-                            name: "grid_view"; size: 20
+                            name: densityBtn._layoutIcons[densityBtn._layouts ? Settings.galleryLayout : 1]
+                            size: 22
                             color: densityMenu.opened ? ThemeManager.primary : ThemeManager.onSurfaceVariant
                             Behavior on color { ColorAnimation { duration: 120 } }
                         }
-                        ToolTip.text: I18n.t(Settings.language, "mosaic_density")
+                        ToolTip.text: I18n.t(Settings.language, "view_options")
                         ToolTip.visible: densityBtnMA.containsMouse && !densityMenu.opened
                         ToolTip.delay: 500
 
@@ -580,10 +662,14 @@ ApplicationWindow {
 
                         M3Menu {
                             id: densityMenu
-                            M3MenuItem { iconName: "view_comfy"; text: I18n.t(Settings.language, "density_dense");       checkable: true; checked: Settings.mosaicDensity === 1; onTriggered: Settings.mosaicDensity = 1 }
-                            M3MenuItem { iconName: "grid_view"; text: I18n.t(Settings.language, "density_compact");     checkable: true; checked: Settings.mosaicDensity === 2; onTriggered: Settings.mosaicDensity = 2 }
-                            M3MenuItem { iconName: "view_module"; text: I18n.t(Settings.language, "density_comfortable"); checkable: true; checked: Settings.mosaicDensity === 3; onTriggered: Settings.mosaicDensity = 3 }
-                            M3MenuItem { iconName: "view_agenda"; text: I18n.t(Settings.language, "density_spacious");    checkable: true; checked: Settings.mosaicDensity === 4; onTriggered: Settings.mosaicDensity = 4 }
+                            M3MenuItem { visible: densityBtn._layouts; height: visible ? implicitHeight : 0; iconName: "view_quilt"; text: I18n.t(Settings.language, "layout_mosaic"); checkable: true; checked: Settings.galleryLayout === 0; onTriggered: Settings.galleryLayout = 0 }
+                            M3MenuItem { visible: densityBtn._layouts; height: visible ? implicitHeight : 0; iconName: "grid_view";  text: I18n.t(Settings.language, "layout_grid");   checkable: true; checked: Settings.galleryLayout === 1; onTriggered: Settings.galleryLayout = 1 }
+                            M3MenuItem { visible: densityBtn._layouts; height: visible ? implicitHeight : 0; iconName: "view_list";  text: I18n.t(Settings.language, "layout_list");   checkable: true; checked: Settings.galleryLayout === 2; onTriggered: Settings.galleryLayout = 2 }
+                            M3MenuSeparator { visible: densityBtn._layouts; height: visible ? implicitHeight : 0 }
+                            M3MenuItem { iconName: "density_small";  text: I18n.t(Settings.language, "density_dense");       checkable: true; checked: Settings.mosaicDensity === 1; onTriggered: Settings.mosaicDensity = 1 }
+                            M3MenuItem { iconName: "density_medium"; text: I18n.t(Settings.language, "density_compact");     checkable: true; checked: Settings.mosaicDensity === 2; onTriggered: Settings.mosaicDensity = 2 }
+                            M3MenuItem { iconName: "density_large";  text: I18n.t(Settings.language, "density_comfortable"); checkable: true; checked: Settings.mosaicDensity === 3; onTriggered: Settings.mosaicDensity = 3 }
+                            M3MenuItem { iconName: "crop_square";    text: I18n.t(Settings.language, "density_spacious");    checkable: true; checked: Settings.mosaicDensity === 4; onTriggered: Settings.mosaicDensity = 4 }
                         }
                     }
 
@@ -601,7 +687,7 @@ ApplicationWindow {
                         Layout.rightMargin: -8
                         color: sortMenu.opened
                                ? Qt.alpha(ThemeManager.primary, 0.10)
-                               : (sortBtnMA.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.06)
+                               : (sortBtnMA.containsMouse ? Qt.tint(ThemeManager.surfaceContainer, Qt.alpha(ThemeManager.onSurface, 0.08))
                                                           : ThemeManager.surfaceContainer)
                         Behavior on color { ColorAnimation { duration: 120 } }
 
@@ -730,6 +816,120 @@ ApplicationWindow {
                         visible: window.currentView !== "search"
                         property bool _aiMode: false
                         property bool _aiSearching: false
+                        property bool _picking: false
+
+                        function submit() {
+                            if (suggestBox.opened && suggestBox.highlighted >= 0) {
+                                pick(suggestBox.items[suggestBox.highlighted])
+                                return
+                            }
+                            suggestBox.close()
+                            var q = searchField.text.trim()
+                            if (q.length === 0) return
+                            if (_aiMode) { window.runAiSearch(q); return }
+                            TimelineModel.setSearchFilter("")
+                            AlbumModel.setSearchFilter("")
+                            searchField.text = ""
+                            window.openSearch(q)
+                        }
+                        // a suggestion completes the text and searches it
+                        function pick(s) {
+                            _picking = true
+                            searchField.text = s.text
+                            _picking = false
+                            suggestBox.close()
+                            submit()
+                        }
+                        Timer {
+                            id: suggestTimer
+                            interval: 120
+                            onTriggered: {
+                                var list = searchField.text.trim().length > 0 ? Analyzer.suggest(searchField.text, 7) : []
+                                suggestBox.items = list
+                                if (list.length > 0 && searchField.activeFocus) suggestBox.open()
+                                else suggestBox.close()
+                            }
+                        }
+
+                        // ── autocomplete dropdown ─────────────────────────────
+                        Popup {
+                            id: suggestBox
+                            property var items: []
+                            property int highlighted: -1
+                            y: searchPill.height + 6
+                            width: searchPill.width
+                            padding: 6
+                            focus: false          // typing stays in the search field
+                            closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
+                            background: Rectangle {
+                                radius: 20
+                                color: ThemeManager.surfaceContainerHigh
+                                border.color: ThemeManager.outlineVariant
+                                border.width: 1
+                            }
+                            enter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 120 } }
+                            exit:  Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 90 } }
+                            contentItem: Column {
+                                spacing: 2
+                                Repeater {
+                                    model: suggestBox.items
+                                    Rectangle {
+                                        id: sugRow
+                                        required property var modelData
+                                        required property int index
+                                        readonly property bool hot: suggestBox.highlighted === index || sugMa.containsMouse
+                                        width: suggestBox.availableWidth
+                                        height: 44
+                                        radius: 14
+                                        color: hot ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent"
+                                        Row {
+                                            anchors.left: parent.left; anchors.leftMargin: 12
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            spacing: 12
+                                            Item {
+                                                width: 28; height: 28
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                FaceAvatar {
+                                                    anchors.fill: parent
+                                                    visible: sugRow.modelData.kind === "person"
+                                                    faceId: sugRow.modelData.face !== undefined ? sugRow.modelData.face : -1
+                                                }
+                                                MaterialSymbol {
+                                                    anchors.centerIn: parent
+                                                    visible: sugRow.modelData.kind !== "person"
+                                                    size: 20
+                                                    color: ThemeManager.onSurfaceVariant
+                                                    name: ({ place: "location_on", album: "folder", color: "palette",
+                                                             month: "calendar_month", year: "event" })[sugRow.modelData.kind] || "search"
+                                                }
+                                            }
+                                            Label {
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                width: suggestBox.availableWidth - 120
+                                                text: sugRow.modelData.text
+                                                elide: Text.ElideRight
+                                                color: ThemeManager.onSurface
+                                                font.pixelSize: 15
+                                            }
+                                        }
+                                        Label {
+                                            anchors.right: parent.right; anchors.rightMargin: 14
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            text: I18n.t(Settings.language, "suggest_" + sugRow.modelData.kind)
+                                            color: ThemeManager.onSurfaceVariant
+                                            font.pixelSize: 12
+                                        }
+                                        MouseArea {
+                                            id: sugMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: searchPill.pick(sugRow.modelData)
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         MouseArea {
                             anchors.fill: parent
                             z: -1
@@ -784,18 +984,19 @@ ApplicationWindow {
                                             TimelineModel.setSearchFilter(text)
                                             AlbumModel.setSearchFilter(text)
                                         }
+                                        suggestBox.highlighted = -1
+                                        if (searchPill._picking) return
+                                        suggestTimer.restart()
                                     }
-                                    // Enter runs the full search (people, places, colours,
-                                    // dates, visual matches) in the Search tab
-                                    Keys.onReturnPressed: {
-                                        if (text.trim().length > 0) {
-                                            var q = text
-                                            TimelineModel.setSearchFilter("")
-                                            AlbumModel.setSearchFilter("")
-                                            text = ""
-                                            window.openSearch(q)
-                                        }
-                                    }
+                                    onActiveFocusChanged: if (!activeFocus) suggestBox.close()
+                                    // ↑/↓ walk the suggestions, Enter takes one
+                                    Keys.onDownPressed: if (suggestBox.opened) suggestBox.highlighted = Math.min(suggestBox.highlighted + 1, suggestBox.items.length - 1)
+                                    Keys.onUpPressed:   if (suggestBox.opened) suggestBox.highlighted = Math.max(suggestBox.highlighted - 1, -1)
+                                    // Enter: in AI mode, smart-search the gallery; otherwise
+                                    // the full search (people, places, colours, dates,
+                                    // visual matches) in the Search tab
+                                    Keys.onReturnPressed: searchPill.submit()
+                                    Keys.onEnterPressed:  searchPill.submit()
                                 }
                             }
 
@@ -812,7 +1013,7 @@ ApplicationWindow {
                                     cursorShape: Qt.PointingHandCursor
                                     onClicked: {
                                         searchField.text = ""
-                                        if (searchPill._aiMode) TimelineModel.clearAiFilter()
+                                        if (searchPill._aiMode) { TimelineModel.clearAiFilter(); window._aiDocResults = [] }
                                     }
                                 }
                             }
@@ -824,8 +1025,15 @@ ApplicationWindow {
                                     ? Qt.alpha(ThemeManager.primary, 0.18)
                                     : (aiToggleHover.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent")
                                 Behavior on color { ColorAnimation { duration: 120 } }
+                                M3CircularProgress {
+                                    anchors.centerIn: parent
+                                    width: 20; height: 20
+                                    visible: searchPill._aiSearching
+                                    running: visible
+                                }
                                 M3Icon {
                                     anchors.centerIn: parent
+                                    visible: !searchPill._aiSearching
                                     name: "auto_awesome"
                                     size: 18
                                     color: searchPill._aiMode ? ThemeManager.primary : ThemeManager.onSurfaceVariant
@@ -836,16 +1044,7 @@ ApplicationWindow {
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
-                                    // Smart search lives in the Search tab now
-                                    onClicked: {
-                                        if (!AI.ready && !AI.loading && AI.modelsPresent)
-                                            AI.loadModel()
-                                        var q = searchField.text
-                                        TimelineModel.setSearchFilter("")
-                                        AlbumModel.setSearchFilter("")
-                                        searchField.text = ""
-                                        window.openSearch(q)
-                                    }
+                                    onClicked: { suggestBox.close(); window.runAiSearch(searchField.text) }
                                 }
                             }
                         }
@@ -1324,6 +1523,15 @@ ApplicationWindow {
             mainStack.replace(timelineView)
         }
         onRejected: { window._pendingView = "" }
+    }
+
+    // Window-wide Esc. Lives on an Item so Qt blocks it while a popup or
+    // menu is open — those close on Esc themselves.
+    Item {
+        Shortcut {
+            sequences: [StandardKey.Cancel]
+            onActivated: window.goBack()
+        }
     }
 
     ViewerOverlay {

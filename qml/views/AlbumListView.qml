@@ -31,7 +31,13 @@ Item {
     function clearSelection() { _selSet = {}; selectionMode = false }
     function selectedPaths() { return Object.keys(_selSet) }
 
-    Keys.onEscapePressed: if (selectionMode) clearSelection()
+    // Esc (window-wide "back"): leave selection mode
+    function handleBack() {
+        if (!selectionMode) return false
+        clearSelection()
+        return true
+    }
+    Keys.onEscapePressed: handleBack()
 
     GridView {
         id: gridView
@@ -102,7 +108,25 @@ Item {
                 anchors.fill: parent
                 hoverEnabled: true
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
+                // hold to enter selection mode, keep holding and drag to select more
+                property bool _dragSelecting: false
+                pressAndHoldInterval: 350
+                preventStealing: _dragSelecting
+                onPressAndHold: (mouse) => {
+                    if (mouse.button !== Qt.LeftButton) return
+                    root.selectionMode = true
+                    root.selectAlbum(albumItem._path)
+                    _dragSelecting = true
+                }
+                onPositionChanged: (mouse) => {
+                    if (!_dragSelecting) return
+                    var p = mapToItem(albumSelOverlay, mouse.x, mouse.y)
+                    albumSelOverlay._selectAtPos(p.x, p.y)
+                }
+                onReleased: _dragSelecting = false
+                onCanceled: _dragSelecting = false
                 onClicked: (mouse) => {
+                    if (_dragSelecting) return
                     if (root.selectionMode) {
                         root.toggleAlbum(albumItem._path)
                     } else if (mouse.button === Qt.RightButton) {
@@ -185,10 +209,13 @@ Item {
                         visible: root.selectionMode
                         anchors.top: parent.top; anchors.left: parent.left; anchors.margins: 8
                         width: 28; height: 28; radius: 14; z: 6
-                        color: root.isAlbumSelected(albumItem._path) ? ThemeManager.primary : Qt.alpha("white", 0.5)
+                        // empty ring until selected, like gallery tiles
+                        color: root.isAlbumSelected(albumItem._path) ? ThemeManager.primary : Qt.alpha("black", 0.35)
+                        border.color: root.isAlbumSelected(albumItem._path) ? ThemeManager.primary : "white"
+                        border.width: 2
                         Behavior on color { ColorAnimation { duration: 100 } }
                         M3Icon {
-                            anchors.centerIn: parent; name: "check"; size: 16; color: "white"
+                            anchors.centerIn: parent; name: "check"; size: 16; color: ThemeManager.onPrimary
                             opacity: root.isAlbumSelected(albumItem._path) ? 1 : 0
                             Behavior on opacity { NumberAnimation { duration: ThemeManager.durShort } }
                         }

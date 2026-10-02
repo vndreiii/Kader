@@ -13,6 +13,12 @@ Item {
     // The open place: {lat, lon, count, thumb, places: [...]} — a single
     // location or a cluster of them, like the globe's.
     property var    activePlace:  null
+    // Esc (window-wide "back"): close the place card
+    function handleBack() {
+        if (!activePlace) return false
+        placePopup.close()
+        return true
+    }
     property point  _pinScreenPos: Qt.point(0, 0)
     // Screen-space clusters of the locations, rebuilt as the map moves:
     // [{x, y, lat, lon, count, members, thumb, places, key}]
@@ -232,6 +238,7 @@ Item {
 
                 // ── Pin popup card (shared with the globe) ───────────────
                 PlacePopup {
+                    id: placePopup
                     anchors.fill: parent
                     z: 60
                     place: root.activePlace

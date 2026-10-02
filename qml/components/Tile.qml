@@ -17,6 +17,9 @@ Item {
     // hold-then-drag: select every tile the pointer passes (scene coordinates)
     signal dragSelectAt(real sceneX, real sceneY)
     property bool _dragSelecting: false
+    // List view: a row with a small thumbnail and the file's details
+    property bool listMode: false
+    readonly property real _radius: listMode ? 10 : 16
 
     readonly property var _d: (tileData !== null && tileData !== undefined) ? tileData : ({})
     readonly property bool _isGif: (root._d.mime_type || "").toString() === "image/gif"
@@ -24,18 +27,37 @@ Item {
     // Whichever media element is active — used to gate layer FBO allocation
     readonly property int _activeStatus: root._isGif ? gifImg.status : img.status
 
+    // ── List row: hover / selected background behind the whole row ─────────
+    Rectangle {
+        visible: root.listMode
+        anchors.fill: parent
+        radius: 14
+        color: root.selected ? Qt.alpha(ThemeManager.primary, 0.14)
+             : mouseArea.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.06) : "transparent"
+        Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
+    }
+
+    // The picture's box: the whole tile, or a square at the left of a list row
+    Item {
+        id: frame
+        x: root.listMode ? 6 : 0
+        y: root.listMode ? 4 : 0
+        width: root.listMode ? height : root.width
+        height: root.listMode ? root.height - 8 : root.height
+    }
+
     // ── Loading placeholder: pulses until the thumbnail is decoded ────────
     Skeleton {
-        anchors.fill: parent
-        radius: 16
+        anchors.fill: frame
+        radius: root._radius
         active: root._activeStatus === Image.Loading || root._activeStatus === Image.Null
     }
 
     // ── Round mask shape — feeds MultiEffect below ────────────────────────
     Rectangle {
         id: roundMask
-        anchors.fill: parent
-        radius: 16
+        anchors.fill: frame
+        radius: root._radius
         color: "white"
         visible: false
         // Only allocate the FBO once the active media element is loaded
@@ -45,7 +67,7 @@ Item {
     // ── All content — clipped to rounded rect via MultiEffect ─────────────
     Item {
         id: contentLayer
-        anchors.fill: parent
+        anchors.fill: frame
 
         Image {
             id: img
@@ -111,7 +133,7 @@ Item {
         Rectangle {
             z: 10
             visible: root.selectable || root.selected
-            anchors.top: parent.top; anchors.left: parent.left; anchors.margins: 8
+            anchors.top: parent.top; anchors.left: parent.left; anchors.margins: root.listMode ? 4 : 8
             width: 24; height: 24; radius: 12
             // empty ring until picked; filled + check only when selected
             color: root.selected ? ThemeManager.primary : Qt.alpha("black", 0.35)
@@ -125,6 +147,7 @@ Item {
         // Reveal-on-hover still follows the whole-tile MouseArea (below), only
         // the click target itself is enlarged.
         Item {
+            visible: !root.listMode
             anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 8 - (48 - 28) / 2
             width: 48; height: 48
 
@@ -151,7 +174,7 @@ Item {
             anchors.leftMargin: 28; anchors.bottomMargin: 8
             height: 24; radius: 12
             color: Qt.alpha("black", 0.4)
-            visible: mouseArea.containsMouse && !!root._d.creation_date
+            visible: !root.listMode && mouseArea.containsMouse && !!root._d.creation_date
             Row {
                 anchors.centerIn: parent; leftPadding: 8; rightPadding: 8
                 Label {
@@ -175,7 +198,7 @@ Item {
             z: 5
             visible: root._isHidden && TimelineModel.filterMode !== 3 /* HiddenMode */
             anchors.fill: parent
-            radius: 16
+            radius: root._radius
             color: "black"
             M3Icon {
                 anchors.centerIn: parent
@@ -197,11 +220,76 @@ Item {
 
     // ── Selection border (outside clip so ring is fully visible) ──────────
     Rectangle {
-        anchors.fill: parent; radius: 16
+        anchors.fill: frame; radius: root._radius
         color: "transparent"
-        border.width: root.selected ? 3 : 0
+        border.width: root.selected && !root.listMode ? 3 : 0
         border.color: ThemeManager.primary
         visible: root.selected
+    }
+
+    // ── List row details: name · date · type, size, dimensions ────────────
+    Loader {
+        active: root.listMode
+        z: 2   // above the tile's MouseArea so the favourite toggle gets clicks
+        anchors { left: frame.right; leftMargin: 16; right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
+        height: parent.height
+        sourceComponent: Item {
+            readonly property string _path: root._d.file_path || ""
+            readonly property bool _two: root.height < 60   // dense: one line
+            function _size(b) {
+                if (!b) return ""
+                var u = ["B", "KB", "MB", "GB"], i = 0
+                while (b >= 1024 && i < u.length - 1) { b /= 1024; i++ }
+                return (i === 0 ? b : b.toFixed(1)) + " " + u[i]
+            }
+            readonly property string _details: [
+                root._d.type_label || "",
+                _size(root._d.file_size),
+                root._d.width > 0 && root._d.height > 0 ? root._d.width + " × " + root._d.height : ""
+            ].filter(function (t) { return t !== "" }).join("  ·  ")
+            readonly property string _date: root._d.creation_date
+                ? Qt.formatDateTime(new Date(root._d.creation_date * 1000), "d MMM yyyy, hh:mm") : ""
+
+            Column {
+                anchors.left: parent.left
+                anchors.right: favBtn.left
+                anchors.rightMargin: 12
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 2
+                Label {
+                    width: parent.width
+                    text: _path.substring(_path.lastIndexOf("/") + 1)
+                    elide: Text.ElideMiddle
+                    color: ThemeManager.onSurface
+                    font.pixelSize: 15
+                    font.weight: Font.Medium
+                }
+                Label {
+                    width: parent.width
+                    visible: !_two
+                    text: _date + (_details !== "" ? "  ·  " + _details : "")
+                    elide: Text.ElideRight
+                    color: ThemeManager.onSurfaceVariant
+                    font.pixelSize: 13
+                }
+            }
+            // favourite toggle at the end of the row
+            Item {
+                id: favBtn
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                width: 40; height: 40
+                opacity: (mouseArea.containsMouse || favMa.containsMouse || root._d.is_favorite) ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: ThemeManager.durShort } }
+                M3Icon {
+                    anchors.centerIn: parent
+                    name: root._d.is_favorite ? "favorite_fill" : "favorite"
+                    size: 20
+                    color: root._d.is_favorite ? ThemeManager.tertiary : ThemeManager.onSurfaceVariant
+                }
+                MouseArea { id: favMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.toggleFav() }
+            }
+        }
     }
 
     // ── Context menu ──────────────────────────────────────────────────────

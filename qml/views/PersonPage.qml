@@ -35,6 +35,12 @@ Item {
         selected = s
     }
     function clearSel() { selected = ({}); selecting = false }
+    // Esc (window-wide "back"): leave a selection before leaving the page
+    function handleBack() {
+        if (photoGrid.selecting) { photoGrid.clearSelection(); return true }
+        if (selecting) { clearSel(); return true }
+        return false
+    }
 
     PageHeader {
         id: header

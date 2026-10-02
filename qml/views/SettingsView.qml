@@ -304,6 +304,13 @@ Item {
     // ── categories (M3 Expressive: colour-coded icon tiles) ────────────────
     property string current: "library"
     property string settingsQuery: ""
+    // Esc (window-wide "back"): close the ignored-folders sheet, then clear
+    // the settings search
+    function handleBack() {
+        if (ignoredModal.open) { ignoredModal.open = false; return true }
+        if (settingsQuery.length > 0) { setSearch.text = ""; return true }
+        return false
+    }
     readonly property bool compactNav: width < 900
     readonly property var categories: [
         { key: "library",     icon: "photo_library",  t: "section_library" },
