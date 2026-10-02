@@ -184,7 +184,7 @@ Rectangle {
                             height: parent.height; color: ThemeManager.tertiary
                         }
                         Rectangle {
-                            width: parent.parent.width * (parent.parent.parent._otherGb / Math.max(0.001, StorageManager.totalGb))
+                            width: parent.parent.width * (storageCard._otherGb / Math.max(0.001, StorageManager.totalGb))
                             height: parent.height; color: ThemeManager.secondary; opacity: 0.7
                         }
                     }
@@ -201,7 +201,7 @@ Rectangle {
                 Row {
                     width: parent.width; spacing: 6
                     Rectangle { width: 8; height: 8; radius: 4; color: ThemeManager.secondary; opacity: 0.7; anchors.verticalCenter: parent.verticalCenter }
-                    Label { text: parent._otherGb.toFixed(1) + " GB " + I18n.t(Settings.language, "other"); font.pixelSize: 10; color: Qt.alpha(ThemeManager.onSurfaceVariant, 0.7) }
+                    Label { text: storageCard._otherGb.toFixed(1) + " GB " + I18n.t(Settings.language, "other"); font.pixelSize: 10; color: Qt.alpha(ThemeManager.onSurfaceVariant, 0.7) }
                     Label {
                         text: StorageManager.freeGb.toFixed(1) + " GB " + I18n.t(Settings.language, "free") + "  " + StorageManager.totalGb.toFixed(0) + " GB " + I18n.t(Settings.language, "total")
                         font.pixelSize: 10; color: Qt.alpha(ThemeManager.onSurfaceVariant, 0.5)
@@ -224,7 +224,7 @@ Rectangle {
                         anchors.bottom: parent.bottom; width: parent.width; spacing: 0
                         Rectangle {
                             width: parent.width
-                            height: Math.max(0, parent.parent.height * (parent.parent.parent.parent._otherGb / Math.max(0.001, StorageManager.totalGb)))
+                            height: Math.max(0, parent.parent.height * (storageCard._otherGb / Math.max(0.001, StorageManager.totalGb)))
                             color: ThemeManager.secondary; opacity: 0.7
                         }
                         Rectangle {
