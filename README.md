@@ -3,7 +3,7 @@
 </p>
 
 <h1 align="center">Kader</h1>
-<p align="center">A fast, modern photo gallery for Linux — built with Qt 6, QML Material 3, and C++.</p>
+<p align="center">A fast, modern photo gallery for Linux and Windows — built with Qt 6, QML Material 3, C++ and Rust.</p>
 
 ---
 
@@ -31,6 +31,17 @@
 | Database | SQLite 3 (WAL mode) |
 | Encryption | OpenSSL AES-256-CBC |
 
+## Download
+
+Get the latest version from [Releases](https://github.com/vndreiii/kader/releases/latest). Kader updates itself; updates are signed and verified before they're installed.
+
+| Platform | Download |
+|---|---|
+| Linux, any distribution | `Kader-<version>-x86_64.AppImage`, then `chmod +x` it and run |
+| Arch Linux | `kader-<version>-1-x86_64.pkg.tar.zst`, install with `sudo pacman -U` |
+| Windows 10/11, installer | `Kader-<version>-windows-x64-setup.exe`, per-user, no admin rights needed |
+| Windows 10/11, portable | `Kader-<version>-windows-x64-portable.zip`, unzip anywhere and run `kader.exe`; keeps its library and settings in a `data` folder beside it |
+
 ## Building
 
 ```bash
@@ -46,6 +57,14 @@ On Arch Linux:
 cd packaging/arch && makepkg -si
 ```
 
+On Windows, in an [MSYS2](https://www.msys2.org) UCRT64 shell:
+```bash
+pacman -S --needed mingw-w64-ucrt-x86_64-{toolchain,cmake,ninja,pkgconf,rust,qt6-base,qt6-declarative,qt6-shadertools,qt6-multimedia,qt6-positioning,qt6-svg,qt6-imageformats,qt6-tools,libvips,exiv2,libraw,poppler,libheif,openssl,ffmpeg,nsis}
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+packaging/windows/deploy.sh build dist   # portable .zip and setup .exe
+```
+
 ## Usage
 
 ```bash
@@ -56,7 +75,7 @@ kader file:///path/to/photo  # XDG / .desktop %U handler
 
 ## Dynamic Colors & Matugen
 
-Kader supports dynamic theming out of the box. By toggling "Dynamic color" in the app's settings, Kader will automatically read Material 3 colors from `~/.local/state/quickshell/user/generated/material_colors.scss`. 
+Kader supports dynamic theming out of the box. On Windows, "Dynamic color" follows your Windows accent colour and light/dark mode. On Linux: By toggling "Dynamic color" in the app's settings, Kader will automatically read Material 3 colors from `~/.local/state/quickshell/user/generated/material_colors.scss`. 
 
 ### Using with Matugen
 To sync Kader's colors with your system wallpaper using [Matugen](https://github.com/InioX/matugen), you can create an SCSS template in your Matugen templates directory (e.g., `~/.config/matugen/templates/kader-colors.scss`) with the following variables:

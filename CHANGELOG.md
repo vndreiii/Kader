@@ -3,13 +3,33 @@
 Kader follows [semantic versioning](https://semver.org): MAJOR.MINOR.FIX.
 Release notes for each version are taken from this file.
 
-## [2.0.2]
+## [2.1.0]
+
+### Windows
+Kader now runs on Windows 10 and 11, in two flavours:
+- **Installer** (`…-windows-x64-setup.exe`): installs for your user without
+  administrator rights, adds a Start menu entry, an optional desktop shortcut
+  and "Open with Kader" for photos and videos (your default apps are left
+  alone). The uninstaller removes only Kader's files and asks before deleting
+  your library index.
+- **Portable** (`…-windows-x64-portable.zip`): unzip anywhere and run; the
+  library, thumbnails and settings stay in a `data` folder next to it.
+
+Both update themselves from signed releases. Windows paths (drive letters,
+network shares, any language) work throughout, "Show in folder" opens
+Explorer, and "System" theme and dynamic colour follow Windows' light/dark
+mode and accent colour.
 
 ### Fixed
 - The AppImage crashed at start on Wayland (Hyprland, niri, GNOME, KDE…)
-  with "Failed to create RHI": Qt's Wayland EGL integration wasn't bundled,
-  so no OpenGL context could be created. It is now, and every AppImage is
-  launched on a Wayland compositor in CI before release.
+  with "Failed to create RHI": Qt's Wayland graphics integration wasn't
+  bundled. Every AppImage is now launched on Wayland and X11 in CI before
+  release.
+- File names containing `#` or `%` didn't show thumbnails or open.
+- "System" theme loaded no colours when no Quickshell palette was present;
+  it now follows the desktop's light/dark setting.
+- Controls keep Kader's Material 3 look on every desktop (KDE included)
+  instead of picking up the desktop's widget style.
 
 ## [2.0.1]
 
