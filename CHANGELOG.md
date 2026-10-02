@@ -3,6 +3,14 @@
 Kader follows [semantic versioning](https://semver.org): MAJOR.MINOR.FIX.
 Release notes for each version are taken from this file.
 
+## [2.0.1]
+
+### Fixed
+- The AppImage didn't open on systems with a different Qt version installed
+  (for example Arch with Qt 6.11): it now bundles Qt Multimedia and its
+  FFmpeg backend instead of picking up the system's copy. CI now launches
+  every AppImage before it is released.
+
 ## [2.0.0]
 
 The first release with semantic versioning (packages before this used
