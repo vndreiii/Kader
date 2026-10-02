@@ -7,6 +7,8 @@ import "../I18n.js" as I18n
 
 Rectangle {
     id: root
+    // 0.03 GB reads better as 31 MB
+    function _gb(gb) { return gb >= 1 ? gb.toFixed(1) + " GB" : Math.round(gb * 1024) + " MB" }
     property bool collapsed: false
     property string currentView: "timeline"
     signal viewChanged(string view)
@@ -196,15 +198,15 @@ Rectangle {
                 Row {
                     width: parent.width; spacing: 8
                     Rectangle { width: 8; height: 8; radius: 4; color: ThemeManager.primary; anchors.verticalCenter: parent.verticalCenter }
-                    Label { text: StorageManager.photoGb.toFixed(1) + " GB " + I18n.t(Settings.language, "photos"); font.pixelSize: ThemeManager.fontLabelS; color: ThemeManager.onSurfaceVariant }
+                    Label { text: root._gb(StorageManager.photoGb) + " " + I18n.t(Settings.language, "photos"); font.pixelSize: ThemeManager.fontLabelS; color: ThemeManager.onSurfaceVariant }
                     Rectangle { width: 8; height: 8; radius: 4; color: ThemeManager.tertiary; anchors.verticalCenter: parent.verticalCenter }
-                    Label { text: StorageManager.videoGb.toFixed(1) + " GB " + I18n.t(Settings.language, "video"); font.pixelSize: ThemeManager.fontLabelS; color: ThemeManager.onSurfaceVariant }
+                    Label { text: root._gb(StorageManager.videoGb) + " " + I18n.t(Settings.language, "video"); font.pixelSize: ThemeManager.fontLabelS; color: ThemeManager.onSurfaceVariant }
                 }
                 // Other + free/total on one line
                 Row {
                     width: parent.width; spacing: 6
                     Rectangle { width: 8; height: 8; radius: 4; color: ThemeManager.secondary; opacity: 0.7; anchors.verticalCenter: parent.verticalCenter }
-                    Label { text: storageCard._otherGb.toFixed(1) + " GB " + I18n.t(Settings.language, "other"); font.pixelSize: 10; color: Qt.alpha(ThemeManager.onSurfaceVariant, 0.7) }
+                    Label { text: root._gb(storageCard._otherGb) + " " + I18n.t(Settings.language, "other"); font.pixelSize: 10; color: Qt.alpha(ThemeManager.onSurfaceVariant, 0.7) }
                     Label {
                         text: StorageManager.freeGb.toFixed(1) + " GB " + I18n.t(Settings.language, "free") + "  " + StorageManager.totalGb.toFixed(0) + " GB " + I18n.t(Settings.language, "total")
                         font.pixelSize: 10; color: Qt.alpha(ThemeManager.onSurfaceVariant, 0.5)

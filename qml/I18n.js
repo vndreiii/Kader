@@ -396,6 +396,7 @@ var _s = {
         "about_view": "View",
         "faces_setting": "Group faces into people", "faces_setting_sub": "Find and recognise faces on this computer (downloads 38 MB of models once)",
         "settings_search": "Search settings",
+        "storage_title": "Storage", "storage_on_disk": "On %1", "refresh": "Refresh", "storage_library_of": "used by your library, of %1", "storage_other": "Other files", "storage_free": "Free", "storage_by_folder": "Largest folders", "storage_by_year": "By year", "storage_by_type": "File types", "storage_free_up": "Free up space", "storage_largest": "Largest files", "storage_duplicates": "Duplicates · %1", "storage_selected": "%1 selected", "move_to_trash": "Move to trash", "restore": "Restore", "empty_trash_now": "Empty trash (%1)", "storage_no_dups": "No duplicates found.", "storage_trash_empty": "The trash is empty.", "storage_wasted": "%1 in extra copies", "storage_original": "Oldest copy", "show_in_folder": "Show in folder", "empty_trash_title_q": "Empty the trash?", "empty_trash_body": "%1 items (%2) will be deleted from your disk. This can't be undone.", "delete_forever": "Delete forever",
         "window_buttons": "Window buttons", "auto": "Auto", "show": "Show", "hide": "Hide",
         "window_buttons_sub_shown": "Minimise, maximise and close. Auto shows them on this desktop.",
         "window_buttons_sub_hidden": "Minimise, maximise and close. Auto hides them under tiling window managers like this one.",
