@@ -87,11 +87,14 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       # aqtinstall with the container's own Python (install-qt-action brings a
       # Python built for a newer glibc than 22.04 has).
-      - name: Cache Qt
-        uses: actions/cache@v4
+      # Explicit restore/save (not actions/cache) so the cache is written right
+      # after installing, before packaging prunes plugins from the install.
+      - name: Restore Qt
+        id: qtcache
+        uses: actions/cache/restore@v4
         with:
           path: /opt/qt
-          key: qt-6.8.3-linux-gcc64-1
+          key: qt-6.8.3-linux-gcc64-2
       - name: Install Qt 6.8
         run: |
           if [ ! -x /opt/qt/6.8.3/gcc_64/bin/qmake ]; then
@@ -99,11 +102,14 @@ jobs:
             python3 -m aqt install-qt linux desktop 6.8.3 linux_gcc_64 -O /opt/qt \
               -m qtmultimedia qtpositioning qtlocation qtshadertools qtimageformats qtwaylandcompositor
           fi
-          # Kader only uses SQLite; the other SQL drivers link client libraries
-          # that aren't installed, which linuxdeploy-plugin-qt treats as fatal
-          find /opt/qt/6.8.3/gcc_64/plugins/sqldrivers -name 'libqsql*.so' ! -name 'libqsqlite.so' -delete
           echo "QT_ROOT_DIR=/opt/qt/6.8.3/gcc_64" >> "$GITHUB_ENV"
           echo "/opt/qt/6.8.3/gcc_64/bin" >> "$GITHUB_PATH"
+      - name: Save Qt
+        if: steps.qtcache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: /opt/qt
+          key: qt-6.8.3-linux-gcc64-2
       - name: Checkout milfs-connect (sibling-app event bus)
         uses: actions/checkout@v4
         with:
@@ -129,7 +135,13 @@ jobs:
             -DCMAKE_PREFIX_PATH="$HOME/llama;$QT_ROOT_DIR" -DKADER_UPDATE_CHANNEL=appimage
           cmake --build build
       - name: Package AppImage
-        run: QMAKE="$QT_ROOT_DIR/bin/qmake" packaging/appimage/build-appimage.sh build dist
+        run: |
+          # Kader only uses SQLite; the other SQL drivers link client libraries
+          # that aren't installed, which linuxdeploy-plugin-qt treats as fatal.
+          # Removed only now (after configure/build), since Qt's CMake package
+          # references them.
+          find "$QT_ROOT_DIR/plugins/sqldrivers" -name 'libqsql*.so' ! -name 'libqsqlite.so' -delete
+          QMAKE="$QT_ROOT_DIR/bin/qmake" packaging/appimage/build-appimage.sh build dist
       - name: Check Wayland support is bundled
         run: |
           ls build/AppDir/usr/plugins/platforms
