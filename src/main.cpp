@@ -78,7 +78,7 @@ static bool systemWantsWindowButtons() {
 
 // KADER_SMOKE_TEST=1 (CI, packaged builds): load the UI, open every view,
 // check the world data, and exit non-zero on any QML error — catches a
-// missing Qt module or plugin in a deployed folder.
+// missing Qt module or plugin in a packaged build.
 static int g_qmlProblems = 0;
 static QtMessageHandler g_prevHandler = nullptr;
 static void smokeMessageHandler(QtMsgType type, const QMessageLogContext &ctx, const QString &msg) {
