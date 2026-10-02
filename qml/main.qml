@@ -94,6 +94,67 @@ ApplicationWindow {
 
     property var _aiDocResults: []
 
+    // Search tab (people, memories, places, things, colours + unified search)
+    property Item _searchViewInst: null
+    function _activateSearchView() {
+        if (!window._searchViewInst) window._searchViewInst = searchView.createObject(null)
+        if (mainStack.currentItem !== window._searchViewInst) mainStack.replace(window._searchViewInst)
+    }
+    // Sidebar navigation (also used by views that link to another tab)
+    function switchView(view) {
+        if (view === "hidden") {
+            window._pendingView = "hidden"
+            passwordPrompt.open()
+            return
+        }
+        window.currentView = view
+        window.detailTitle = ""
+        TimelineModel.setFolderFilter("")
+
+        var tl = window._tlViewInst
+
+        if (view === "timeline") {
+            if (tl && mainStack.currentItem !== tl) mainStack.replace(tl)
+            TimelineModel.setMimeFilter("")
+            TimelineModel.filterMode = 0
+            window.applyViewSort("timeline")
+        } else if (view === "videos") {
+            if (tl && mainStack.currentItem !== tl) mainStack.replace(tl)
+            TimelineModel.filterMode = 0
+            TimelineModel.setMimeFilter("video/")
+            window.applyViewSort("videos")
+        } else if (view === "favorites") {
+            if (tl && mainStack.currentItem !== tl) mainStack.replace(tl)
+            TimelineModel.setMimeFilter("")
+            TimelineModel.filterMode = 1
+            window.applyViewSort("favorites")
+        } else if (view === "trash") {
+            if (tl && mainStack.currentItem !== tl) mainStack.replace(tl)
+            TimelineModel.setMimeFilter("")
+            TimelineModel.filterMode = 2
+            window.applyViewSort("trash")
+        } else if (view === "albums") {
+            if (!window._albumsViewInst) window._albumsViewInst = albumsView.createObject(null)
+            mainStack.replace(window._albumsViewInst)
+            window.applyViewSort("albums")
+        } else if (view === "search") {
+            window._activateSearchView()
+        } else if (view === "map") {
+            window._activatePlacesView()
+        } else if (view === "settings") {
+            if (!window._settingsViewInst) window._settingsViewInst = settingsView.createObject(null)
+            mainStack.replace(window._settingsViewInst)
+        }
+    }
+
+    // From the top bar: open the Search tab with `q` (and search it now)
+    function openSearch(q) {
+        window.currentView = "search"
+        window.detailTitle = ""
+        window._activateSearchView()
+        window._searchViewInst.setQuery(q || "")
+    }
+
     // Open the viewer on every photo of a place (globe / map pin cards).
     function _openPlaceItems(data, items) {
         var list = (items && items.length > 0) ? items : [data]
@@ -112,21 +173,6 @@ ApplicationWindow {
     }
     Connections {
         target: AI
-        function onSearchFinished(results) {
-            searchPill._aiSearching = false
-            var imageIds = []
-            var docs = []
-            for (var i = 0; i < results.length; i++) {
-                var r = results[i]
-                if (r.type === "doc") docs.push(r)
-                else imageIds.push(r.id)
-            }
-            window._aiDocResults = docs
-            TimelineModel.setAiFilter(imageIds)
-            var tl = window._tlViewInst
-            if (tl && mainStack.currentItem !== tl) mainStack.replace(tl)
-            window.currentView = "timeline"
-        }
         function onEngineError(msg) {
             searchPill._aiSearching = false
             aiErrorToast.message = msg
@@ -413,49 +459,7 @@ ApplicationWindow {
             Layout.preferredWidth: width
             collapsed: window.sidebarCollapsed
             currentView: window.currentView
-            onViewChanged: (view) => {
-                if (view === "hidden") {
-                    window._pendingView = "hidden"
-                    passwordPrompt.open()
-                    return
-                }
-                window.currentView = view
-                window.detailTitle = ""
-                TimelineModel.setFolderFilter("")
-
-                var tl = window._tlViewInst
-
-                if (view === "timeline") {
-                    if (tl && mainStack.currentItem !== tl) mainStack.replace(tl)
-                    TimelineModel.setMimeFilter("")
-                    TimelineModel.filterMode = 0
-                    window.applyViewSort("timeline")
-                } else if (view === "videos") {
-                    if (tl && mainStack.currentItem !== tl) mainStack.replace(tl)
-                    TimelineModel.filterMode = 0
-                    TimelineModel.setMimeFilter("video/")
-                    window.applyViewSort("videos")
-                } else if (view === "favorites") {
-                    if (tl && mainStack.currentItem !== tl) mainStack.replace(tl)
-                    TimelineModel.setMimeFilter("")
-                    TimelineModel.filterMode = 1
-                    window.applyViewSort("favorites")
-                } else if (view === "trash") {
-                    if (tl && mainStack.currentItem !== tl) mainStack.replace(tl)
-                    TimelineModel.setMimeFilter("")
-                    TimelineModel.filterMode = 2
-                    window.applyViewSort("trash")
-                } else if (view === "albums") {
-                    if (!window._albumsViewInst) window._albumsViewInst = albumsView.createObject(null)
-                    mainStack.replace(window._albumsViewInst)
-                    window.applyViewSort("albums")
-                } else if (view === "map") {
-                    window._activatePlacesView()
-                } else if (view === "settings") {
-                    if (!window._settingsViewInst) window._settingsViewInst = settingsView.createObject(null)
-                    mainStack.replace(window._settingsViewInst)
-                }
-            }
+            onViewChanged: (view) => window.switchView(view)
         }
 
         ColumnLayout {
@@ -726,6 +730,8 @@ ApplicationWindow {
 
                     Rectangle {
                         id: searchPill
+                        // the Search tab has its own, larger box
+                        visible: window.currentView !== "search"
                         property bool _aiMode: false
                         property bool _aiSearching: false
                         MouseArea {
@@ -783,10 +789,15 @@ ApplicationWindow {
                                             AlbumModel.setSearchFilter(text)
                                         }
                                     }
+                                    // Enter runs the full search (people, places, colours,
+                                    // dates, visual matches) in the Search tab
                                     Keys.onReturnPressed: {
-                                        if (searchPill._aiMode && text.length > 0) {
-                                            searchPill._aiSearching = true
-                                            AI.searchByText(text)
+                                        if (text.trim().length > 0) {
+                                            var q = text
+                                            TimelineModel.setSearchFilter("")
+                                            AlbumModel.setSearchFilter("")
+                                            text = ""
+                                            window.openSearch(q)
                                         }
                                     }
                                 }
@@ -829,22 +840,15 @@ ApplicationWindow {
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
+                                    // Smart search lives in the Search tab now
                                     onClicked: {
-                                        searchPill._aiMode = !searchPill._aiMode
-                                        if (!searchPill._aiMode) {
-                                            searchPill._aiSearching = false
-                                            TimelineModel.clearAiFilter()
-                                            window._aiDocResults = []
-                                            TimelineModel.setSearchFilter(searchField.text)
-                                            AlbumModel.setSearchFilter(searchField.text)
-                                        } else {
-                                            TimelineModel.setSearchFilter("")
-                                            AlbumModel.setSearchFilter("")
-                                            // Auto-load the model when AI mode is enabled
-                                            if (!AI.ready && !AI.loading && AI.modelsPresent)
-                                                AI.loadModel()
-                                        }
-                                        searchField.forceActiveFocus()
+                                        if (!AI.ready && !AI.loading && AI.modelsPresent)
+                                            AI.loadModel()
+                                        var q = searchField.text
+                                        TimelineModel.setSearchFilter("")
+                                        AlbumModel.setSearchFilter("")
+                                        searchField.text = ""
+                                        window.openSearch(q)
                                     }
                                 }
                             }
@@ -1085,7 +1089,8 @@ ApplicationWindow {
         "favorites": I18n.t(Settings.language, "favorites"),
         "hidden":    I18n.t(Settings.language, "hidden"),
         "trash":     I18n.t(Settings.language, "trash"),
-        "settings":  I18n.t(Settings.language, "settings")
+        "settings":  I18n.t(Settings.language, "settings"),
+        "search":    I18n.t(Settings.language, "search")
     })
 
     Component {
@@ -1141,6 +1146,13 @@ ApplicationWindow {
     Component {
         id: settingsView
         SettingsView {}
+    }
+
+    Component {
+        id: searchView
+        SearchView {
+            onOpenViewer: (data, items) => window._openPlaceItems(data, items)
+        }
     }
 
     // Scan progress banner

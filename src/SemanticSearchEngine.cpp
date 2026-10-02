@@ -1,5 +1,6 @@
 #include "SemanticSearchEngine.h"
 #include "DatabaseManager.h"
+#include "ThumbnailGenerator.h"
 
 #include <QStandardPaths>
 #include <QDir>
@@ -12,8 +13,10 @@
 #include <QSqlError>
 #include <QVariantMap>
 #include <QDebug>
+#include <QImage>
 #include <QThread>
 #include <cmath>
+#include <cstring>
 #include <numeric>
 #include <thread>
 
@@ -56,12 +59,27 @@ static QString extractPdfText(const QString &path)
     return full.trimmed();
 }
 
+// ─── Embedding prompts ────────────────────────────────────────────────────────
+// Qwen3-VL-Embedding embeds the hidden state of the last token of a chat
+// prompt whose system line states the task; queries and the things they
+// retrieve use different instructions. Embeddings made before this format
+// (mean-pooled raw inputs) are not comparable and are re-indexed.
+static const char *kModelVer   = "qwen3vl-emb-2b-q4km-v2";
+static const char *kDocInstr   = "Represent the user's input.";
+static const char *kQueryInstr = "Retrieve images or text relevant to the user's query.";
+
+static std::string chatPrompt(const QString &instruction, const std::string &content)
+{
+    return "<|im_start|>system\n" + instruction.toStdString() + "<|im_end|>\n<|im_start|>user\n" + content +
+           "<|im_end|>\n<|im_start|>assistant\n";
+}
+
 // ─── SemanticWorker ───────────────────────────────────────────────────────────
 
 #if KADER_HAVE_LLAMA
 
-SemanticWorker::SemanticWorker(DatabaseManager *db, QObject *parent)
-    : QObject(parent), m_db(db)
+SemanticWorker::SemanticWorker(DatabaseManager *db, ThumbnailGenerator *thumbs, QObject *parent)
+    : QObject(parent), m_db(db), m_thumbs(thumbs)
 {
     llama_log_set([](enum ggml_log_level, const char *, void *) {}, nullptr);
     mtmd_log_set ([](enum ggml_log_level, const char *, void *) {}, nullptr);
@@ -93,7 +111,9 @@ void SemanticWorker::loadModel(const QString &modelPath, const QString &mmprojPa
     cparams.n_ctx        = 4096;
     cparams.n_batch      = 512;
     cparams.embeddings   = true;
-    cparams.pooling_type = LLAMA_POOLING_TYPE_MEAN;
+    // last-token pooling: the model's embedding is the final token's state
+    // (mean pooling also only ever saw the last decode batch of a prompt)
+    cparams.pooling_type = LLAMA_POOLING_TYPE_LAST;
     cparams.n_threads    = (int32_t)std::max(1u, std::thread::hardware_concurrency() / 2);
 
     // Use non-deprecated API
@@ -141,40 +161,33 @@ static void clearKV(llama_context *ctx)
     if (mem) llama_memory_clear(mem, false);
 }
 
-std::vector<float> SemanticWorker::embedImage(const QString &imagePath)
+// Evaluates one prompt (with an optional image at the media marker) and
+// returns the L2-normalised last-token embedding.
+std::vector<float> SemanticWorker::embedPrompt(const std::string &prompt, const void *bitmap)
 {
-    auto *model = static_cast<llama_model   *>(m_model);
-    auto *ctx   = static_cast<llama_context *>(m_ctx);
-    auto *mctx  = static_cast<mtmd_context  *>(m_mtmd);
-    Q_UNUSED(model)
+    auto *ctx  = static_cast<llama_context *>(m_ctx);
+    auto *mctx = static_cast<mtmd_context  *>(m_mtmd);
+    auto *bmp  = static_cast<const mtmd_bitmap *>(bitmap);
 
-    // mtmd API change: this now takes a `placeholder` bool and returns a wrapper
-    // struct (with .bitmap / .video_ctx) instead of a raw mtmd_bitmap*.
-    auto wrap = mtmd_helper_bitmap_init_from_file(mctx, imagePath.toLocal8Bit().constData(), false,
-                                                  mtmd_helper_init_opt_default());
-    auto *bmp = wrap.bitmap;
-    if (!bmp) return {};
-
-    const char *marker = mtmd_default_marker();
-    std::string prompt(marker);
-
-    mtmd_input_text txt { prompt.c_str(), true, true };
+    // parse_special: the chat-template markers are special tokens
+    mtmd_input_text txt { prompt.c_str(), false, true };
     const mtmd_bitmap *bmps[] = { bmp };
 
     auto *chunks = mtmd_input_chunks_init();
-    if (mtmd_tokenize(mctx, chunks, &txt, bmps, 1) != 0) {
+    if (mtmd_tokenize(mctx, chunks, &txt, bmp ? bmps : nullptr, bmp ? 1 : 0) != 0) {
         mtmd_input_chunks_free(chunks);
-        mtmd_bitmap_free(bmp);
         return {};
     }
 
     clearKV(ctx);
+    // mtmd also lays out the M-RoPE positions Qwen3-VL needs for text
     llama_pos n_past = 0;
-    int32_t ret = mtmd_helper_eval_chunks(mctx, ctx, chunks, n_past, 0, 512, true, &n_past);
+    const int32_t ret = mtmd_helper_eval_chunks(mctx, ctx, chunks, n_past, 0, 512, true, &n_past);
+    mtmd_input_chunks_free(chunks);
 
     std::vector<float> result;
     if (ret == 0) {
-        float *embd = llama_get_embeddings_seq(ctx, 0);
+        const float *embd = llama_get_embeddings_seq(ctx, 0);
         if (embd && m_nEmbd > 0) {
             result.assign(embd, embd + m_nEmbd);
             float norm = 0.f;
@@ -183,55 +196,41 @@ std::vector<float> SemanticWorker::embedImage(const QString &imagePath)
             if (norm > 1e-9f) for (float &v : result) v /= norm;
         }
     }
+    return result;
+}
 
-    mtmd_input_chunks_free(chunks);
+std::vector<float> SemanticWorker::embedImage(const QString &imagePath)
+{
+    // Decode through the thumbnail cache: every format the gallery shows
+    // (HEIC, RAW, video frames) works, and the vision encoder gets a
+    // 512px image instead of a full-resolution decode.
+    const QString thumb = m_thumbs ? m_thumbs->getOrCreateThumbnail(imagePath, 768) : QString();
+    QImage img(thumb.isEmpty() ? imagePath : thumb);
+    if (img.isNull())
+        return {};
+    if (std::max(img.width(), img.height()) > 512)
+        img = img.scaled(512, 512, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    img = img.convertToFormat(QImage::Format_RGB888);
+    std::vector<unsigned char> rgb(size_t(img.width()) * size_t(img.height()) * 3);
+    for (int y = 0; y < img.height(); ++y)
+        std::memcpy(rgb.data() + size_t(y) * size_t(img.width()) * 3, img.constScanLine(y), size_t(img.width()) * 3);
+    mtmd_bitmap *bmp = mtmd_bitmap_init(uint32_t(img.width()), uint32_t(img.height()), rgb.data());
+    if (!bmp)
+        return {};
+    auto result = embedPrompt(chatPrompt(QString::fromLatin1(kDocInstr), mtmd_default_marker()), bmp);
     mtmd_bitmap_free(bmp);
     return result;
 }
 
-std::vector<float> SemanticWorker::embedText(const QString &text)
+std::vector<float> SemanticWorker::embedText(const QString &text, const QString &instruction)
 {
-    auto *model = static_cast<llama_model   *>(m_model);
-    auto *ctx   = static_cast<llama_context *>(m_ctx);
-    const llama_vocab *vocab = llama_model_get_vocab(model);
-
-    std::string str = text.toStdString();
-    std::vector<llama_token> tokens((int)str.size() + 64);
-    int n = llama_tokenize(vocab, str.c_str(), (int)str.size(),
-                           tokens.data(), (int)tokens.size(), true, false);
-    if (n <= 0) return {};
-    tokens.resize((size_t)n);
-
-    llama_batch batch = llama_batch_init(n, 0, 1);
-    batch.n_tokens = n;
-    for (int i = 0; i < n; i++) {
-        batch.token[i]     = tokens[(size_t)i];
-        batch.pos[i]       = (llama_pos)i;
-        batch.n_seq_id[i]  = 1;
-        batch.seq_id[i][0] = 0;
-        batch.logits[i]    = (i == n - 1) ? 1 : 0;
-    }
-
-    clearKV(ctx);
-    llama_decode(ctx, batch);
-    llama_batch_free(batch);
-
-    float *embd = llama_get_embeddings_seq(ctx, 0);
-    std::vector<float> result;
-    if (embd && m_nEmbd > 0) {
-        result.assign(embd, embd + m_nEmbd);
-        float norm = 0.f;
-        for (float v : result) norm += v * v;
-        norm = std::sqrt(norm);
-        if (norm > 1e-9f) for (float &v : result) v /= norm;
-    }
-    return result;
+    return embedPrompt(chatPrompt(instruction, text.toStdString()), nullptr);
 }
 
 #else // !KADER_HAVE_LLAMA — build without llama.cpp: search reports itself unavailable
 
-SemanticWorker::SemanticWorker(DatabaseManager *db, QObject *parent)
-    : QObject(parent), m_db(db) {}
+SemanticWorker::SemanticWorker(DatabaseManager *db, ThumbnailGenerator *thumbs, QObject *parent)
+    : QObject(parent), m_db(db), m_thumbs(thumbs) {}
 
 SemanticWorker::~SemanticWorker() = default;
 
@@ -244,7 +243,8 @@ void SemanticWorker::loadModel(const QString &, const QString &)
 void SemanticWorker::unloadModel() { emit unloaded(); }
 
 std::vector<float> SemanticWorker::embedImage(const QString &) { return {}; }
-std::vector<float> SemanticWorker::embedText(const QString &) { return {}; }
+std::vector<float> SemanticWorker::embedText(const QString &, const QString &) { return {}; }
+std::vector<float> SemanticWorker::embedPrompt(const std::string &, const void *) { return {}; }
 
 #endif
 
@@ -252,12 +252,25 @@ void SemanticWorker::generateTextEmbedding(const QString &text, int queryId)
 {
     QMutexLocker lk(&m_mutex);
     if (!m_model) return;
-    auto embd = embedText(text);
+    auto embd = embedText(text, QString::fromLatin1(kQueryInstr));
     QByteArray blob;
     if (!embd.empty())
         blob = QByteArray(reinterpret_cast<const char*>(embd.data()),
                           (qsizetype)(embd.size() * sizeof(float)));
     emit textEmbeddingReady(queryId, blob);
+}
+
+void SemanticWorker::embedTexts(const QStringList &texts, int requestId)
+{
+    QMutexLocker lk(&m_mutex);
+    QList<QByteArray> out;
+    for (const QString &t : texts) {
+        std::vector<float> e;
+        if (m_model)
+            e = embedText(t, QString::fromLatin1(kQueryInstr));
+        out << QByteArray(reinterpret_cast<const char *>(e.data()), qsizetype(e.size() * sizeof(float)));
+    }
+    emit textsEmbedded(requestId, out);
 }
 
 void SemanticWorker::indexPendingMedia()
@@ -324,7 +337,7 @@ void SemanticWorker::indexPendingMedia()
             ? QByteArray(1, '\0')
             : QByteArray(reinterpret_cast<const char*>(embd.data()),
                          (qsizetype)(embd.size() * sizeof(float))));
-        ins.addBindValue(QString("qwen3vl-emb-2b-q4km"));
+        ins.addBindValue(QString::fromLatin1(kModelVer));
         ins.exec();
         emit indexProgress(++m_idxDone, m_idxTotal);
     }
@@ -414,7 +427,7 @@ void SemanticWorker::indexPendingDocs(QStringList rootDirs)
                     QThread::msleep(delayMs);
                 }
 
-                auto embd = embedText(chunks[ci]);
+                auto embd = embedText(chunks[ci], QString::fromLatin1(kDocInstr));
                 if (!embd.empty()) {
                     QSqlQuery ins(db);
                     ins.prepare("INSERT OR IGNORE INTO doc_chunks "
@@ -423,7 +436,7 @@ void SemanticWorker::indexPendingDocs(QStringList rootDirs)
                     ins.addBindValue(ci);
                     ins.addBindValue(QByteArray(reinterpret_cast<const char*>(embd.data()),
                                                 (qsizetype)(embd.size() * sizeof(float))));
-                    ins.addBindValue(QString("qwen3vl-emb-2b-q4km"));
+                    ins.addBindValue(QString::fromLatin1(kModelVer));
                     ins.exec();
                 }
             }
@@ -466,9 +479,21 @@ bool SemanticSearchEngine::modelsPresent() const
     return QFile::exists(modelPath()) && QFile::exists(mmprojPath());
 }
 
-SemanticSearchEngine::SemanticSearchEngine(DatabaseManager *db, QObject *parent)
+SemanticSearchEngine::SemanticSearchEngine(DatabaseManager *db, ThumbnailGenerator *thumbs, QObject *parent)
     : QObject(parent), m_db(db), m_nam(new QNetworkAccessManager(this))
 {
+    // Embeddings from an older prompt/pooling format live in another space:
+    // drop them so the library is re-indexed with the current one.
+    {
+        QSqlQuery dq(m_db->threadDb());
+        dq.prepare("DELETE FROM ai_embeddings WHERE model_ver != ?");
+        dq.addBindValue(QString::fromLatin1(kModelVer));
+        dq.exec();
+        dq.prepare("DELETE FROM doc_chunks WHERE model_ver != ?");
+        dq.addBindValue(QString::fromLatin1(kModelVer));
+        dq.exec();
+    }
+
     // Load persisted docs-enabled setting
     {
         QSqlQuery sq(m_db->threadDb());
@@ -494,13 +519,15 @@ SemanticSearchEngine::SemanticSearchEngine(DatabaseManager *db, QObject *parent)
     }
 
     m_thread = new QThread(this);
-    m_worker = new SemanticWorker(db);
+    m_worker = new SemanticWorker(db, thumbs);
     m_worker->moveToThread(m_thread);
 
     connect(m_worker, &SemanticWorker::loaded,
             this, &SemanticSearchEngine::onWorkerLoaded);
     connect(m_worker, &SemanticWorker::textEmbeddingReady,
             this, &SemanticSearchEngine::onTextEmbeddingReady);
+    connect(m_worker, &SemanticWorker::textsEmbedded,
+            this, &SemanticSearchEngine::onTextsEmbedded);
     connect(m_worker, &SemanticWorker::indexProgress,
             this, &SemanticSearchEngine::onIndexProgress);
     connect(m_worker, &SemanticWorker::docIndexProgress,
@@ -698,6 +725,8 @@ void SemanticSearchEngine::onWorkerLoaded(bool ok)
     // Auto-index photos then docs in the background (batched)
     indexAllMedia();
     if (m_docsEnabled) indexAllDocs();
+    if (!m_indexing)
+        computeScenes(); // library already indexed
 }
 
 void SemanticSearchEngine::onTextEmbeddingReady(int queryId, QByteArray blob)
@@ -715,6 +744,7 @@ void SemanticSearchEngine::onIndexProgress(int cur, int total)
         m_indexing = false;
         emit indexingChanged();
         if (total > 0) qDebug() << "[AI] Indexing complete:" << cur << "embeddings stored";
+        computeScenes();
     }
 }
 
@@ -786,7 +816,21 @@ void SemanticSearchEngine::searchByText(const QString &query)
 
         std::sort(scores.begin(), scores.end(),
                   [](const auto &a, const auto &b){ return a.second > b.second; });
-        if (scores.size() > 30) scores.resize(30);
+        // Adaptive cut-off: similarities are only meaningful relative to the
+        // library, so keep what stands out from it (z ≥ 1.6), at least the
+        // best dozen and at most 240 — not a fixed top 30.
+        if (!scores.isEmpty()) {
+            double mean = 0, var = 0;
+            for (const auto &sc : scores) mean += sc.second;
+            mean /= scores.size();
+            for (const auto &sc : scores) var += (sc.second - mean) * (sc.second - mean);
+            const double sd = std::sqrt(var / scores.size());
+            const float cut = float(mean + 1.6 * sd);
+            qsizetype keep = 0;
+            while (keep < scores.size() && keep < 240 && (keep < 12 || scores[keep].second >= cut))
+                ++keep;
+            scores.resize(keep);
+        }
 
         QVariantList out;
         for (const auto &[id, score] : scores) {
@@ -839,4 +883,124 @@ void SemanticSearchEngine::setResourceBudget(int mode)
         QMetaObject::invokeMethod(m_worker, [this, mode]{
             m_worker->setResourceBudget(mode);
         }, Qt::QueuedConnection);
+}
+
+// ── Scenes ────────────────────────────────────────────────────────────────────
+
+namespace {
+struct SceneDef { const char *key; const char *name; const char *prompt; };
+// Zero-shot categories: matched against image embeddings with the query
+// instruction, like a search the user didn't have to type.
+constexpr SceneDef kScenes[] = {
+    {"sunset",   "Sunsets",        "a sunset or sunrise with a colourful sky"},
+    {"beach",    "Beaches",        "a sandy beach by the sea"},
+    {"mountain", "Mountains",      "mountains and peaks landscape"},
+    {"snow",     "Snow",           "snow and winter landscape"},
+    {"forest",   "Forests",        "a forest with trees"},
+    {"water",    "Lakes & rivers", "a lake or river"},
+    {"city",     "Cities",         "a city street with buildings"},
+    {"architecture", "Architecture", "architecture, a building facade or interior"},
+    {"night",    "Night",          "a photo taken at night with lights"},
+    {"food",     "Food",           "a plate of food or a meal"},
+    {"dog",      "Dogs",           "a dog"},
+    {"cat",      "Cats",           "a cat"},
+    {"wildlife", "Animals",        "wild animals in nature"},
+    {"flower",   "Flowers",        "flowers and plants close up"},
+    {"car",      "Cars",           "a car or vehicle"},
+    {"selfie",   "Portraits",      "a portrait photo of a person"},
+    {"document", "Documents",      "a document, receipt or screenshot with text"},
+    {"sky",      "Sky & clouds",   "the sky with clouds"},
+};
+} // namespace
+
+void SemanticSearchEngine::computeScenes()
+{
+    if (!m_ready || m_scenesBusy)
+        return;
+    m_scenesBusy = true;
+    emit scenesChanged();
+    QStringList prompts;
+    for (const auto &sc : kScenes)
+        prompts << QString::fromLatin1(sc.prompt);
+    m_sceneRequest = m_nextQueryId++;
+    const int rid = m_sceneRequest;
+    QMetaObject::invokeMethod(m_worker, [this, prompts, rid] { m_worker->embedTexts(prompts, rid); },
+                              Qt::QueuedConnection);
+}
+
+void SemanticSearchEngine::onTextsEmbedded(int requestId, QList<QByteArray> embeddings)
+{
+    if (requestId != m_sceneRequest)
+        return;
+    const int nScenes = int(std::size(kScenes));
+    const int dim = embeddings.isEmpty() ? 0 : int(embeddings.first().size() / sizeof(float));
+    QVector<int> ids;
+    QVector<QVector<float>> sims(nScenes); // sims[scene][image]
+    if (dim > 0) {
+        QSqlQuery q(m_db->threadDb());
+        q.exec("SELECT e.media_id, e.embedding FROM ai_embeddings e JOIN media m ON m.id = e.media_id "
+               "WHERE m.is_trashed=0 AND m.is_hidden=0 AND COALESCE(m.is_ignored,0)=0");
+        while (q.next()) {
+            const QByteArray e = q.value(1).toByteArray();
+            if (e.size() != qsizetype(dim * sizeof(float)))
+                continue;
+            ids << q.value(0).toInt();
+            const auto *v = reinterpret_cast<const float *>(e.constData());
+            for (int s = 0; s < nScenes; ++s) {
+                const auto *t = reinterpret_cast<const float *>(embeddings[s].constData());
+                sims[s] << (embeddings[s].size() == e.size() ? cosine(t, v, dim) : -1.f);
+            }
+        }
+    }
+    // Standardise each scene's similarities over the library, then give each
+    // photo to the scene it stands out for most (z ≥ 1.25).
+    QVector<double> mean(nScenes), sd(nScenes);
+    for (int s = 0; s < nScenes; ++s) {
+        double m = 0, v = 0;
+        for (float x : sims[s]) m += x;
+        m /= std::max<qsizetype>(1, ids.size());
+        for (float x : sims[s]) v += (x - m) * (x - m);
+        mean[s] = m;
+        sd[s] = std::max(1e-6, std::sqrt(v / std::max<qsizetype>(1, ids.size())));
+    }
+    QHash<QString, QVector<QPair<float, int>>> members;
+    for (int i = 0; i < ids.size(); ++i) {
+        int best = -1;
+        double bz = 1.25;
+        for (int s = 0; s < nScenes; ++s) {
+            const double z = (sims[s][i] - mean[s]) / sd[s];
+            if (z > bz) { bz = z; best = s; }
+        }
+        if (best >= 0)
+            members[QString::fromLatin1(kScenes[best].key)] << qMakePair(float(bz), ids[i]);
+    }
+    m_sceneMembers.clear();
+    m_scenes.clear();
+    for (const auto &sc : kScenes) {
+        auto list = members.value(QString::fromLatin1(sc.key));
+        if (list.size() < 3)
+            continue;
+        std::sort(list.begin(), list.end(), [](const auto &a, const auto &b) { return a.first > b.first; });
+        QVector<int> idsOrdered;
+        for (const auto &p : list) idsOrdered << p.second;
+        const QString key = QStringLiteral("scene:") + QString::fromLatin1(sc.key);
+        m_sceneMembers.insert(key, idsOrdered);
+        QVariantList cover;
+        for (int i = 0; i < std::min<qsizetype>(4, idsOrdered.size()); ++i) cover << idsOrdered[i];
+        m_scenes << QVariantMap{{"key", key}, {"name", QString::fromLatin1(sc.name)},
+                                {"count", int(idsOrdered.size())}, {"coverIds", cover}};
+    }
+    std::sort(m_scenes.begin(), m_scenes.end(), [](const QVariant &a, const QVariant &b) {
+        return a.toMap().value("count").toInt() > b.toMap().value("count").toInt();
+    });
+    m_scenesBusy = false;
+    emit scenesChanged();
+}
+
+QVariantList SemanticSearchEngine::sceneMediaIds(const QString &key) const
+{
+    QVariantList out;
+    for (int id : m_sceneMembers.value(key))
+        out << id;
+    return out;
 }

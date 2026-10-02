@@ -30,43 +30,6 @@ WorldHolder &worldHolder() {
     return h;
 }
 
-QFuture<KgWorld *> worldFuture() {
-    WorldHolder &h = worldHolder();
-    std::call_once(h.once, [&h] {
-        h.future = QtConcurrent::run([]() -> KgWorld * {
-            // Installed: <prefix>/share/kader; build tree / AppImage: next to
-            // or around the binary; KADER_DATA_DIR overrides.
-            const QString app = QCoreApplication::applicationDirPath();
-            QStringList candidates;
-            if (qEnvironmentVariableIsSet("KADER_DATA_DIR"))
-                candidates << qEnvironmentVariable("KADER_DATA_DIR") + QStringLiteral("/world.kgeo");
-            candidates << app + QStringLiteral("/../share/kader/world.kgeo")
-                       << app + QStringLiteral("/world.kgeo");
-            const QString located = QStandardPaths::locate(QStandardPaths::GenericDataLocation,
-                                                           QStringLiteral("kader/world.kgeo"));
-            if (!located.isEmpty())
-                candidates << located;
-            for (const QString &path : candidates) {
-                QFile f(path);
-                if (!f.open(QIODevice::ReadOnly))
-                    continue;
-                // mmap: the decoder reads the file once; nothing is kept around
-                const qint64 size = f.size();
-                uchar *data = f.map(0, size);
-                if (!data)
-                    continue;
-                KgWorld *w = kg_world_new(data, size_t(size));
-                f.unmap(data);
-                if (w)
-                    return w;
-                qWarning() << "GlobeItem: failed to decode" << path;
-            }
-            qWarning() << "GlobeItem: world dataset not found (looked in" << candidates << ")";
-            return nullptr;
-        });
-    });
-    return h.future;
-}
 
 inline void rgba(const QColor &c, uint8_t out[4]) {
     out[0] = uint8_t(c.red());
@@ -217,6 +180,45 @@ public:
 };
 
 } // namespace
+
+// Decoded once on a worker thread, shared by every globe and the analyzer.
+QFuture<KgWorld *> kaderWorld() {
+    WorldHolder &h = worldHolder();
+    std::call_once(h.once, [&h] {
+        h.future = QtConcurrent::run([]() -> KgWorld * {
+            // Installed: <prefix>/share/kader; build tree / AppImage: next to
+            // or around the binary; KADER_DATA_DIR overrides.
+            const QString app = QCoreApplication::applicationDirPath();
+            QStringList candidates;
+            if (qEnvironmentVariableIsSet("KADER_DATA_DIR"))
+                candidates << qEnvironmentVariable("KADER_DATA_DIR") + QStringLiteral("/world.kgeo");
+            candidates << app + QStringLiteral("/../share/kader/world.kgeo")
+                       << app + QStringLiteral("/world.kgeo");
+            const QString located = QStandardPaths::locate(QStandardPaths::GenericDataLocation,
+                                                           QStringLiteral("kader/world.kgeo"));
+            if (!located.isEmpty())
+                candidates << located;
+            for (const QString &path : candidates) {
+                QFile f(path);
+                if (!f.open(QIODevice::ReadOnly))
+                    continue;
+                // mmap: the decoder reads the file once; nothing is kept around
+                const qint64 size = f.size();
+                uchar *data = f.map(0, size);
+                if (!data)
+                    continue;
+                KgWorld *w = kg_world_new(data, size_t(size));
+                f.unmap(data);
+                if (w)
+                    return w;
+                qWarning() << "GlobeItem: failed to decode" << path;
+            }
+            qWarning() << "GlobeItem: world dataset not found (looked in" << candidates << ")";
+            return nullptr;
+        });
+    });
+    return h.future;
+}
 
 // Drives the globe from Qt Quick's animation driver: vsync-paced on the
 // threaded render loop, and paused whenever nothing moves.
@@ -419,7 +421,7 @@ GlobeItem::~GlobeItem() {
 }
 
 void GlobeItem::loadWorld() {
-    QFuture<KgWorld *> f = worldFuture();
+    QFuture<KgWorld *> f = kaderWorld();
     auto adopt = [this](KgWorld *w) {
         m_world = w;
         emit readyChanged();
