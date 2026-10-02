@@ -17,6 +17,7 @@ class FileScanner : public QObject {
     // true while any scan is running — views show loading skeletons instead
     // of an "empty library" message during the first discovery
     Q_PROPERTY(bool scanning READ isScanning NOTIFY scanningChanged)
+    Q_PROPERTY(bool stripping READ isStripping NOTIFY strippingChanged)
 public:
     explicit FileScanner(DatabaseManager *db, QObject *parent = nullptr);
     ~FileScanner();
@@ -43,6 +44,12 @@ public:
     void setMaxThreads(int n) { m_maxThreads.store(n > 0 ? n : 0); }
 
     bool isScanning() const { return m_activeScans > 0; }
+    bool isStripping() const { return m_stripping; }
+
+    // Rewrites the library's photos (JPEG, PNG, WebP, TIFF) in place without
+    // their location (locationOnly) or without EXIF/IPTC/XMP entirely.
+    // Runs in the background; RAW, HEIC and video files are left untouched.
+    Q_INVOKABLE void stripMetadata(bool locationOnly);
 
 signals:
     void scanStarted(const QString &rootPath);
@@ -55,6 +62,9 @@ signals:
     void libraryChanged(const QString &rootPath);
     void scanProgress(int filesFound);
     void scanningChanged();
+    void strippingChanged();
+    void stripProgress(int done, int total);
+    void stripFinished(int changed, int failed);
 
 private:
     void runScan(const std::string &rootPath, const std::vector<std::string> &exclusions);
@@ -65,4 +75,5 @@ private:
     QFuture<void>         m_scanFuture;
     std::atomic<int>      m_maxThreads{0};   // 0 = auto (all cores)
     int                   m_activeScans = 0; // GUI thread only
+    bool                  m_stripping = false;
 };

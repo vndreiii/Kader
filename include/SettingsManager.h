@@ -16,6 +16,8 @@ class SettingsManager : public QObject {
     Q_PROPERTY(bool placesPanelCompact READ placesPanelCompact WRITE setPlacesPanelCompact NOTIFY placesPanelCompactChanged)
     Q_PROPERTY(QString homePath READ homePath CONSTANT)
     Q_PROPERTY(bool autoUpdate READ autoUpdate WRITE setAutoUpdate NOTIFY autoUpdateChanged)
+    Q_PROPERTY(bool autoScan READ autoScan WRITE setAutoScan NOTIFY autoScanChanged)
+    Q_PROPERTY(int trashRetentionDays READ trashRetentionDays WRITE setTrashRetentionDays NOTIFY trashRetentionDaysChanged)
     Q_PROPERTY(QString skippedVersion READ skippedVersion WRITE setSkippedVersion NOTIFY skippedVersionChanged)
 
 public:
@@ -55,6 +57,10 @@ public:
     // Updater: check GitHub releases automatically; a version the user chose
     // to skip is not offered again (a newer one is).
     bool autoUpdate() const;
+    bool autoScan() const;
+    void setAutoScan(bool on);
+    int trashRetentionDays() const;   // 0 = keep forever
+    void setTrashRetentionDays(int days);
     void setAutoUpdate(bool on);
     QString skippedVersion() const;
     void setSkippedVersion(const QString &v);
@@ -84,6 +90,8 @@ signals:
     void use3DGlobeChanged();
     void placesPanelCompactChanged();
     void autoUpdateChanged();
+    void autoScanChanged();
+    void trashRetentionDaysChanged();
     void skippedVersionChanged();
 
 private:

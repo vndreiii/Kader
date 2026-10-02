@@ -266,6 +266,14 @@ Rectangle {
         }
 
         SidebarItem {
+            id: itSupport
+            icon: "volunteer_activism"; label: I18n.t(Settings.language, "donate_short")
+            active: false
+            collapsed: root.collapsed
+            onClicked: Qt.openUrlExternally("https://ko-fi.com/vndreiii")
+        }
+
+        SidebarItem {
             id: itSettings
             icon: "settings"; label: I18n.t(Settings.language, "settings")
             active: root.currentView === "settings"
