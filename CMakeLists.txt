@@ -300,6 +300,7 @@ qt_add_qml_module(KaderStyle
         qml/style/ToolTip.qml
         qml/style/ComboBox.qml
         qml/style/TextField.qml
+        qml/style/Button.qml
     IMPORTS
         QtQuick.Controls.Fusion
 )

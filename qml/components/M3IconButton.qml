@@ -13,6 +13,10 @@ Item {
     signal clicked()
     implicitWidth: 40
     implicitHeight: 40
+    scale: ma.pressed ? 0.86 : 1
+    Behavior on scale {
+        NumberAnimation { duration: ma.pressed ? 90 : 320; easing.type: ma.pressed ? Easing.OutCubic : Easing.OutBack; easing.overshoot: 2.4 }
+    }
 
     Rectangle {
         anchors.centerIn: parent

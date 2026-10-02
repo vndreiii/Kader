@@ -185,6 +185,56 @@ ApplicationWindow {
     //   text) → a pushed page → back to the gallery.
     // A view takes part by defining handleBack(), returning true when it
     // consumed the press.
+    // ── predictive back (emulated on desktop) ──────────────────────────────
+    // A back gesture (mouse back button held, touchpad swipe right) shows a
+    // preview: the page shrinks and slides right. Past halfway it commits —
+    // the page finishes leaving and the previous one grows back in;
+    // otherwise it springs back. Esc plays the arrival half.
+    property real _backProgress: 0
+    property bool _backDragging: false
+    Behavior on _backProgress {
+        enabled: !window._backDragging
+        NumberAnimation { duration: 240; easing.type: Easing.OutCubic }
+    }
+    function _canBack() {
+        return !viewerOverlay.active && (mainStack.depth > 1 || window.currentView !== "timeline"
+            || (window._searchViewInst && mainStack.currentItem === window._searchViewInst && window._searchViewInst.subDepth > 1))
+    }
+    function _pageKey() {
+        return mainStack.depth + "|" + window.currentView + "|"
+            + (window._searchViewInst ? window._searchViewInst.subDepth : 0)
+    }
+    // the page that just came back grows in from where the old one left
+    function _arrive() {
+        window._backDragging = true
+        window._backProgress = 0.3
+        window._backDragging = false
+        window._backProgress = 0
+    }
+    function backWithMotion() {
+        var before = _pageKey()
+        goBack()
+        if (_pageKey() !== before) _arrive()
+    }
+    function _finishBackGesture() {
+        if (window._backProgress > 0.5) {
+            backCommit.start()
+        } else {
+            window._backDragging = false
+            window._backProgress = 0
+        }
+    }
+    SequentialAnimation {
+        id: backCommit
+        NumberAnimation { target: window; property: "_backProgress"; to: 1; duration: 110; easing.type: Easing.InCubic }
+        ScriptAction {
+            script: {
+                window.goBack()
+                window._arrive()
+            }
+        }
+    }
+
     function goBack() {
         if (viewerOverlay.active) { viewerOverlay.handleBack(); return }
         var f = window.activeFocusItem
@@ -526,31 +576,26 @@ ApplicationWindow {
         border.width: window.viewerOnlyMode ? 0 : 1
     }
 
-    // Mouse back/forward buttons — navigate stack or viewer
+    // Mouse back/forward buttons. In the viewer: previous / next photo.
+    // Elsewhere back is predictive: hold to preview, release to go.
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.BackButton | Qt.ForwardButton
-        propagateComposedEvents: true
         z: 9999
-        onClicked: (mouse) => {
-            if (mouse.button === Qt.BackButton) {
-                if (viewerOverlay.active) {
-                    viewerOverlay.navigatePrev()
-                } else if (mainStack.depth > 1) {
-                    mainStack.pop()
-                    if (window.currentView === "hidden" || window.currentView === "trash" ||
-                        window.currentView === "favorites") {
-                        window.currentView = "timeline"
-                        window.detailTitle = ""
-                        TimelineModel.setFolderFilter("")
-                        TimelineModel.setMimeFilter("")
-                        TimelineModel.filterMode = 0
-                    }
-                }
-            } else if (mouse.button === Qt.ForwardButton) {
+        onPressed: (mouse) => {
+            if (mouse.button === Qt.ForwardButton) {
                 if (viewerOverlay.active) viewerOverlay.navigateNext()
+                return
             }
+            if (viewerOverlay.active) { viewerOverlay.navigatePrev(); return }
+            if (!window._canBack()) { window.backWithMotion(); return }
+            window._backDragging = false
+            window._backProgress = 0.6
         }
+        onReleased: (mouse) => {
+            if (mouse.button === Qt.BackButton && window._backProgress > 0) backCommit.start()
+        }
+        onCanceled: { window._backDragging = false; window._backProgress = 0 }
     }
 
     RowLayout {
@@ -1075,12 +1120,92 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 
-                pushEnter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: ThemeManager.durMed; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
-                pushExit: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: ThemeManager.durMed; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
-                popEnter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: ThemeManager.durMed; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
-                popExit: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: ThemeManager.durMed; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
-                replaceEnter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: ThemeManager.durMed; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
-                replaceExit: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: ThemeManager.durMed; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
+                // Material motion. Tabs: fade through (the old page fades out
+                // fast, the new one fades in while growing slightly). Pages
+                // opened from a page: shared X axis (in from the right, back
+                // to the right).
+                readonly property var _emph: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0]
+                replaceExit: Transition {
+                    NumberAnimation { property: "opacity"; to: 0; duration: 90; easing.type: Easing.InCubic }
+                }
+                replaceEnter: Transition {
+                    SequentialAnimation {
+                        PropertyAction { property: "opacity"; value: 0 }
+                        PropertyAction { property: "x"; value: 0 }
+                        PauseAnimation { duration: 60 }
+                        ParallelAnimation {
+                            NumberAnimation { property: "opacity"; to: 1; duration: 210; easing.type: Easing.OutCubic }
+                            NumberAnimation { property: "scale"; from: 0.94; to: 1; duration: 320; easing.type: Easing.Bezier; easing.bezierCurve: mainStack._emph }
+                        }
+                    }
+                }
+                pushEnter: Transition {
+                    ParallelAnimation {
+                        NumberAnimation { property: "x"; from: mainStack.width * 0.08; to: 0; duration: 340; easing.type: Easing.Bezier; easing.bezierCurve: mainStack._emph }
+                        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic }
+                    }
+                }
+                pushExit: Transition {
+                    ParallelAnimation {
+                        NumberAnimation { property: "x"; to: -mainStack.width * 0.04; duration: 300; easing.type: Easing.Bezier; easing.bezierCurve: mainStack._emph }
+                        NumberAnimation { property: "opacity"; to: 0; duration: 120 }
+                    }
+                }
+                popEnter: Transition {
+                    ParallelAnimation {
+                        NumberAnimation { property: "x"; from: -mainStack.width * 0.04; to: 0; duration: 340; easing.type: Easing.Bezier; easing.bezierCurve: mainStack._emph }
+                        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic }
+                    }
+                }
+                popExit: Transition {
+                    ParallelAnimation {
+                        NumberAnimation { property: "x"; to: mainStack.width * 0.08; duration: 260; easing.type: Easing.Bezier; easing.bezierCurve: mainStack._emph }
+                        NumberAnimation { property: "opacity"; to: 0; duration: 140 }
+                    }
+                }
+
+                // predictive back: the page shrinks and slides as a preview
+                transformOrigin: Item.Center
+                transform: [
+                    Scale {
+                        origin.x: mainStack.width / 2; origin.y: mainStack.height / 2
+                        xScale: 1 - 0.08 * window._backProgress; yScale: xScale
+                    },
+                    Translate { x: 36 * window._backProgress }
+                ]
+                opacity: 1 - 0.35 * window._backProgress
+
+                // touchpad: a two-finger swipe right previews going back
+                MouseArea {
+                    anchors.fill: parent
+                    z: 1000
+                    acceptedButtons: Qt.NoButton
+                    property bool _swiping: false
+                    property real _acc: 0
+                    Timer {
+                        id: swipeBackEnd
+                        interval: 160
+                        onTriggered: { parent._swiping = false; window._finishBackGesture() }
+                    }
+                    onWheel: (wheel) => {
+                        var dx = wheel.pixelDelta.x, dy = wheel.pixelDelta.y
+                        if (!_swiping) {
+                            // the map and globe use horizontal swipes to pan
+                            if (dx > 0 && Math.abs(dx) > Math.abs(dy) * 1.5 && window.currentView !== "map" && window._canBack()) {
+                                _swiping = true
+                                _acc = 0
+                                window._backDragging = true
+                            } else {
+                                wheel.accepted = false
+                                return
+                            }
+                        }
+                        _acc = Math.max(0, _acc + dx)
+                        window._backProgress = Math.min(1, _acc / 320)
+                        swipeBackEnd.restart()
+                        wheel.accepted = true
+                    }
+                }
             }
         }
     }
@@ -1542,7 +1667,7 @@ ApplicationWindow {
     Item {
         Shortcut {
             sequences: [StandardKey.Cancel]
-            onActivated: window.goBack()
+            onActivated: window.backWithMotion()
         }
     }
 
