@@ -9,7 +9,7 @@ import "../I18n.js" as I18n
 Rectangle {
     id: root
     anchors.fill: parent
-    color: Qt.alpha("black", 0.96)  // 96% opaque black — enough to hide sidebar/topbar
+    color: "black"   // the whole window is the canvas
     z: 1000
     visible: active
 
@@ -21,7 +21,13 @@ Rectangle {
     property bool viewerOnlyMode: false
     property bool _isFullscreen: false
     property bool _videoFullscreen: false
-    property bool _controlsVisible: true  // auto-hides in video fullscreen
+    property bool _controlsVisible: true  // chrome auto-hides after a few idle seconds
+    property bool _overChrome: false      // pointer is on a control: keep chrome up
+
+    function _poke() {
+        _controlsVisible = true
+        controlsHideTimer.restart()
+    }
 
     // ── Minimal video editing (trim + audio toggle + save-as-copy) ──────────
     property bool   _editMode:    false
@@ -43,36 +49,58 @@ Rectangle {
         videoPlayer.pause()
     }
 
+    // Live player when a video is loaded, otherwise inert stand-ins so the
+    // controls' bindings stay valid.
+    readonly property QtObject videoPlayer: playerLoader.item ? playerLoader.item.player : _noPlayer
+    readonly property QtObject audioOut: playerLoader.item ? playerLoader.item.audio : _noAudio
+    QtObject {
+        id: _noPlayer
+        property real duration: 0
+        property real position: 0
+        property int playbackState: 0
+        property url source: ""
+        property bool hasError: false
+        function play() {}
+        function pause() {}
+        function stop() {}
+    }
+    QtObject {
+        id: _noAudio
+        property bool muted: false
+        property real volume: 0.5
+    }
+
     // True when the user is in cinema/video fullscreen — drives chrome visibility
     readonly property bool _vidFs: _videoFullscreen && _isVideo
 
     function toggleVideoFullscreen() {
         if (_videoFullscreen) {
-            ApplicationWindow.window.showNormal()
+            Window.window.showNormal()
             _videoFullscreen = false
-            _controlsVisible = true
-            controlsHideTimer.stop()
+            _poke()
         } else {
-            ApplicationWindow.window.showFullScreen()
+            Window.window.showFullScreen()
             _videoFullscreen = true
             _controlsVisible = true
             controlsHideTimer.restart()
         }
     }
 
-    // Auto-hide controls after 3 s of no mouse movement in video fullscreen
+    // Auto-hide the chrome after 2.5 s without pointer movement, so the photo
+    // owns the whole window; any movement brings it back.
     Timer {
         id: controlsHideTimer
-        interval: 3000
-        onTriggered: root._controlsVisible = false
+        interval: 2500
+        onTriggered: {
+            if (root._overChrome || root.infoPanelOpen || deleteConfirm.showing || root._editMode) restart()
+            else root._controlsVisible = false
+        }
     }
 
     onActiveChanged: {
         if (!active) {
-            videoPlayer.stop()
-            videoPlayer.source = ""
-            if (_videoFullscreen) { ApplicationWindow.window.showNormal(); _videoFullscreen = false }
-            if (_isFullscreen)    { ApplicationWindow.window.showNormal(); _isFullscreen = false }
+            if (_videoFullscreen) { Window.window.showNormal(); _videoFullscreen = false }
+            if (_isFullscreen)    { Window.window.showNormal(); _isFullscreen = false }
             controlsHideTimer.stop()
             if (viewerOnlyMode) Qt.quit()
         }
@@ -150,8 +178,6 @@ Rectangle {
         resetZoom()
         deleteConfirm.showing = false
         // Compute isVid directly — _isVideo binding may not be recomputed yet at this point
-        var isVid = root.mediaData ? (root.mediaData.mime_type || "").indexOf("video/") === 0 : false
-        videoPlayer.source = (isVid && root.mediaData) ? "file://" + root.mediaData.file_path : ""
     }
 
     focus: active
@@ -209,6 +235,20 @@ Rectangle {
         }
     }
 
+    // Pointer tracker: shows the chrome on movement (never eats clicks)
+    MouseArea {
+        anchors.fill: parent
+        z: 900
+        acceptedButtons: Qt.NoButton
+        hoverEnabled: true
+        onPositionChanged: root._poke()
+        cursorShape: root._controlsVisible ? Qt.ArrowCursor : Qt.BlankCursor
+    }
+    Component.onCompleted: _poke()
+
+    property real chromeOpacity: (root._vidFs || !root._controlsVisible) ? 0 : 1
+    Behavior on chromeOpacity { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+
     // ── Image display area ────────────────────────────────────────────────
     Item {
         id: imgArea
@@ -216,16 +256,31 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: root.infoPanelOpen ? infoPanel.left : parent.right
-        anchors.topMargin:    root._vidFs ? 0 : 72
-        anchors.leftMargin:   root._vidFs ? 0 : 72
-        anchors.rightMargin:  root._vidFs ? 0 : 72
-        anchors.bottomMargin: root._vidFs ? 0 : 80
         clip: true
 
-        Behavior on anchors.topMargin    { NumberAnimation { duration: 220; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
-        Behavior on anchors.leftMargin   { NumberAnimation { duration: 220; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
-        Behavior on anchors.rightMargin  { NumberAnimation { duration: 220; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
-        Behavior on anchors.bottomMargin { NumberAnimation { duration: 220; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
+        // Soft scrims keep the white controls readable over any photo
+        Rectangle {
+            id: topScrim
+            anchors { left: parent.left; right: parent.right; top: parent.top }
+            height: 140
+            z: 6
+            opacity: root.chromeOpacity
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.62) }
+                GradientStop { position: 1.0; color: "transparent" }
+            }
+        }
+        Rectangle {
+            anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+            height: 190
+            z: 6
+            opacity: root.chromeOpacity
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: "transparent" }
+                GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.72) }
+            }
+        }
+
 
         // Mouse tracker for auto-hide + double-click-to-fullscreen in video fullscreen mode
         MouseArea {
@@ -236,8 +291,8 @@ Rectangle {
             hoverEnabled: true
             z: 10
             propagateComposedEvents: true
-            onMouseXChanged: { root._controlsVisible = true; controlsHideTimer.restart() }
-            onMouseYChanged: { root._controlsVisible = true; controlsHideTimer.restart() }
+            onMouseXChanged: root._poke()
+            onMouseYChanged: root._poke()
             cursorShape: (root._vidFs && !root._controlsVisible) ? Qt.BlankCursor : Qt.ArrowCursor
         }
         // Double-click toggles video fullscreen; drag pans when zoomed in
@@ -339,55 +394,55 @@ Rectangle {
         }
 
         // ── Video player (shown instead of image when _isVideo) ──────────
-        MediaPlayer {
-            id: videoPlayer
-            videoOutput: videoOut
-            audioOutput: audioOut
-            loops: videoLoopBtn.looping ? MediaPlayer.Infinite : 1
-            property bool hasError: false
-            onErrorOccurred: (error, errorString) => { console.error("Video error:", errorString); hasError = true }
-            onSourceChanged: { hasError = false }
-            onMediaStatusChanged: {
-                if (mediaStatus === MediaPlayer.LoadedMedia || mediaStatus === MediaPlayer.BufferedMedia)
-                    play()
-            }
-        }
-
-        AudioOutput {
-            id: audioOut
-            volume: 0.5
-        }
-
-        // Apply PulseAudio device preference when the setting is toggled
-        Connections {
-            target: Settings
-            function onUsePulseAudioChanged() { audioOut.device = _pulseDevice() }
-        }
-        Component.onCompleted: {
-            if (Settings.usePulseAudio) {
-                var d = _pulseDevice()
-                if (d) audioOut.device = d
-            }
-        }
-
-        function _pulseDevice() {
-            var devs = MediaDevices.audioOutputs
-            if (!devs || !devs.length) return MediaDevices.defaultAudioOutput
-            for (var i = 0; i < devs.length; i++)
-                if (devs[i].description.toLowerCase().indexOf("pulse") >= 0) return devs[i]
-            return MediaDevices.defaultAudioOutput
-        }
-
-        VideoOutput {
-            id: videoOut
+        // Built only while a video is shown: creating a MediaPlayer loads the
+        // FFmpeg backend and enumerates audio devices, which used to cost every
+        // launch of the standalone photo viewer.
+        Loader {
+            id: playerLoader
             anchors.fill: parent
-            visible: true
-            opacity: root._isVideo ? 1.0 : 0.0
-            Behavior on opacity { NumberAnimation { duration: 280; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
-            transform: [
-                Scale { origin.x: videoOut.width/2; origin.y: videoOut.height/2; xScale: root._zoom; yScale: root._zoom },
-                Translate { x: root._panX; y: root._panY }
-            ]
+            active: root.active && root._isVideo
+            sourceComponent: Item {
+                property alias player: mp
+                property alias audio: ao
+                MediaPlayer {
+                    id: mp
+                    videoOutput: vo
+                    audioOutput: ao
+                    source: root._isVideo && root.mediaData ? "file://" + root.mediaData.file_path : ""
+                    loops: videoLoopBtn.looping ? MediaPlayer.Infinite : 1
+                    property bool hasError: false
+                    onErrorOccurred: (error, errorString) => { console.error("Video error:", errorString); hasError = true }
+                    onSourceChanged: { hasError = false }
+                    onMediaStatusChanged: {
+                        if (mediaStatus === MediaPlayer.LoadedMedia || mediaStatus === MediaPlayer.BufferedMedia)
+                            play()
+                    }
+                }
+                AudioOutput {
+                    id: ao
+                    volume: 0.5
+                    function pulseDevice() {
+                        var devs = MediaDevices.audioOutputs
+                        if (!devs || !devs.length) return MediaDevices.defaultAudioOutput
+                        for (var i = 0; i < devs.length; i++)
+                            if (devs[i].description.toLowerCase().indexOf("pulse") >= 0) return devs[i]
+                        return MediaDevices.defaultAudioOutput
+                    }
+                    Component.onCompleted: if (Settings.usePulseAudio) device = pulseDevice()
+                }
+                Connections {
+                    target: Settings
+                    function onUsePulseAudioChanged() { ao.device = ao.pulseDevice() }
+                }
+                VideoOutput {
+                    id: vo
+                    anchors.fill: parent
+                    transform: [
+                        Scale { origin.x: vo.width/2; origin.y: vo.height/2; xScale: root._zoom; yScale: root._zoom },
+                        Translate { x: root._panX; y: root._panY }
+                    ]
+                }
+            }
         }
 
         // Error overlay for videos that fail to load
@@ -414,11 +469,11 @@ Rectangle {
             id: videoControls
             visible: root._isVideo
             z: 11
-            opacity: root._vidFs ? (root._controlsVisible ? 1.0 : 0.0) : 1.0
+            opacity: root._controlsVisible ? 1.0 : 0.0
             Behavior on opacity { NumberAnimation { duration: ThemeManager.durMed; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: 16
+            anchors.bottomMargin: root._vidFs ? 16 : 92
             width: Math.min(Math.max(400, parent.width * 0.65), 640)
             height: 80
             radius: ThemeManager.radiusXl
@@ -839,12 +894,13 @@ Rectangle {
 
     // ── Prev ──────────────────────────────────────────────────────────────
     Rectangle {
+        z: 60
         anchors.left: parent.left; anchors.leftMargin: 16
         anchors.verticalCenter: parent.verticalCenter
         width: 52; height: 52; radius: 26
-        color: Qt.alpha("white", prevMa.pressed ? (0.14 + ThemeManager.pressOpacity) : prevMa.containsMouse ? (0.14 + ThemeManager.hoverOpacity) : 0.14)
-        border.color: Qt.alpha("white", 0.08); border.width: 1
-        opacity: root._vidFs ? 0 : (root.currentIndex > 0 ? 1.0 : 0.25)
+        color: prevMa.pressed ? Qt.rgba(0, 0, 0, 0.72) : prevMa.containsMouse ? Qt.rgba(0, 0, 0, 0.60) : Qt.rgba(0, 0, 0, 0.44)
+        border.color: Qt.alpha("white", 0.24); border.width: 1
+        opacity: root.chromeOpacity * (root.currentIndex > 0 ? 1.0 : 0.3)
         visible: opacity > 0
         Behavior on opacity { NumberAnimation { duration: 200 } }
         Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
@@ -856,13 +912,14 @@ Rectangle {
 
     // ── Next ──────────────────────────────────────────────────────────────
     Rectangle {
+        z: 60
         anchors.right: root.infoPanelOpen ? infoPanel.left : parent.right
         anchors.rightMargin: 16
         anchors.verticalCenter: parent.verticalCenter
         width: 52; height: 52; radius: 26
-        color: Qt.alpha("white", nextMa.pressed ? (0.14 + ThemeManager.pressOpacity) : nextMa.containsMouse ? (0.14 + ThemeManager.hoverOpacity) : 0.14)
-        border.color: Qt.alpha("white", 0.08); border.width: 1
-        opacity: root._vidFs ? 0 : (root.currentIndex < root.allItems.length - 1 ? 1.0 : 0.25)
+        color: nextMa.pressed ? Qt.rgba(0, 0, 0, 0.72) : nextMa.containsMouse ? Qt.rgba(0, 0, 0, 0.60) : Qt.rgba(0, 0, 0, 0.44)
+        border.color: Qt.alpha("white", 0.24); border.width: 1
+        opacity: root.chromeOpacity * (root.currentIndex < root.allItems.length - 1 ? 1.0 : 0.3)
         visible: opacity > 0
         Behavior on opacity { NumberAnimation { duration: 200 } }
         Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
@@ -876,8 +933,11 @@ Rectangle {
     Rectangle {
         anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 24
         width: 48; height: 48; radius: 24
-        color: Qt.alpha("white", closeMa.pressed ? (0.14 + ThemeManager.pressOpacity) : closeMa.containsMouse ? (0.14 + ThemeManager.hoverOpacity) : 0.14)
-        opacity: root._vidFs ? 0 : 1
+        color: closeMa.pressed ? Qt.rgba(0, 0, 0, 0.72) : closeMa.containsMouse ? Qt.rgba(0, 0, 0, 0.60) : Qt.rgba(0, 0, 0, 0.44)
+        border.color: Qt.alpha("white", 0.24); border.width: 1
+        opacity: root.chromeOpacity
+        z: 60
+        HoverHandler { onHoveredChanged: root._overChrome = hovered }
         visible: opacity > 0
         Behavior on opacity { NumberAnimation { duration: 200 } }
         Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
@@ -892,7 +952,9 @@ Rectangle {
         anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.margins: 28
         anchors.right: zoomRow.left; anchors.rightMargin: 16
         spacing: 4
-        opacity: root._vidFs ? 0 : 1
+        opacity: root.chromeOpacity
+        z: 60
+        HoverHandler { onHoveredChanged: root._overChrome = hovered }
         visible: opacity > 0
         Behavior on opacity { NumberAnimation { duration: 200 } }
         Label {
@@ -916,13 +978,16 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 24
         spacing: 8
-        opacity: root._vidFs ? 0 : 1
+        opacity: root.chromeOpacity
+        z: 60
+        HoverHandler { onHoveredChanged: root._overChrome = hovered }
         visible: opacity > 0
         Behavior on opacity { NumberAnimation { duration: 200 } }
 
         Rectangle {
             width: 48; height: 48; radius: 24
-            color: Qt.alpha("white", zoomOutMa.pressed ? (0.14 + ThemeManager.pressOpacity) : zoomOutMa.containsMouse ? (0.14 + ThemeManager.hoverOpacity) : 0.14)
+            color: zoomOutMa.pressed ? Qt.rgba(0, 0, 0, 0.72) : zoomOutMa.containsMouse ? Qt.rgba(0, 0, 0, 0.60) : Qt.rgba(0, 0, 0, 0.44)
+            border.color: Qt.alpha("white", 0.24); border.width: 1
             Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
             scale: zoomOutMa.pressed ? 0.92 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
             M3Icon { anchors.centerIn: parent; name: "remove"; size: 22; color: "white" }
@@ -932,7 +997,8 @@ Rectangle {
 
         Rectangle {
             width: 72; height: 48; radius: 24
-            color: Qt.alpha("white", zoomResetMa.pressed ? (0.14 + ThemeManager.pressOpacity) : zoomResetMa.containsMouse ? (0.14 + ThemeManager.hoverOpacity) : 0.14)
+            color: zoomResetMa.pressed ? Qt.rgba(0, 0, 0, 0.72) : zoomResetMa.containsMouse ? Qt.rgba(0, 0, 0, 0.60) : Qt.rgba(0, 0, 0, 0.44)
+            border.color: Qt.alpha("white", 0.24); border.width: 1
             Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
             scale: zoomResetMa.pressed ? 0.92 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
             Label { anchors.centerIn: parent; text: Math.round(root._zoom * 100) + "%"; color: "white"; font.pixelSize: ThemeManager.fontLabelL; font.weight: Font.Medium }
@@ -941,7 +1007,8 @@ Rectangle {
 
         Rectangle {
             width: 48; height: 48; radius: 24
-            color: Qt.alpha("white", zoomInMa.pressed ? (0.14 + ThemeManager.pressOpacity) : zoomInMa.containsMouse ? (0.14 + ThemeManager.hoverOpacity) : 0.14)
+            color: zoomInMa.pressed ? Qt.rgba(0, 0, 0, 0.72) : zoomInMa.containsMouse ? Qt.rgba(0, 0, 0, 0.60) : Qt.rgba(0, 0, 0, 0.44)
+            border.color: Qt.alpha("white", 0.24); border.width: 1
             Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
             scale: zoomInMa.pressed ? 0.92 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
             M3Icon { anchors.centerIn: parent; name: "add"; size: 22; color: "white" }
@@ -958,7 +1025,9 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 24
         spacing: 8
-        opacity: root._vidFs ? 0 : 1
+        opacity: root.chromeOpacity
+        z: 60
+        HoverHandler { onHoveredChanged: root._overChrome = hovered }
         visible: opacity > 0
         Behavior on opacity { NumberAnimation { duration: 200 } }
 
@@ -970,7 +1039,8 @@ Rectangle {
         Rectangle {
             visible: !root.viewerOnlyMode
             width: 48; height: 48; radius: 24
-            color: Qt.alpha("white", favMa.pressed ? (0.14 + ThemeManager.pressOpacity) : favMa.containsMouse ? (0.14 + ThemeManager.hoverOpacity) : 0.14)
+            color: favMa.pressed ? Qt.rgba(0, 0, 0, 0.72) : favMa.containsMouse ? Qt.rgba(0, 0, 0, 0.60) : Qt.rgba(0, 0, 0, 0.44)
+            border.color: Qt.alpha("white", 0.24); border.width: 1
             Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
             scale: favMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
             M3Icon { anchors.centerIn: parent; name: actionRow.isFav ? "favorite_fill" : "favorite"; size: 22; color: "white" }
@@ -980,7 +1050,8 @@ Rectangle {
         Rectangle {
             visible: !root.viewerOnlyMode
             width: 48; height: 48; radius: 24
-            color: Qt.alpha("white", trashMa.pressed ? (0.14 + ThemeManager.pressOpacity) : trashMa.containsMouse ? (0.14 + ThemeManager.hoverOpacity) : 0.14)
+            color: trashMa.pressed ? Qt.rgba(0, 0, 0, 0.72) : trashMa.containsMouse ? Qt.rgba(0, 0, 0, 0.60) : Qt.rgba(0, 0, 0, 0.44)
+            border.color: Qt.alpha("white", 0.24); border.width: 1
             Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
             scale: trashMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
             M3Icon { anchors.centerIn: parent; name: "delete"; size: 22; color: "white" }
@@ -989,7 +1060,8 @@ Rectangle {
         }
         Rectangle {
             width: 48; height: 48; radius: 24
-            color: Qt.alpha("white", folderMa.pressed ? (0.14 + ThemeManager.pressOpacity) : folderMa.containsMouse ? (0.14 + ThemeManager.hoverOpacity) : 0.14)
+            color: folderMa.pressed ? Qt.rgba(0, 0, 0, 0.72) : folderMa.containsMouse ? Qt.rgba(0, 0, 0, 0.60) : Qt.rgba(0, 0, 0, 0.44)
+            border.color: Qt.alpha("white", 0.24); border.width: 1
             Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
             scale: folderMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
             M3Icon { anchors.centerIn: parent; name: "folder_open"; size: 22; color: "white" }
@@ -998,9 +1070,9 @@ Rectangle {
         }
         Rectangle {
             width: 48; height: 48; radius: 24
-            color: Qt.alpha("white", infoMa.pressed ? (0.14 + ThemeManager.pressOpacity)
-                                    : root.infoPanelOpen ? 0.28
-                                    : infoMa.containsMouse ? (0.14 + ThemeManager.hoverOpacity) : 0.14)
+            color: infoMa.pressed ? Qt.rgba(0, 0, 0, 0.72) : root.infoPanelOpen ? Qt.alpha(ThemeManager.primary, 0.85)
+                 : infoMa.containsMouse ? Qt.rgba(0, 0, 0, 0.60) : Qt.rgba(0, 0, 0, 0.44)
+            border.color: Qt.alpha("white", 0.24); border.width: 1
             Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
             scale: infoMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
             M3Icon { anchors.centerIn: parent; name: "info"; size: 22; color: "white" }
@@ -1010,7 +1082,8 @@ Rectangle {
         Rectangle {
             visible: !root._isVideo
             width: 48; height: 48; radius: 24
-            color: Qt.alpha("white", copyMa.pressed ? (0.14 + ThemeManager.pressOpacity) : copyMa.containsMouse ? (0.14 + ThemeManager.hoverOpacity) : 0.14)
+            color: copyMa.pressed ? Qt.rgba(0, 0, 0, 0.72) : copyMa.containsMouse ? Qt.rgba(0, 0, 0, 0.60) : Qt.rgba(0, 0, 0, 0.44)
+            border.color: Qt.alpha("white", 0.24); border.width: 1
             Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
             scale: copyMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
             M3Icon { anchors.centerIn: parent; name: "content_copy"; size: 22; color: "white" }
@@ -1019,7 +1092,8 @@ Rectangle {
         }
         Rectangle {
             width: 48; height: 48; radius: 24
-            color: Qt.alpha("white", fsMa.pressed ? (0.14 + ThemeManager.pressOpacity) : fsMa.containsMouse ? (0.14 + ThemeManager.hoverOpacity) : 0.14)
+            color: fsMa.pressed ? Qt.rgba(0, 0, 0, 0.72) : fsMa.containsMouse ? Qt.rgba(0, 0, 0, 0.60) : Qt.rgba(0, 0, 0, 0.44)
+            border.color: Qt.alpha("white", 0.24); border.width: 1
             Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
             scale: fsMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
             M3Icon {
@@ -1029,15 +1103,16 @@ Rectangle {
             }
             MouseArea { id: fsMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                    if (root._isFullscreen) { ApplicationWindow.window.showNormal(); root._isFullscreen = false }
-                    else { ApplicationWindow.window.showFullScreen(); root._isFullscreen = true }
+                    if (root._isFullscreen) { Window.window.showNormal(); root._isFullscreen = false }
+                    else { Window.window.showFullScreen(); root._isFullscreen = true }
                 }
             }
         }
         Rectangle {
             visible: !root.viewerOnlyMode
             width: 48; height: 48; radius: 24
-            color: Qt.alpha("white", delMa.pressed ? (0.14 + ThemeManager.pressOpacity) : delMa.containsMouse ? (0.14 + ThemeManager.hoverOpacity) : 0.14)
+            color: delMa.pressed ? Qt.rgba(0, 0, 0, 0.72) : delMa.containsMouse ? Qt.rgba(0, 0, 0, 0.60) : Qt.rgba(0, 0, 0, 0.44)
+            border.color: Qt.alpha("white", 0.24); border.width: 1
             Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
             scale: delMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
             M3Icon { anchors.centerIn: parent; name: "delete_forever"; size: 22; color: ThemeManager.tertiaryContainer }
@@ -1049,6 +1124,7 @@ Rectangle {
     // ── Delete confirmation ───────────────────────────────────────────────
     Rectangle {
         id: deleteConfirm
+        z: 70
         property bool showing: false
         anchors.left: actionRow.left
         anchors.right: actionRow.right
@@ -1059,7 +1135,6 @@ Rectangle {
         opacity: showing ? 1 : 0
         visible: opacity > 0
         Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
-        Behavior on anchors.bottomMargin { NumberAnimation { duration: 180; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
 
         RowLayout {
             anchors.fill: parent; anchors.leftMargin: 16; anchors.rightMargin: 8; spacing: 8
@@ -1094,6 +1169,7 @@ Rectangle {
     // ── Info panel ────────────────────────────────────────────────────────
     MediaInfoPanel {
         id: infoPanel
+        z: 70
         anchors.verticalCenter: parent.verticalCenter
         anchors.right: parent.right
         width: 380
