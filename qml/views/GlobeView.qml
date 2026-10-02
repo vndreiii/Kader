@@ -86,9 +86,14 @@ Item {
         var info = globe.clusterInfo(cluster)
         if (!info.lat && info.lat !== 0) return
         var members = globe.clusterMembers(cluster)
-        // Several places merged into one bubble: zoom until they separate,
-        // unless we're already at street level.
-        if (members.length > 1 && globe.zoomLevel < 13.5) {
+        // Several places merged into one bubble: zoom in to separate them only
+        // while they're far apart and we're zoomed well out. Places a few km
+        // apart may never separate, and clicking must then open the card (it
+        // swipes through every photo of every place in the bubble).
+        var spreadKm = 0
+        for (var i = 1; i < members.length; i++)
+            spreadKm = Math.max(spreadKm, root._km(members[0], members[i]))
+        if (members.length > 1 && spreadKm > 25 && globe.zoomLevel < 9) {
             activePlace = null
             globe.expandCluster(cluster)
             return
@@ -97,6 +102,15 @@ Item {
                         // the photo the pin shows, so the morph starts from it
                         thumb: (info.lead >= 0 && root.locations[info.lead] ? root.locations[info.lead].thumb : "")
                                || (members.length > 0 ? members[0].thumb : "") }
+    }
+
+    // great-circle distance in km between two {lat, lon}
+    function _km(a, b) {
+        var r = Math.PI / 180
+        var dLat = (b.lat - a.lat) * r, dLon = (b.lon - a.lon) * r
+        var h = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+              + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLon / 2) * Math.sin(dLon / 2)
+        return 12742 * Math.asin(Math.min(1, Math.sqrt(h)))
     }
 
     function selectLocation(loc) {
