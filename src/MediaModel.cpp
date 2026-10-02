@@ -8,7 +8,7 @@
 
 MediaModel::MediaModel(DatabaseManager *db, ThumbnailGenerator *thumb, QObject *parent)
     : QAbstractListModel(parent), m_db(db), m_thumb(thumb) {
-    refresh();
+    // Empty until the dashboard first loads it (see main.cpp).
 }
 
 int MediaModel::rowCount(const QModelIndex &parent) const {

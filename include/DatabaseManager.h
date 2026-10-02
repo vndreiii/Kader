@@ -94,6 +94,8 @@ public:
     // or -1 when the row is incomplete (no date or no dimensions) and must be
     // re-read. Safe to call from any thread.
     QHash<QString, qint64> indexSnapshot(const QString &rootPath);
+    // Drops rows (and cached thumbnails) of files that no longer exist.
+    int removeMediaPaths(const QStringList &paths);
 
     // Encrypted thumbnail blob storage
     QByteArray getThumbnailBlob(const QString &filePath, int size); // non-const: calls checkConnection()

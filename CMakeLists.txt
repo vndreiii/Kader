@@ -220,7 +220,9 @@ qt_add_qml_module(KaderApp
         qml/views/DashboardView.qml
     RESOURCES
         "assets/Kader Logoicon.svg"
-        assets/KaderPNGicon.png
+        assets/icons/kader-48.png
+        assets/icons/kader-128.png
+        assets/icons/kader-256.png
         assets/MaterialSymbolsRounded.ttf
 )
 

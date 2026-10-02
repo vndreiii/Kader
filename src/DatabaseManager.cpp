@@ -368,6 +368,24 @@ bool DatabaseManager::needsUpdate(const QString &filePath, qint64 size) {
     return true; // Not in DB yet — insert it.
 }
 
+int DatabaseManager::removeMediaPaths(const QStringList &paths) {
+    if (paths.isEmpty())
+        return 0;
+    QSqlDatabase db = openThreadDb(m_dbPath);
+    db.transaction();
+    QSqlQuery del(db), delThumb(db);
+    del.prepare(QStringLiteral("DELETE FROM media WHERE file_path = ?"));
+    delThumb.prepare(QStringLiteral("DELETE FROM thumbnails WHERE file_path = ?"));
+    for (const QString &fp : paths) {
+        del.addBindValue(fp);
+        del.exec();
+        delThumb.addBindValue(fp);
+        delThumb.exec();
+    }
+    db.commit();
+    return int(paths.size());
+}
+
 QHash<QString, qint64> DatabaseManager::indexSnapshot(const QString &rootPath) {
     QSqlDatabase db = openThreadDb(m_dbPath);
     QSqlQuery q(db);
@@ -770,12 +788,17 @@ QVariantList DatabaseManager::getAllMedia(bool hideIgnored, SortRole role, SortO
         qWarning() << "getAllMedia query failed:" << query.lastError().text();
         return list;
     }
+    // Column names once, not per row (this runs over the whole library).
+    const QSqlRecord record = query.record();
+    QStringList names;
+    names.reserve(record.count());
+    for (int i = 0; i < record.count(); ++i)
+        names << record.fieldName(i);
+    list.reserve(query.size() > 0 ? query.size() : 0);
     while (query.next()) {
         QVariantMap map;
-        QSqlRecord record = query.record();
-        for (int i = 0; i < record.count(); ++i) {
-            map[record.fieldName(i)] = query.value(i);
-        }
+        for (int i = 0; i < names.size(); ++i)
+            map.insert(names[i], query.value(i));
         list.append(map);
     }
     return list;

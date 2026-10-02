@@ -10,7 +10,8 @@
 
 TimelineModel::TimelineModel(DatabaseManager *db, QObject *parent)
     : QAbstractListModel(parent), m_db(db) {
-    refresh();
+    // Not populated here: main.cpp refreshes once the saved filters and column
+    // count are applied, and the standalone viewer never needs the timeline.
 }
 
 int TimelineModel::rowCount(const QModelIndex &parent) const {

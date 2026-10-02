@@ -375,18 +375,19 @@ void ThumbnailGenerator::cancelCacheBuilding() {
         QMetaObject::invokeMethod(this, "thumbCachingChanged", Qt::QueuedConnection);
 }
 
-// Derive a 32-byte AES key from the machine ID + a fixed app salt.
+// Derive a 32-byte AES key from the machine ID + a fixed app salt. Computed
+// once: it used to re-read /etc/machine-id and re-hash it for every thumbnail.
 QByteArray ThumbnailGenerator::deriveKey() {
-    QByteArray machineId;
-    QFile f("/etc/machine-id");
-    if (f.open(QIODevice::ReadOnly)) {
-        machineId = f.readAll().trimmed();
-        f.close();
-    } else {
-        machineId = "kader-fallback-id";
-    }
-    QByteArray material = machineId + "KaderGallery-thumb-v1";
-    return QCryptographicHash::hash(material, QCryptographicHash::Sha256);
+    static const QByteArray key = [] {
+        QByteArray machineId;
+        QFile f(QStringLiteral("/etc/machine-id"));
+        if (f.open(QIODevice::ReadOnly))
+            machineId = f.readAll().trimmed();
+        else
+            machineId = "kader-fallback-id";
+        return QCryptographicHash::hash(machineId + "KaderGallery-thumb-v1", QCryptographicHash::Sha256);
+    }();
+    return key;
 }
 
 QByteArray ThumbnailGenerator::encrypt(const QByteArray &plaintext) {
