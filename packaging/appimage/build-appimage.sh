@@ -65,6 +65,16 @@ if [[ -d "$mmplugins" ]]; then
     cp "$mmplugins"/*.so "$appdir/usr/plugins/multimedia/"
     mm+=(--deploy-deps-only "$appdir/usr/plugins/multimedia")
 fi
+# Wayland's EGL integration (libqt-plugin-wayland-egl.so) is loaded at
+# runtime by the wayland platform plugin, so it isn't picked up either;
+# without it Qt can't create a GL context on Wayland and aborts.
+for dir in wayland-graphics-integration-client; do
+    src="$("$QMAKE" -query QT_INSTALL_PLUGINS)/$dir"
+    [[ -d "$src" ]] || continue
+    mkdir -p "$appdir/usr/plugins/$dir"
+    cp "$src"/*.so "$appdir/usr/plugins/$dir/"
+    mm+=(--deploy-deps-only "$appdir/usr/plugins/$dir")
+done
 
 linuxdeploy-x86_64.AppImage \
     --appdir "$appdir" \
