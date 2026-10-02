@@ -50,10 +50,27 @@ export LDAI_OUTPUT="$out/Kader-$version-x86_64.AppImage"
 export LDAI_UPDATE_INFORMATION="gh-releases-zsync|vndreiii|kader|latest|Kader-*x86_64.AppImage.zsync"
 export LDAI_COMP=zstd
 
+# Qt Multimedia is only used from QML (the viewer's video player), so the
+# Qt plugin can't see it in the binary's dependencies: bundle the libraries
+# and the FFmpeg backend explicitly. Without them the QtMultimedia QML plugin
+# falls back to the host's Qt (and fails when that Qt differs).
+qtlibs="$("$QMAKE" -query QT_INSTALL_LIBS)"
+mmplugins="$("$QMAKE" -query QT_INSTALL_PLUGINS)/multimedia"
+mm=()
+for lib in libQt6Multimedia.so.6 libQt6MultimediaQuick.so.6; do
+    mm+=(--library "$qtlibs/$lib")
+done
+if [[ -d "$mmplugins" ]]; then
+    mkdir -p "$appdir/usr/plugins/multimedia"
+    cp "$mmplugins"/*.so "$appdir/usr/plugins/multimedia/"
+    mm+=(--deploy-deps-only "$appdir/usr/plugins/multimedia")
+fi
+
 linuxdeploy-x86_64.AppImage \
     --appdir "$appdir" \
     --desktop-file "$appdir/usr/share/applications/kader.desktop" \
     --icon-file "$appdir/usr/share/icons/hicolor/256x256/apps/kader.png" \
+    "${mm[@]}" \
     --plugin qt \
     --output appimage
 
