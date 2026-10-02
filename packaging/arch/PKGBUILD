@@ -6,10 +6,10 @@
 # CI uses the same file to produce the pacman package attached to GitHub
 # releases, which the in-app updater installs with `pkexec pacman -U`.
 pkgname=kader
-pkgver=1.0.0
+pkgver=2.0.0
 pkgrel=1
 # Kader moved from CalVer (2026.MM.N) to SemVer (MAJOR.MINOR.FIX); the epoch
-# makes pacman treat 1.0.0 as newer than the old date-based versions.
+# makes pacman treat 2.0.0 as newer than the old date-based versions.
 epoch=1
 pkgdesc="Fast, modern photo gallery with a 3D places globe and AI search"
 arch=('x86_64')
