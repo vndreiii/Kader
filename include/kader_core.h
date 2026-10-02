@@ -41,7 +41,7 @@ typedef struct KgPin {
 } KgPin;
 
 typedef struct KgStyle {
-    uint8_t land[4], coast[4], border[4], state[4], city[4], city_halo[4], casing[4];
+    uint8_t land[4], coast[4], border[4], state[4], city[4], city_halo[4], casing[4], land_edge[4];
     float dot_spacing, dot_size;
     float coast_width, border_width, state_width;
     float label_density;

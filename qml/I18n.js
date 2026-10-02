@@ -380,6 +380,8 @@ var _s = {
         "timeline": "Gallery", "albums": "Albums", "videos": "Videos",
         "photo_one": "photo", "photo_many": "photos", "places_lower": "places",
         "globe_zoom_in": "Zoom in", "globe_zoom_out": "Zoom out", "globe_reset": "Show whole globe",
+        "panel_expand": "Show list", "panel_collapse": "Collapse list", "places_filter": "Filter places",
+        "sort_recent": "Recent", "sort_most": "Most photos", "sort_az": "A–Z",
         // Search tab
         "search": "Search", "search_matches": "Matches", "search_files": "File and folder names",
         "search_visual": "Visual matches", "search_nothing": "Nothing found",
