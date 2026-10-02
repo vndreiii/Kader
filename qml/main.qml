@@ -854,6 +854,11 @@ ApplicationWindow {
                             }
                         }
                     }
+
+                    // the window is frameless: its own minimise/maximise/close
+                    WindowControls {
+                        Layout.alignment: Qt.AlignVCenter
+                    }
                 }
             }
 

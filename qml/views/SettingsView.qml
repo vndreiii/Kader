@@ -703,6 +703,36 @@ Item {
                     }
                 }
                 SettingsRow {
+                    label: I18n.t(Settings.language, "window_buttons")
+                    sub: I18n.t(Settings.language, typeof SYSTEM_WINDOW_BUTTONS !== "undefined" && SYSTEM_WINDOW_BUTTONS
+                                                   ? "window_buttons_sub_shown" : "window_buttons_sub_hidden")
+                    action: Row {
+                        spacing: 4
+                        Repeater {
+                            model: [[I18n.t(Settings.language, "auto"), 0], [I18n.t(Settings.language, "show"), 1], [I18n.t(Settings.language, "hide"), 2]]
+                            delegate: Button {
+                                required property var modelData
+                                text: modelData[0]
+                                checkable: true
+                                checked: Settings.windowButtons === modelData[1]
+                                onClicked: Settings.windowButtons = modelData[1]
+                                implicitWidth: 72; implicitHeight: 34
+                                background: Rectangle {
+                                    radius: 17
+                                    color: parent.checked ? ThemeManager.secondaryContainer : ThemeManager.surfaceContainerHighest
+                                    border.color: ThemeManager.outline; border.width: 1
+                                }
+                                contentItem: Label {
+                                    text: parent.text; font.pixelSize: 12
+                                    color: parent.checked ? ThemeManager.onSecondaryContainer : ThemeManager.onSurface
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+                            }
+                        }
+                    }
+                }
+                SettingsRow {
                     label: I18n.t(Settings.language, "dynamic_color")
                     sub: I18n.t(Settings.language, "dynamic_color_sub")
                     action: M3Switch { 

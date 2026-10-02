@@ -50,6 +50,31 @@ static void traceFirstFrame(QQmlApplicationEngine &engine) {
     });
 }
 
+
+// Whether the desktop expects apps to draw their own window buttons. Kader's
+// windows are frameless, so on GNOME, KDE, Windows & co. it draws
+// minimise/maximise/close; tiling and standalone window managers (Hyprland,
+// niri, sway, i3, …) manage windows from the keyboard and get none.
+static bool systemWantsWindowButtons() {
+#ifdef Q_OS_WIN
+    return true;
+#else
+    for (const char *var : {"HYPRLAND_INSTANCE_SIGNATURE", "NIRI_SOCKET", "SWAYSOCK", "I3SOCK"})
+        if (qEnvironmentVariableIsSet(var))
+            return false;
+    const QString desktop = (qEnvironmentVariable("XDG_CURRENT_DESKTOP") + QLatin1Char(':') +
+                             qEnvironmentVariable("XDG_SESSION_DESKTOP")).toLower();
+    static const char *const tiling[] = {"hyprland", "niri", "sway", "river", "i3", "bspwm", "dwm", "qtile",
+                                         "awesome", "xmonad", "herbstluftwm", "spectrwm", "leftwm", "dwl",
+                                         "cosmic-comp", "pop-shell", "miracle-wm", "mango"};
+    for (const char *wm : tiling)
+        if (desktop.contains(QLatin1String(wm)))
+            return false;
+    // no desktop environment advertised: a bare window manager
+    return desktop != QLatin1String(":");
+#endif
+}
+
 int main(int argc, char *argv[]) {
     g_startClock.start();
     g_traceStartup = qEnvironmentVariableIsSet("KADER_TRACE_STARTUP");
@@ -119,6 +144,7 @@ int main(int argc, char *argv[]) {
         engine.rootContext()->setContextProperty("VideoEditor", &videoEditor);
         engine.rootContext()->setContextProperty("FileScanner", &fileScanner);
         engine.rootContext()->setContextProperty("STARTUP_FILE", startupFile);
+        engine.rootContext()->setContextProperty("SYSTEM_WINDOW_BUTTONS", systemWantsWindowButtons());
 
         const QUrl url(QStringLiteral("qrc:/Kader/qml/views/ViewerWindow.qml"));
         QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
@@ -401,6 +427,7 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("ThumbGen", &thumbGenerator);
     engine.rootContext()->setContextProperty("STARTUP_FILE", startupFile);
     engine.rootContext()->setContextProperty("AI", &semanticSearch);
+    engine.rootContext()->setContextProperty("SYSTEM_WINDOW_BUTTONS", systemWantsWindowButtons());
     engine.rootContext()->setContextProperty("Analyzer", &analyzer);
     engine.rootContext()->setContextProperty("Updater", &updater);
 

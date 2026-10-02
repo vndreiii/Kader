@@ -17,6 +17,8 @@ class SettingsManager : public QObject {
     Q_PROPERTY(QString homePath READ homePath CONSTANT)
     Q_PROPERTY(bool autoUpdate READ autoUpdate WRITE setAutoUpdate NOTIFY autoUpdateChanged)
     Q_PROPERTY(bool autoScan READ autoScan WRITE setAutoScan NOTIFY autoScanChanged)
+    // 0 = automatic (hidden on tiling/standalone window managers), 1 = show, 2 = hide
+    Q_PROPERTY(int windowButtons READ windowButtons WRITE setWindowButtons NOTIFY windowButtonsChanged)
     Q_PROPERTY(int trashRetentionDays READ trashRetentionDays WRITE setTrashRetentionDays NOTIFY trashRetentionDaysChanged)
     Q_PROPERTY(QString skippedVersion READ skippedVersion WRITE setSkippedVersion NOTIFY skippedVersionChanged)
 
@@ -58,6 +60,8 @@ public:
     // to skip is not offered again (a newer one is).
     bool autoUpdate() const;
     bool autoScan() const;
+    int windowButtons() const;
+    void setWindowButtons(int mode);
     void setAutoScan(bool on);
     int trashRetentionDays() const;   // 0 = keep forever
     void setTrashRetentionDays(int days);
@@ -91,6 +95,7 @@ signals:
     void placesPanelCompactChanged();
     void autoUpdateChanged();
     void autoScanChanged();
+    void windowButtonsChanged();
     void trashRetentionDaysChanged();
     void skippedVersionChanged();
 

@@ -396,6 +396,9 @@ var _s = {
         "about_view": "View",
         "faces_setting": "Group faces into people", "faces_setting_sub": "Find and recognise faces on this computer (downloads 38 MB of models once)",
         "settings_search": "Search settings",
+        "window_buttons": "Window buttons", "auto": "Auto", "show": "Show", "hide": "Hide",
+        "window_buttons_sub_shown": "Minimise, maximise and close. Auto shows them on this desktop.",
+        "window_buttons_sub_hidden": "Minimise, maximise and close. Auto hides them under tiling window managers like this one.",
         // Search tab
         "search": "Search", "search_matches": "Matches", "search_files": "File and folder names",
         "search_visual": "Visual matches", "search_nothing": "Nothing found",
