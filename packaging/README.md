@@ -63,7 +63,7 @@ the old key first.
 
 ## Building locally
 
-* Arch: `makepkg -si` in the repository root.
+* Arch: `cd packaging/arch && makepkg -si`.
 * AppImage: build with CMake, then
   `packaging/appimage/build-appimage.sh <build-dir> <out-dir>`.
 * AI search needs llama.cpp; `packaging/build-llama.sh <prefix>` builds the
