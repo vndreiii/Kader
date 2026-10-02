@@ -54,3 +54,10 @@ What-I-Did_Im-Gemini.md
 lib/design_handoff_kader_gallery/
 DEV_STATUS.md
 todo.txt
+
+# Rust build output
+rust/*/target/
+
+# Downloaded inputs of the data/screenshot tools
+tools/geo/.cache/
+tools/screenshots/.cache/

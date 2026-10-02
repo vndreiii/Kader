@@ -1,6 +1,8 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.21)
 
-project(Kader VERSION 0.1.0 LANGUAGES CXX)
+# Versioning is semantic: MAJOR.MINOR.FIX. This is the single source of
+# truth — PKGBUILD, AppImage names and the in-app updater all read it.
+project(Kader VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -9,28 +11,80 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick ShaderTools QuickDialogs2 Sql Positioning Location Concurrent Multimedia DBus Test QuickTest)
-find_package(MilfsConnect REQUIRED)
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
+option(KADER_WITH_AI "Build semantic AI search (needs llama.cpp)" ON)
+set(KADER_UPDATE_CHANNEL "" CACHE STRING
+    "How this build is distributed: 'appimage', 'arch' or empty (auto-detect)")
+set(KADER_UPDATE_REPO "vndreiii/kader" CACHE STRING "GitHub owner/repo the updater reads releases from")
+
+find_package(Qt6 6.5 REQUIRED COMPONENTS
+    Core Gui Qml Quick ShaderTools QuickDialogs2 Sql Positioning Concurrent Multimedia DBus Network)
+# QtLocation backs the optional classic 2D map (QML only); the 3D globe has no
+# dependency on it.
+find_package(Qt6 6.5 QUIET OPTIONAL_COMPONENTS Location Test QuickTest)
+find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(VIPS REQUIRED vips-cpp)
-pkg_check_modules(EXIV2 REQUIRED exiv2)
-pkg_check_modules(LIBRAW REQUIRED libraw_r)
-pkg_check_modules(POPPLER REQUIRED poppler-cpp)
+pkg_check_modules(VIPS REQUIRED IMPORTED_TARGET vips-cpp)
+pkg_check_modules(EXIV2 REQUIRED IMPORTED_TARGET exiv2)
+pkg_check_modules(LIBRAW REQUIRED IMPORTED_TARGET libraw_r)
+pkg_check_modules(POPPLER REQUIRED IMPORTED_TARGET poppler-cpp)
+
+# Sibling-app event bus (private; optional so public CI and AppImages build).
+find_package(MilfsConnect QUIET)
+
+# llama.cpp for semantic search
+set(KADER_HAVE_LLAMA 0)
+if(KADER_WITH_AI)
+    find_library(LLAMA_LIBRARY llama)
+    find_library(MTMD_LIBRARY mtmd)
+    find_path(LLAMA_INCLUDE_DIR llama.h)
+    find_path(MTMD_INCLUDE_DIR mtmd.h)
+    if(LLAMA_LIBRARY AND MTMD_LIBRARY AND LLAMA_INCLUDE_DIR AND MTMD_INCLUDE_DIR)
+        set(KADER_HAVE_LLAMA 1)
+    else()
+        message(WARNING "llama.cpp not found — building without AI search")
+    endif()
+endif()
 
 enable_testing()
 
-# Define directories
 set(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
-set(QML_DIR ${CMAKE_CURRENT_SOURCE_DIR}/qml)
 
-# Include directories
-include_directories(${INCLUDE_DIR} ${VIPS_INCLUDE_DIRS} ${EXIV2_INCLUDE_DIRS} ${LIBRAW_INCLUDE_DIRS} ${POPPLER_INCLUDE_DIRS})
+# ── Rust core (rust/kader-core) ─────────────────────────────────────────────
+# Built with cargo as part of the normal build. The crate has no external
+# dependencies, so this works offline (makepkg, CI, AppImage).
+find_program(CARGO_EXECUTABLE cargo HINTS $ENV{HOME}/.cargo/bin REQUIRED)
+set(KADER_CORE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/rust/kader-core)
+set(KADER_CORE_TARGET_DIR ${CMAKE_CURRENT_BINARY_DIR}/cargo)
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(KADER_CORE_PROFILE_FLAG "")
+    set(KADER_CORE_PROFILE_DIR debug)
+else()
+    set(KADER_CORE_PROFILE_FLAG "--release")
+    set(KADER_CORE_PROFILE_DIR release)
+endif()
+set(KADER_CORE_LIB ${KADER_CORE_TARGET_DIR}/${KADER_CORE_PROFILE_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}kader_core${CMAKE_STATIC_LIBRARY_SUFFIX})
+file(GLOB_RECURSE KADER_CORE_SOURCES CONFIGURE_DEPENDS ${KADER_CORE_DIR}/src/*.rs)
+add_custom_command(
+    OUTPUT ${KADER_CORE_LIB}
+    COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${KADER_CORE_TARGET_DIR}
+            ${CARGO_EXECUTABLE} build --offline --locked ${KADER_CORE_PROFILE_FLAG}
+            --manifest-path ${KADER_CORE_DIR}/Cargo.toml
+    DEPENDS ${KADER_CORE_SOURCES} ${KADER_CORE_DIR}/Cargo.toml ${KADER_CORE_DIR}/Cargo.lock
+    COMMENT "Building Rust core (kader-core)"
+    USES_TERMINAL
+    VERBATIM)
+add_custom_target(kader_core_build DEPENDS ${KADER_CORE_LIB})
+add_library(kader_core STATIC IMPORTED GLOBAL)
+set_target_properties(kader_core PROPERTIES IMPORTED_LOCATION ${KADER_CORE_LIB})
+add_dependencies(kader_core kader_core_build)
 
-# QmlMaterial Subdirectory removed
-
-# Sources
+# ── Backend library ─────────────────────────────────────────────────────────
 set(SOURCES
     ${SOURCE_DIR}/ThemeManager.cpp
     ${SOURCE_DIR}/FileScanner.cpp
@@ -47,9 +101,9 @@ set(SOURCES
     ${SOURCE_DIR}/SemanticSearchEngine.cpp
     ${SOURCE_DIR}/VideoEditor.cpp
     ${SOURCE_DIR}/Sort.cpp
+    ${SOURCE_DIR}/GlobeItem.cpp
 )
 
-# Headers
 set(HEADERS
     ${INCLUDE_DIR}/ThemeManager.h
     ${INCLUDE_DIR}/FileScanner.h
@@ -66,12 +120,15 @@ set(HEADERS
     ${INCLUDE_DIR}/SemanticSearchEngine.h
     ${INCLUDE_DIR}/VideoEditor.h
     ${INCLUDE_DIR}/Sort.h
+    ${INCLUDE_DIR}/GlobeItem.h
+    ${INCLUDE_DIR}/kader_core.h
 )
 
-add_library(KaderLib STATIC
-    ${SOURCES}
-    ${HEADERS}
-)
+add_library(KaderLib STATIC ${SOURCES} ${HEADERS})
+target_include_directories(KaderLib PUBLIC ${INCLUDE_DIR})
+target_compile_definitions(KaderLib PUBLIC
+    KADER_VERSION="${PROJECT_VERSION}"
+    KADER_HAVE_LLAMA=${KADER_HAVE_LLAMA})
 
 target_link_libraries(KaderLib PUBLIC
     Qt6::Core
@@ -81,21 +138,25 @@ target_link_libraries(KaderLib PUBLIC
     Qt6::QuickDialogs2
     Qt6::Sql
     Qt6::Positioning
-    Qt6::Location
     Qt6::Concurrent
     Qt6::Multimedia
     Qt6::DBus
-    OpenSSL::Crypto
-    ${VIPS_LIBRARIES}
-    ${EXIV2_LIBRARIES}
-    ${LIBRAW_LIBRARIES}
-    ${POPPLER_LIBRARIES}
     Qt6::Network
-    llama
-    mtmd
+    OpenSSL::Crypto
+    PkgConfig::VIPS
+    PkgConfig::EXIV2
+    PkgConfig::LIBRAW
+    PkgConfig::POPPLER
+    kader_core
+    Threads::Threads
+    ${CMAKE_DL_LIBS}
 )
+if(KADER_HAVE_LLAMA)
+    target_include_directories(KaderLib PRIVATE ${LLAMA_INCLUDE_DIR} ${MTMD_INCLUDE_DIR})
+    target_link_libraries(KaderLib PUBLIC ${LLAMA_LIBRARY} ${MTMD_LIBRARY})
+endif()
 
-# QML Module setup
+# ── QML module ──────────────────────────────────────────────────────────────
 qt_add_qml_module(KaderApp
     STATIC
     URI Kader
@@ -126,6 +187,7 @@ qt_add_qml_module(KaderApp
         qml/components/CascadeMenu.qml
         qml/components/CascadeMenuItem.qml
         qml/components/SortMenu.qml
+        qml/components/PlacePopup.qml
         qml/views/AlbumListView.qml
         qml/views/AlbumDetailView.qml
         qml/views/ViewerOverlay.qml
@@ -138,40 +200,58 @@ qt_add_qml_module(KaderApp
         "assets/Kader Logoicon.svg"
         assets/KaderPNGicon.png
         assets/MaterialSymbolsRounded.ttf
-        assets/globe-world-mask.png
 )
 
+# BATCHABLE: scene-graph materials need the batchable vertex-shader variant.
 qt_add_shaders(KaderApp "kader_shaders"
+    BATCHABLE
     PREFIX
         "/shaders"
     BASE
         "qml/shaders"
     FILES
-        qml/shaders/globe.frag
+        qml/shaders/globe_shape.vert
+        qml/shaders/globe_shape.frag
+        qml/shaders/globe_sphere.vert
+        qml/shaders/globe_sphere.frag
 )
 
-add_executable(kader
-    ${SOURCE_DIR}/main.cpp
-)
+# ── Application ─────────────────────────────────────────────────────────────
+add_executable(kader ${SOURCE_DIR}/main.cpp)
 
-target_compile_definitions(kader PRIVATE CMAKE_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(kader PRIVATE KaderLib KaderApp MilfsConnect::MilfsConnect)
+# The 5 MB vector world dataset is linked as an object file rather than a
+# generated C++ array (BIG_RESOURCES) to keep compile time and memory down.
+qt_add_resources(kader "kader_geo"
+    PREFIX "/Kader"
+    BIG_RESOURCES
+    FILES assets/geo/world.kgeo)
 
-# --- Testing ---
+target_link_libraries(kader PRIVATE KaderLib KaderApp)
+if(MilfsConnect_FOUND)
+    target_link_libraries(kader PRIVATE MilfsConnect::MilfsConnect)
+    target_compile_definitions(kader PRIVATE KADER_HAVE_MILFS=1)
+endif()
+
+include(GNUInstallDirs)
+install(TARGETS kader RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(FILES kader.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
+install(FILES "assets/Kader Logoicon.svg"
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps RENAME kader.svg)
+install(FILES assets/KaderPNGicon.png
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/256x256/apps RENAME kader.png)
+
+message(STATUS "Kader ${PROJECT_VERSION}: AI search=${KADER_HAVE_LLAMA} milfs-connect=${MilfsConnect_FOUND} "
+               "QtLocation=${Qt6Location_FOUND} update-channel='${KADER_UPDATE_CHANNEL}'")
+
+# ── Tests ───────────────────────────────────────────────────────────────────
 if(BUILD_TESTING)
-    # Backend Tests
-    add_executable(backend_tests tests/backend_tests.cpp)
-    target_link_libraries(backend_tests PRIVATE KaderLib Qt6::Test)
-    add_test(NAME backend_tests COMMAND backend_tests)
-
-    # UI Tests (C++ Driver)
-    set(UI_TEST_SOURCES tests/ui_test_driver.cpp)
-    add_executable(ui_tests ${UI_TEST_SOURCES})
-    target_compile_definitions(ui_tests PRIVATE CMAKE_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}" IS_TEST_BUILD)
-    target_link_libraries(ui_tests PRIVATE
-        KaderLib
-        KaderApp
-        Qt6::QuickTest Qt6::Test
-    )
-    add_test(NAME ui_tests COMMAND ui_tests)
+    add_test(NAME rust_core
+             COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${KADER_CORE_TARGET_DIR}
+                     ${CARGO_EXECUTABLE} test --offline --locked --release
+                     --manifest-path ${KADER_CORE_DIR}/Cargo.toml)
+    if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/tests/backend_tests.cpp AND TARGET Qt6::Test)
+        add_executable(backend_tests tests/backend_tests.cpp)
+        target_link_libraries(backend_tests PRIVATE KaderLib Qt6::Test)
+        add_test(NAME backend_tests COMMAND backend_tests)
+    endif()
 endif()

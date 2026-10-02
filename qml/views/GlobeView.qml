@@ -2,602 +2,591 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Effects
+import QtQuick.Shapes
+import Kader.Globe 1.0
 import "../components"
 import "../I18n.js" as I18n
 
+// Places on an interactive 3D globe. Rendering, picking and decluttering are
+// done by the Rust geo engine behind `Globe`; this file is presentation only.
 Item {
     id: root
-    property var    locations:    []
-    property var    activePin:    null
-    property string activePinAddr: ""
-    property point  _pinScreenPos: Qt.point(0, 0)
+    property var locations: []
+    // {lat, lon, count, places:[location…], cluster} of the open place card
+    property var activePlace: null
 
-    signal openViewer(var data)
+    signal openViewer(var data, var items)
+
+    readonly property bool narrow: width < 980
+    property bool panelOpen: true
+    readonly property bool panelShown: panelOpen && (!narrow || panelToggle.checked)
 
     property bool _loaded: false
-
-    onVisibleChanged: {
-        if (visible && !_loaded) {
-            _loaded = true
-            locations = DB.getGeotaggedLocations()
-        }
+    function _reload() {
+        _loaded = true
+        locations = DB.getGeotaggedLocations()
     }
-    Component.onCompleted: {
-        if (visible) {
-            _loaded = true
-            locations = DB.getGeotaggedLocations()
-        }
-    }
-
-    function fetchAddress(lat, lon) {
-        activePinAddr = ""
-        var xhr = new XMLHttpRequest()
-        xhr.open("GET", "https://nominatim.openstreetmap.org/reverse?format=json&lat="
-                 + lat + "&lon=" + lon + "&zoom=18&addressdetails=1")
-        xhr.setRequestHeader("User-Agent", "KaderGallery/1.0")
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === XMLHttpRequest.DONE) {
-                if (xhr.status === 200) {
-                    try {
-                        var d = JSON.parse(xhr.responseText)
-                        var a = d.address || {}
-                        var parts = []
-                        if (a.road) parts.push(a.road)
-                        var locality = a.city_district || a.suburb || a.town || a.city || a.county || ""
-                        if (locality) parts.push(locality)
-                        activePinAddr = parts.length > 0 ? parts.join(", ") : (d.display_name || "")
-                    } catch(e) { activePinAddr = lat.toFixed(4) + "°, " + lon.toFixed(4) + "°" }
-                } else {
-                    activePinAddr = lat.toFixed(4) + "°, " + lon.toFixed(4) + "°"
-                }
-            }
-        }
-        xhr.send()
-    }
-
+    onVisibleChanged: if (visible && !_loaded) _reload()
+    Component.onCompleted: if (visible) _reload()
     Connections {
         target: FileScanner
-        function onScanFinished() { if (root._loaded) root.locations = DB.getGeotaggedLocations() }
+        function onScanFinished() { if (root._loaded) root._reload() }
     }
 
-    // ── Globe state — direct port of cobe's (https://github.com/shuding/cobe)
-    // phi/theta/scale/offset model. The globe itself is not a 3D mesh; it's
-    // rendered entirely by shaders/globe.frag, a fullscreen fragment shader
-    // that raymarches a sphere and procedurally places a Fibonacci-lattice
-    // dot field on it — exactly how cobe renders. ─────────────────────────
-    readonly property real globeR: 0.8
-    readonly property real markerElevation: 0.05
-    property real phi: 0.0
-    property real theta: 0.35
-    property real zoomScale: 1.0
-    property vector2d panOffset: Qt.vector2d(0, 0)
-    property bool autoRotate: true
-    property bool dragging: false
-    property real _lastMouseX: 0
-    property real _lastMouseY: 0
-    property real _velPhi: 0
-    property real _velTheta: 0
-    property string debugText: ""
-    property var  markerPositions: []   // [{x, y, loc}]
+    function _t(key) { return I18n.t(Settings.language, key) }
 
-    function latLonTo3D(lat, lon) {
-        var latRad = lat * Math.PI / 180
-        var lonRad = lon * Math.PI / 180 - Math.PI
-        var cosLat = Math.cos(latRad)
-        return [-cosLat * Math.cos(lonRad), Math.sin(latRad), cosLat * Math.sin(lonRad)]
+    // Offline place label: "Lyon, France", or "Near Manaus, Brazil" when the
+    // closest town is far away; coordinates as a last resort.
+    function placeLabel(lat, lon) {
+        var info = globe.ready ? globe.placeInfo(lat, lon) : ({})
+        if (info.name) return info.km > 25 ? _t("place_near").arg(info.name) : info.name
+        return lat.toFixed(4) + "°, " + lon.toFixed(4) + "°"
     }
 
-    // Same rotation + screen-space projection cobe's own JS side uses to
-    // place markers, kept in lockstep with the phi/theta/scale/offset the
-    // fragment shader uses to render the dot field.
-    function applyRotation(p) {
-        var cx = Math.cos(root.theta)
-        var cy = Math.cos(root.phi)
-        var sx = Math.sin(root.theta)
-        var sy = Math.sin(root.phi)
-
-        var w = Math.max(1, globeArea.width)
-        var h = Math.max(1, globeArea.height)
-        var aspect = w / h
-
-        var rx = cy * p[0] + sy * p[2]
-        var ry = sy * sx * p[0] + cx * p[1] - cy * sx * p[2]
-        var rz = -sy * cx * p[0] + sx * p[1] + cy * cx * p[2]
-
-        return {
-            x: ((rx / aspect) * root.zoomScale + root.panOffset.x * root.zoomScale / w + 1) / 2 * w,
-            y: (-ry * root.zoomScale + root.panOffset.y * root.zoomScale / h + 1) / 2 * h,
-            // Strict front-hemisphere-only: cobe's own lenient rule (rz>=0 OR far from
-            // center) is tuned for its tiny cosmetic dot markers wrapping smoothly
-            // around the horizon — for our large clickable photo badges it let markers
-            // dangle disconnected from the visible globe when barely on the far side.
-            visible: rz >= 0,
-            rz: rz // TEMP debug field, remove with the debug readout
-        }
-    }
-
-    function project(lat, lon) {
-        var pos3D = latLonTo3D(lat, lon)
-        var r = root.globeR + root.markerElevation
-        return root.applyRotation([pos3D[0] * r, pos3D[1] * r, pos3D[2] * r])
-    }
-
-    function _updateMarkers() {
-        if (locations.length === 0) {
-            if (markerPositions.length !== 0) markerPositions = []
+    function selectCluster(cluster) {
+        var info = globe.clusterInfo(cluster)
+        if (!info.lat && info.lat !== 0) return
+        var members = globe.clusterMembers(cluster)
+        // Several places merged into one bubble: zoom until they separate,
+        // unless we're already at street level.
+        if (members.length > 1 && globe.zoomLevel < 13.5) {
+            activePlace = null
+            globe.expandCluster(cluster)
             return
         }
-        var out = []
-        for (var i = 0; i < locations.length; i++) {
-            var loc = locations[i]
-            var p = root.project(loc.lat, loc.lon)
-            if (i === 0) {
-                root.debugText = "lat=" + loc.lat.toFixed(2) + " lon=" + loc.lon.toFixed(2) +
-                    " phi=" + root.phi.toFixed(3) + " theta=" + root.theta.toFixed(3) +
-                    " zoom=" + root.zoomScale.toFixed(2) +
-                    " w=" + Math.round(Math.max(1, globeArea.width)) + " h=" + Math.round(Math.max(1, globeArea.height)) +
-                    " x=" + p.x.toFixed(1) + " y=" + p.y.toFixed(1) + " vis=" + p.visible + " rz=" + p.rz.toFixed(3)
-            }
-            if (!p.visible) continue
-            out.push({ x: p.x, y: p.y, loc: loc })
-        }
-        markerPositions = out
-        if (root.activePin) root._updatePinPopupPos()
+        activePlace = { lat: info.lat, lon: info.lon, count: info.count, places: members, cluster: cluster }
     }
 
-    function _updatePinPopupPos() {
-        if (!activePin) return
-        var p = root.project(activePin.lat, activePin.lon)
-        _pinScreenPos = Qt.point(p.x, p.y)
+    function selectLocation(loc) {
+        activePlace = { lat: loc.lat, lon: loc.lon, count: loc.count, places: [loc], cluster: -1 }
+        globe.flyTo(loc.lat, loc.lon, 60)
     }
 
-    // Drive idle auto-rotation / drag inertia and keep marker overlay
-    // positions in sync every frame, mirroring cobe's own rAF render loop.
-    Timer {
-        interval: 16
-        running: root.visible
-        repeat: true
-        onTriggered: {
-            if (!root.dragging) {
-                if (Math.abs(root._velPhi) > 0.0001 || Math.abs(root._velTheta) > 0.0001) {
-                    root.phi += root._velPhi
-                    // No clamp: rotate() is plain sin/cos, well-defined for any theta —
-                    // cobe's own drag handler doesn't clamp either, so orbit is free
-                    // past the poles instead of hitting an artificial wall there.
-                    root.theta += root._velTheta
-                    root._velPhi *= 0.95
-                    root._velTheta *= 0.95
-                } else if (root.autoRotate) {
-                    root.phi += 0.005
-                }
-            }
-            root._updateMarkers()
-        }
+    function openPlace(place) {
+        if (!place) return
+        var items = DB.getMediaForPlaces(place.places)
+        if (items.length === 0 && place.places.length > 0) items = [place.places[0]]
+        if (items.length > 0) root.openViewer(items[0], items)
     }
 
-    // Solved from applyRotation: to bring (lat,lon) to dead-center (rx=0, ry=0,
-    // rz=max), phi must be pi/2 - lonRad, not just -lonRad — the missing pi/2
-    // term was why focused pins landed near the rim instead of centered.
-    function focusLocation(lat, lon) {
-        var lonRad = lon * Math.PI / 180 - Math.PI
-        root.phi = Math.PI / 2 - lonRad
-        root.theta = Math.max(-1.55, Math.min(1.55, lat * Math.PI / 180))
-        root.zoomScale = Math.max(root.zoomScale, 1.6)
-        root._velPhi = 0
-        root._velTheta = 0
-    }
+    // ── palette: a dark "space" canvas in both themes keeps contrast high ───
+    readonly property color _accent: ThemeManager.isDark ? ThemeManager.primary : ThemeManager.inversePrimary
+    readonly property color _space: Qt.rgba(0.020, 0.024, 0.040, 1)
+    readonly property color _labelInk: "#f4f6fb"
+    readonly property color _labelHalo: Qt.rgba(0.02, 0.03, 0.06, 0.92)
 
     RowLayout {
         anchors.fill: parent
         anchors.margins: 12
         spacing: 12
 
-        // ── Globe canvas ──────────────────────────────────────────────
+        // ── Globe canvas ─────────────────────────────────────────────────────
         Item {
-            id: globeCanvasRoot
+            id: canvas
             Layout.fillWidth: true
             Layout.fillHeight: true
+            clip: true
 
+            // deep-space backdrop with a faint accent nebula behind the globe
             Rectangle {
                 anchors.fill: parent
-                radius: 16
-                color: ThemeManager.surfaceContainerLow
+                color: root._space
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: Math.max(parent.width, parent.height) * 1.2
+                    height: width
+                    radius: width / 2
+                    opacity: 0.55
+                    gradient: Gradient {
+                        GradientStop { position: 0.0; color: Qt.rgba(root._accent.r, root._accent.g, root._accent.b, 0.10) }
+                        GradientStop { position: 0.5; color: Qt.rgba(root._accent.r, root._accent.g, root._accent.b, 0.03) }
+                        GradientStop { position: 1.0; color: "transparent" }
+                    }
+                }
             }
 
+            Globe {
+                id: globe
+                anchors.fill: parent
+                focus: true
+                locations: root.locations
+                autoRotate: true
+
+                oceanColor: Qt.rgba(0.045 + root._accent.r * 0.05, 0.060 + root._accent.g * 0.05, 0.110 + root._accent.b * 0.06, 1)
+                oceanEdgeColor: Qt.rgba(0.015, 0.020, 0.040, 1)
+                glowColor: Qt.rgba(root._accent.r, root._accent.g, root._accent.b, 0.85)
+                landColor: Qt.rgba(0.90, 0.93, 0.98, 0.92)
+                coastColor: Qt.rgba(root._accent.r, root._accent.g, root._accent.b, 0.80)
+                borderColor: Qt.rgba(1, 1, 1, 0.82)
+                stateColor: Qt.rgba(1, 1, 1, 0.36)
+                cityColor: "white"
+                cityHaloColor: Qt.rgba(0.02, 0.03, 0.06, 0.85)
+                casingColor: Qt.rgba(0.015, 0.02, 0.04, 0.92)
+                pinSize: Qt.size(52, 62)
+
+                onPinClicked: (cluster) => root.selectCluster(cluster)
+                onGlobeClicked: (lat, lon) => root.activePlace = null
+            }
+
+            // ── place labels (pooled; positions come from the engine) ───────
             Item {
-                id: globeContentLayer
-                anchors.fill: parent
-                clip: true
+                anchors.fill: globe
+                Repeater {
+                    model: globe.labels
+                    delegate: Text {
+                        required property string ltext
+                        required property real lx
+                        required property real ly
+                        required property real lopacity
+                        required property int lclass
+                        required property int lanchor
+                        required property bool lcapital
 
-                Item {
-                    id: globeArea
-                    anchors.fill: parent
-
-                    // TEMP debug readout — remove once marker placement is confirmed fixed.
-                    Text {
-                        anchors.top: parent.top
-                        anchors.left: parent.left
-                        anchors.margins: 8
-                        z: 999
-                        text: root.debugText
-                        color: "red"
-                        font.pixelSize: 16
-                        font.bold: true
+                        text: ltext
+                        visible: lopacity > 0.01
+                        opacity: lopacity
+                        x: lanchor === 1 ? lx + 7 : lanchor === 2 ? lx - 7 - width : lx - width / 2
+                        y: ly - height / 2
+                        renderType: Text.QtRendering
                         style: Text.Outline
-                        styleColor: "white"
+                        styleColor: root._labelHalo
+                        // class: 0 ocean, 1 country, 2 state, 3 major city, 4 city, 5 town
+                        color: lclass === 0 ? Qt.lighter(root._accent, 1.25)
+                             : lclass === 2 ? Qt.rgba(1, 1, 1, 0.70)
+                             : lclass === 5 ? Qt.rgba(1, 1, 1, 0.86)
+                             : root._labelInk
+                        font.pixelSize: [12, 12.5, 10, 13.5, 12, 11][lclass]
+                        font.italic: lclass === 0
+                        font.letterSpacing: [1.5, 1.6, 1.0, 0, 0, 0][lclass]
+                        font.capitalization: (lclass === 1 || lclass === 2) ? Font.AllUppercase : Font.MixedCase
+                        font.weight: lclass === 1 || lclass === 3 || lcapital ? Font.DemiBold
+                                   : lclass === 4 ? Font.Medium : Font.Normal
                     }
-
-                    // Equirectangular land/ocean mask sampled per-fragment by the globe
-                    // shader — cobe's own bundled world texture (src/texture.png), not a
-                    // hand-approximated polygon fill (which rendered as an unrecognizable
-                    // blob at only ~15-30 points per continent).
-                    Image {
-                        id: landMaskImage
-                        source: "qrc:/Kader/assets/globe-world-mask.png"
-                        width: 256
-                        height: 128
-                        smooth: true
-                        visible: true
-                    }
-
-                    ShaderEffectSource {
-                        id: landMaskSource
-                        sourceItem: landMaskImage
-                        hideSource: true
-                        live: false
-                        wrapMode: ShaderEffectSource.ClampToEdge
-                    }
-
-                    ShaderEffect {
-                        id: globeShader
-                        anchors.fill: parent
-
-                        property vector2d uResolution: Qt.vector2d(width, height)
-                        property vector2d offset: root.panOffset
-                        property vector2d rotation: Qt.vector2d(root.phi, root.theta)
-                        property real dots: 16000
-                        property real scale: root.zoomScale
-                        // cobe's own default showcase config (page.tsx): baseColor/glowColor
-                        // both pure white, dark: 0 — not theme-tinted.
-                        property vector3d baseColor: Qt.vector3d(1.0, 1.0, 1.0)
-                        property vector3d glowColor: Qt.vector3d(1.0, 1.0, 1.0)
-                        property vector4d renderParams: Qt.vector4d(6.0, 1.2, 0.0, 1.0) // brightness, diffuse, dark, opacity
-                        property real mapBaseBrightness: 0.0
-                        property variant uTexture: landMaskSource
-
-                        fragmentShader: "qrc:/shaders/globe.frag.qsb"
-                    }
-
-                    // ── Drag-to-orbit / scroll-to-zoom ──────────────────
-                    // Direct port of cobe's own pointer handling
-                    // (deltaX/300 → phi, deltaY/300 → theta), so the feel
-                    // matches the reference implementation exactly.
-                    MouseArea {
-                        id: dragArea
-                        anchors.fill: parent
-                        acceptedButtons: Qt.LeftButton | Qt.MiddleButton
-                        onPressed: (mouse) => {
-                            root.dragging = true
-                            root._velPhi = 0
-                            root._velTheta = 0
-                            root._lastMouseX = mouse.x
-                            root._lastMouseY = mouse.y
-                        }
-                        onPositionChanged: (mouse) => {
-                            if (!root.dragging) return
-                            var dx = mouse.x - root._lastMouseX
-                            var dy = mouse.y - root._lastMouseY
-                            root._velPhi = dx / 300
-                            // Negated: dragging down should bring the far side of the
-                            // globe down toward the viewer (content follows the pointer),
-                            // not the reverse.
-                            root._velTheta = -dy / 300
-                            root.phi += root._velPhi
-                            root.theta += root._velTheta
-                            root._lastMouseX = mouse.x
-                            root._lastMouseY = mouse.y
-                        }
-                        onReleased: root.dragging = false
-                        onWheel: (wheel) => {
-                            var factor = Math.exp(wheel.angleDelta.y * 0.0012)
-                            root.zoomScale = Math.max(0.6, Math.min(3.5, root.zoomScale * factor))
-                        }
-                    }
-
-                    // ── Pause/resume auto-rotation ──────────────────────
-                    Rectangle {
-                        id: rotateToggle
-                        anchors.top: parent.top
-                        anchors.right: parent.right
-                        anchors.margins: 14
-                        z: 70
-                        width: 36; height: 36; radius: 18
-                        color: Qt.rgba(0.08, 0.08, 0.10, 0.85)
-                        M3Icon {
-                            anchors.centerIn: parent
-                            name: root.autoRotate ? "pause" : "play"
-                            size: 18
-                            color: "white"
-                        }
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                root.autoRotate = !root.autoRotate
-                                root._velPhi = 0
-                                root._velTheta = 0
-                            }
-                        }
-                    }
-
-                    // ── Location pins (2D overlay projected from the globe) ─
-                    Repeater {
-                        model: root.markerPositions
-                        delegate: Item {
-                            required property var modelData
-                            x: modelData.x - width / 2
-                            y: modelData.y - height
-                            z: 20
-                            width: pinRow.width + 16
-                            height: 32
-                            // Inverse to zoom: bigger when zoomed out (globe small, need
-                            // legibility), smaller when zoomed in (already close-up).
-                            transformOrigin: Item.Bottom
-                            scale: Math.max(0.6, Math.min(1.6, 1 / root.zoomScale))
-
-                            Rectangle {
-                                id: pinBody
-                                anchors.fill: parent
-                                radius: 16
-                                color: Qt.rgba(0.08, 0.08, 0.10, 0.92)
-
-                                Row {
-                                    id: pinRow
-                                    anchors.centerIn: parent
-                                    spacing: 6
-                                    leftPadding: 5
-                                    rightPadding: 8
-
-                                    Rectangle {
-                                        width: 22; height: 22; radius: 7
-                                        color: Qt.rgba(1, 1, 1, 0.12)
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        clip: true
-                                        Image {
-                                            anchors.fill: parent
-                                            source: modelData.loc.thumb || ""
-                                            fillMode: Image.PreserveAspectCrop
-                                            asynchronous: true
-                                        }
-                                    }
-                                    Label {
-                                        text: modelData.loc.count
-                                        color: "white"
-                                        font.pixelSize: ThemeManager.fontLabelM
-                                        font.weight: Font.SemiBold
-                                        anchors.verticalCenter: parent.verticalCenter
-                                    }
-                                }
-                            }
-
-                            MouseArea {
-                                anchors.fill: pinBody
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    root.activePin = modelData.loc
-                                    root._updatePinPopupPos()
-                                    root.fetchAddress(modelData.loc.lat, modelData.loc.lon)
-                                }
-                            }
-                        }
-                    }
-
-                    // ── Pin popup card ──────────────────────────────────
-                    Rectangle {
-                        id: pinPopup
-                        visible: root.activePin !== null
-                        z: 60
-                        width: 210
-                        height: 220
-                        radius: 14
-                        color: Qt.rgba(0.07, 0.07, 0.09, 0.95)
-
-                        x: Math.min(Math.max(8, root._pinScreenPos.x - width / 2),
-                                    parent.width - width - 8)
-                        y: Math.max(8, root._pinScreenPos.y - height - 40)
-
-                        layer.enabled: true
-                        layer.effect: MultiEffect {
-                            shadowEnabled: true
-                            shadowBlur: 0.6
-                            shadowColor: Qt.rgba(0, 0, 0, 0.5)
-                            shadowVerticalOffset: 4
-                        }
-
-                        Column {
-                            id: popupCol
-                            anchors { top: parent.top; left: parent.left; right: parent.right; margins: 12 }
-                            spacing: 8
-
-                            Rectangle {
-                                width: parent.width; height: 110; radius: 8; clip: true
-                                color: Qt.rgba(1, 1, 1, 0.06)
-                                Image {
-                                    anchors.fill: parent
-                                    source: root.activePin ? (root.activePin.thumb || "") : ""
-                                    fillMode: Image.PreserveAspectCrop
-                                    asynchronous: true
-                                }
-                            }
-
-                            Label {
-                                width: parent.width
-                                text: root.activePinAddr !== ""
-                                      ? root.activePinAddr
-                                      : (root.activePin
-                                         ? root.activePin.lat.toFixed(4) + "°,  " + root.activePin.lon.toFixed(4) + "°"
-                                         : "")
-                                color: "white"; font.pixelSize: ThemeManager.fontLabelM
-                                wrapMode: Text.WordWrap; maximumLineCount: 2; elide: Text.ElideRight
-                            }
-
-                            Row {
-                                width: parent.width; spacing: 8
-
-                                Label {
-                                    text: root.activePin
-                                          ? root.activePin.count + (root.activePin.count === 1 ? " photo" : " photos")
-                                          : ""
-                                    color: Qt.rgba(1, 1, 1, 0.55); font.pixelSize: 11
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: parent.width - openBtn.width - 8
-                                }
-
-                                Rectangle {
-                                    id: openBtn
-                                    width: 60; height: 28; radius: 14
-                                    color: ThemeManager.primary
-                                    Label {
-                                        anchors.centerIn: parent
-                                        text: I18n.t(Settings.language, "open_action"); color: ThemeManager.onPrimary
-                                        font.pixelSize: 12; font.weight: Font.Medium
-                                    }
-                                    MouseArea {
-                                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                                        onClicked: { if (root.activePin) root.openViewer(root.activePin); root.activePin = null }
-                                    }
-                                }
-                            }
-                        }
-
-                        Rectangle {
-                            anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 7
-                            width: 22; height: 22; radius: 11; color: Qt.rgba(1, 1, 1, 0.13)
-                            Label { anchors.centerIn: parent; text: "×"; color: "white"; font.pixelSize: 14 }
-                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.activePin = null }
-                        }
-                    }
-                }
-
-                layer.enabled: true
-                layer.effect: MultiEffect {
-                    maskEnabled: true
-                    maskThresholdMin: 0.5
-                    maskSpreadAtMin: 1.0
-                    maskSource: globeRoundMask
                 }
             }
 
-            Rectangle {
-                id: globeRoundMask
-                anchors.fill: globeContentLayer
-                radius: 16
-                color: "white"
-                visible: false
-                layer.enabled: true
+            // ── photo pins ──────────────────────────────────────────────────
+            Item {
+                id: pinLayer
+                anchors.fill: globe
+                Rectangle {
+                    id: pinMask
+                    width: 44; height: 44; radius: 13
+                    visible: false
+                    layer.enabled: true
+                }
+                Repeater {
+                    model: globe.pins
+                    delegate: Item {
+                        id: pin
+                        required property real px
+                        required property real py
+                        required property real depth
+                        required property real popacity
+                        required property bool shown
+                        required property int count
+                        required property int members
+                        required property var thumb
+                        required property int cluster
+
+                        readonly property bool hot: globe.hoveredCluster === cluster
+                        readonly property bool active: root.activePlace !== null && root.activePlace.cluster === cluster
+
+                        visible: shown && popacity > 0.02
+                        opacity: popacity
+                        width: 52; height: 62
+                        x: px - width / 2
+                        y: py - height
+                        z: depth + (hot || active ? 2 : 0)
+                        transformOrigin: Item.Bottom
+                        scale: (hot || active ? 1.12 : 1.0) * (0.82 + 0.18 * depth)
+                        Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+
+                        // tail + ground dot mark the exact spot
+                        Rectangle {
+                            width: 12; height: 12; rotation: 45
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            y: 42
+                            color: frame.color
+                        }
+                        Rectangle {
+                            width: 8; height: 8; radius: 4
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.bottom: parent.bottom
+                            color: root._accent
+                            border.color: "white"; border.width: 1.5
+                        }
+                        Rectangle {
+                            id: frame
+                            width: 52; height: 52; radius: 16
+                            color: pin.active ? root._accent : "white"
+                            Rectangle { // placeholder while the thumbnail loads
+                                anchors.centerIn: parent
+                                width: 44; height: 44; radius: 13
+                                color: Qt.rgba(0.12, 0.14, 0.2, 1)
+                            }
+                            Image {
+                                anchors.centerIn: parent
+                                width: 44; height: 44
+                                source: pin.thumb || ""
+                                sourceSize: Qt.size(96, 96)
+                                fillMode: Image.PreserveAspectCrop
+                                asynchronous: true
+                                layer.enabled: true
+                                layer.effect: MultiEffect {
+                                    maskEnabled: true
+                                    maskSource: pinMask
+                                    maskThresholdMin: 0.5
+                                    maskSpreadAtMin: 1.0
+                                }
+                            }
+                        }
+                        // photo count
+                        Rectangle {
+                            visible: pin.count > 1
+                            anchors { right: frame.right; top: frame.top; rightMargin: -6; topMargin: -6 }
+                            height: 22; radius: 11
+                            width: Math.max(22, countLbl.implicitWidth + 12)
+                            color: root._accent
+                            border.color: root._space; border.width: 2
+                            Text {
+                                id: countLbl
+                                anchors.centerIn: parent
+                                text: pin.count > 999 ? Math.round(pin.count / 100) / 10 + "k" : pin.count
+                                color: ThemeManager.isDark ? ThemeManager.onPrimary : ThemeManager.primary
+                                font.pixelSize: 11; font.weight: Font.Bold
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── place card follows its place across the globe ───────────────
+            PlacePopup {
+                id: popup
+                anchors.fill: globe
+                z: 50
+                place: root.activePlace
+                offlineName: root.activePlace && globe.ready ? root.placeLabel(root.activePlace.lat, root.activePlace.lon) : ""
+                property var _proj: ({ x: 0, y: 0, visible: false })
+                anchorX: _proj.x
+                anchorY: _proj.y
+                anchorVisible: _proj.visible
+                function track() {
+                    if (root.activePlace) _proj = globe.project(root.activePlace.lat, root.activePlace.lon)
+                }
+                Connections {
+                    target: globe
+                    function onFrameUpdated() { popup.track() }
+                }
+                onPlaceChanged: track()
+                onOpenRequested: (place) => root.openPlace(place)
+                onCloseRequested: root.activePlace = null
+            }
+
+            // ── controls ────────────────────────────────────────────────────
+            Column {
+                anchors { top: parent.top; right: parent.right; margins: 16 }
+                spacing: 10
+                z: 60
+
+                Rectangle {
+                    width: 44; height: zoomCol.height; radius: 22
+                    color: Qt.rgba(0.07, 0.08, 0.11, 0.86)
+                    border.color: Qt.rgba(1, 1, 1, 0.12)
+                    Column {
+                        id: zoomCol
+                        GlobeButton { icon: "add"; tip: root._t("globe_zoom_in"); onClicked: globe.zoomIn() }
+                        Rectangle { width: 24; height: 1; color: Qt.rgba(1, 1, 1, 0.14); anchors.horizontalCenter: parent.horizontalCenter }
+                        GlobeButton { icon: "remove"; tip: root._t("globe_zoom_out"); onClicked: globe.zoomOut() }
+                    }
+                }
+                Rectangle {
+                    width: 44; height: 44; radius: 22
+                    color: Qt.rgba(0.07, 0.08, 0.11, 0.86)
+                    border.color: Qt.rgba(1, 1, 1, 0.12)
+                    GlobeButton { icon: "public"; tip: root._t("globe_reset"); onClicked: { root.activePlace = null; globe.resetView() } }
+                }
+                Rectangle {
+                    width: 44; height: 44; radius: 22
+                    color: globe.autoRotate ? Qt.rgba(root._accent.r, root._accent.g, root._accent.b, 0.92) : Qt.rgba(0.07, 0.08, 0.11, 0.86)
+                    border.color: Qt.rgba(1, 1, 1, 0.12)
+                    GlobeButton {
+                        icon: "3d_rotation"
+                        tip: root._t("globe_spin")
+                        ink: globe.autoRotate ? (ThemeManager.isDark ? ThemeManager.onPrimary : ThemeManager.primary) : "white"
+                        onClicked: globe.autoRotate = !globe.autoRotate
+                    }
+                }
+                Rectangle {
+                    visible: root.narrow
+                    width: 44; height: 44; radius: 22
+                    color: panelToggle.checked ? Qt.rgba(root._accent.r, root._accent.g, root._accent.b, 0.92) : Qt.rgba(0.07, 0.08, 0.11, 0.86)
+                    border.color: Qt.rgba(1, 1, 1, 0.12)
+                    GlobeButton {
+                        id: panelToggle
+                        property bool checked: false
+                        icon: "list"
+                        tip: root._t("places")
+                        ink: checked ? (ThemeManager.isDark ? ThemeManager.onPrimary : ThemeManager.primary) : "white"
+                        onClicked: checked = !checked
+                    }
+                }
+            }
+
+            // coordinate / zoom readout + data attribution
+            Row {
+                anchors { left: parent.left; bottom: parent.bottom; margins: 16 }
+                spacing: 8
+                z: 60
+                visible: globe.ready
+                Rectangle {
+                    height: 28; radius: 14
+                    width: readout.implicitWidth + 22
+                    color: Qt.rgba(0.07, 0.08, 0.11, 0.80)
+                    border.color: Qt.rgba(1, 1, 1, 0.10)
+                    Text {
+                        id: readout
+                        anchors.centerIn: parent
+                        color: Qt.rgba(1, 1, 1, 0.85)
+                        font.pixelSize: 11
+                        font.family: "monospace"
+                        text: Math.abs(globe.centerLat).toFixed(2) + "° " + (globe.centerLat >= 0 ? "N" : "S") + "  "
+                              + Math.abs(globe.centerLon).toFixed(2) + "° " + (globe.centerLon >= 0 ? "E" : "W")
+                              + "   z " + globe.zoomLevel.toFixed(1)
+                    }
+                }
+            }
+            Text {
+                anchors { right: parent.right; bottom: parent.bottom; margins: 12 }
+                z: 60
+                text: "Natural Earth · GeoNames (CC BY 4.0)"
+                color: Qt.rgba(1, 1, 1, 0.40)
+                font.pixelSize: 10
+            }
+
+            // loading scaffold until the world dataset is decoded
+            Item {
+                anchors.fill: parent
+                visible: opacity > 0.01
+                opacity: globe.ready ? 0 : 1
+                Behavior on opacity { NumberAnimation { duration: 260 } }
+                z: 70
+                Rectangle {
+                    id: ghost
+                    anchors.centerIn: parent
+                    width: Math.min(parent.width, parent.height) * 0.8
+                    height: width; radius: width / 2
+                    color: Qt.rgba(1, 1, 1, 0.04)
+                    border.color: Qt.rgba(root._accent.r, root._accent.g, root._accent.b, 0.35)
+                    border.width: 1
+                    SequentialAnimation on opacity {
+                        running: !globe.ready
+                        loops: Animation.Infinite
+                        NumberAnimation { from: 0.45; to: 1; duration: 700; easing.type: Easing.InOutSine }
+                        NumberAnimation { from: 1; to: 0.45; duration: 700; easing.type: Easing.InOutSine }
+                    }
+                }
+                Text {
+                    anchors { top: ghost.bottom; topMargin: 14; horizontalCenter: parent.horizontalCenter }
+                    text: root._t("globe_loading")
+                    color: Qt.rgba(1, 1, 1, 0.6)
+                    font.pixelSize: 12
+                }
+            }
+
+            // rounded corners without an offscreen pass: paint the page colour
+            // into the four corners
+            Repeater {
+                model: 4
+                delegate: Shape {
+                    required property int index
+                    readonly property real r: 16
+                    width: r; height: r
+                    z: 80
+                    x: (index % 2) ? canvas.width - r : 0
+                    y: index >= 2 ? canvas.height - r : 0
+                    rotation: [0, 90, 270, 180][index]
+                    preferredRendererType: Shape.CurveRenderer
+                    ShapePath {
+                        strokeWidth: 0
+                        strokeColor: "transparent"
+                        fillColor: ThemeManager.surface
+                        startX: 0; startY: 0
+                        PathLine { x: 16; y: 0 }
+                        PathArc { x: 0; y: 16; radiusX: 16; radiusY: 16; direction: PathArc.Counterclockwise }
+                        PathLine { x: 0; y: 0 }
+                    }
+                }
             }
         }
 
-        // ── Right panel: places list ────────────────────────────────────
+        // ── Places panel ─────────────────────────────────────────────────────
         Rectangle {
+            id: panel
+            visible: root.panelShown
             Layout.fillHeight: true
-            width: 300
+            Layout.preferredWidth: root.narrow ? 280 : 320
             color: ThemeManager.surfaceContainer
             radius: 16
 
             ColumnLayout {
                 anchors.fill: parent
                 anchors.margins: 16
-                anchors.topMargin: 24
-                spacing: 12
+                anchors.topMargin: 20
+                spacing: 10
 
-                Label {
-                    text: I18n.t(Settings.language, "places")
-                    font.family: "Roboto Flex"
-                    font.pixelSize: 18
-                    font.weight: Font.Medium
-                    color: ThemeManager.onSurface
+                RowLayout {
+                    Layout.fillWidth: true
                     Layout.leftMargin: 8
+                    Label {
+                        text: root._t("places")
+                        font.family: "Roboto Flex"
+                        font.pixelSize: 20
+                        font.weight: Font.Medium
+                        color: ThemeManager.onSurface
+                        Layout.fillWidth: true
+                    }
+                    Label {
+                        visible: root.locations.length > 0
+                        text: root.locations.length
+                        color: ThemeManager.onSurfaceVariant
+                        font.pixelSize: 13
+                        Layout.rightMargin: 8
+                    }
                 }
 
                 ColumnLayout {
-                    visible: root.locations.length === 0
+                    visible: root._loaded && root.locations.length === 0
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     spacing: 12
                     Item { Layout.fillHeight: true }
-                    M3Icon { Layout.alignment: Qt.AlignHCenter; name: "map"; size: 56; color: ThemeManager.onSurfaceVariant; opacity: 0.4 }
-                    Label { Layout.alignment: Qt.AlignHCenter; text: I18n.t(Settings.language, "empty_map"); font.pixelSize: 15; font.weight: Font.Medium; color: ThemeManager.onSurface }
+                    MaterialSymbol { Layout.alignment: Qt.AlignHCenter; name: "travel_explore"; size: 56; color: ThemeManager.onSurfaceVariant; opacity: 0.5 }
+                    Label { Layout.alignment: Qt.AlignHCenter; text: root._t("empty_map"); font.pixelSize: 15; font.weight: Font.Medium; color: ThemeManager.onSurface }
                     Label {
                         Layout.alignment: Qt.AlignHCenter; Layout.fillWidth: true
-                        text: I18n.t(Settings.language, "empty_map_sub")
+                        text: root._t("empty_map_sub")
                         font.pixelSize: 12; color: ThemeManager.onSurfaceVariant; wrapMode: Text.Wrap; horizontalAlignment: Text.AlignHCenter
                     }
                     Item { Layout.fillHeight: true }
                 }
 
+                // skeleton rows while the first query runs
+                Column {
+                    visible: !root._loaded
+                    Layout.fillWidth: true
+                    spacing: 6
+                    Repeater {
+                        model: 6
+                        Rectangle {
+                            width: parent.width; height: 72; radius: 14
+                            color: Qt.alpha(ThemeManager.onSurface, 0.05)
+                        }
+                    }
+                }
+
                 ListView {
                     id: placeList
-                    Layout.fillWidth: true; Layout.fillHeight: true
-                    model: root.locations; clip: true; spacing: 4
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    model: root.locations
+                    clip: true
+                    spacing: 4
                     visible: root.locations.length > 0
+                    reuseItems: true
+                    boundsBehavior: Flickable.StopAtBounds
 
                     delegate: Rectangle {
-                        width: placeList.width; height: 76; radius: 12
-                        color: hoverArea.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.07) : "transparent"
+                        id: row
+                        required property var modelData
+                        readonly property bool selected: root.activePlace !== null
+                            && Math.abs(root.activePlace.lat - modelData.lat) < 1e-6
+                            && Math.abs(root.activePlace.lon - modelData.lon) < 1e-6
+                        width: placeList.width
+                        height: 72
+                        radius: 14
+                        color: selected ? ThemeManager.secondaryContainer
+                             : hoverArea.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.07) : "transparent"
                         Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
 
                         RowLayout {
                             anchors.fill: parent; anchors.margins: 8; spacing: 12
-
                             Rectangle {
-                                width: 56; height: 56; radius: 12
+                                Layout.preferredWidth: 56; Layout.preferredHeight: 56
+                                radius: 12
                                 color: ThemeManager.surfaceContainerHigh
                                 clip: true
                                 Image {
                                     anchors.fill: parent
-                                    source: modelData.thumb || ""
+                                    source: row.modelData.thumb || ""
+                                    sourceSize: Qt.size(112, 112)
                                     fillMode: Image.PreserveAspectCrop
                                     asynchronous: true
                                 }
                             }
-
                             ColumnLayout {
-                                Layout.fillWidth: true; spacing: 3
-
+                                Layout.fillWidth: true
+                                spacing: 2
                                 Label {
-                                    text: modelData.lat.toFixed(4) + "°, " + modelData.lon.toFixed(4) + "°"
-                                    font.weight: Font.Medium; font.pixelSize: 12
-                                    color: ThemeManager.onSurface
-                                    elide: Text.ElideRight; Layout.fillWidth: true
+                                    Layout.fillWidth: true
+                                    text: globe.ready, root.placeLabel(row.modelData.lat, row.modelData.lon)
+                                    font.weight: Font.Medium; font.pixelSize: 13
+                                    color: row.selected ? ThemeManager.onSecondaryContainer : ThemeManager.onSurface
+                                    elide: Text.ElideRight
                                 }
-
                                 Label {
-                                    visible: !!modelData.creation_date
-                                    text: Qt.formatDateTime(new Date(modelData.creation_date * 1000), "d MMM yyyy")
-                                    font.pixelSize: 11; color: ThemeManager.onSurfaceVariant
-                                }
-
-                                Label {
-                                    text: modelData.count + (modelData.count === 1 ? " photo" : " photos")
-                                    font.pixelSize: 11; color: ThemeManager.onSurfaceVariant
+                                    Layout.fillWidth: true
+                                    text: {
+                                        var parts = []
+                                        if (row.modelData.creation_date)
+                                            parts.push(Qt.formatDateTime(new Date(row.modelData.creation_date * 1000), "d MMM yyyy"))
+                                        parts.push(row.modelData.count + " " + (row.modelData.count === 1 ? root._t("photo_one") : root._t("photo_many")))
+                                        return parts.join(" · ")
+                                    }
+                                    font.pixelSize: 11
+                                    color: row.selected ? ThemeManager.onSecondaryContainer : ThemeManager.onSurfaceVariant
+                                    elide: Text.ElideRight
                                 }
                             }
                         }
 
                         MouseArea {
-                            id: hoverArea; anchors.fill: parent
-                            hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                root.focusLocation(modelData.lat, modelData.lon)
-                                // TEMP: openViewer disabled so the globe pin landing is
-                                // visible for verification. Re-enable once confirmed.
-                                // if (modelData.file_path) root.openViewer(modelData)
-                            }
+                            id: hoverArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.selectLocation(row.modelData)
+                            onDoubleClicked: root.openPlace({ places: [row.modelData] })
                         }
                     }
                 }
             }
         }
+    }
+
+    component GlobeButton: Item {
+        id: btn
+        property string icon
+        property string tip
+        property color ink: "white"
+        signal clicked()
+        width: 44; height: 44
+        Rectangle {
+            anchors.centerIn: parent
+            width: 36; height: 36; radius: 18
+            color: Qt.rgba(1, 1, 1, ma.pressed ? 0.22 : ma.containsMouse ? 0.12 : 0)
+        }
+        MaterialSymbol { anchors.centerIn: parent; name: btn.icon; size: 22; color: btn.ink }
+        MouseArea {
+            id: ma
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: btn.clicked()
+        }
+        ToolTip.visible: ma.containsMouse && btn.tip !== ""
+        ToolTip.delay: 500
+        ToolTip.text: btn.tip
     }
 }

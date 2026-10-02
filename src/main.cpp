@@ -21,7 +21,10 @@
 #include "SettingsManager.h"
 #include "StorageManager.h"
 #include "SemanticSearchEngine.h"
+#include "GlobeItem.h"
+#if KADER_HAVE_MILFS
 #include <MilfsConnect/Connect.h>
+#endif
 
 int main(int argc, char *argv[]) {
     // Prefer Qt's FFmpeg multimedia backend over GStreamer for better codec
@@ -55,7 +58,11 @@ int main(int argc, char *argv[]) {
     app.setOrganizationName("Kader");
     app.setOrganizationDomain("kader.app");
     app.setApplicationName("Kader");
+    app.setApplicationVersion(QStringLiteral(KADER_VERSION));
     app.setWindowIcon(QIcon(":/Kader/assets/KaderPNGicon.png"));
+    app.setDesktopFileName(QStringLiteral("kader"));
+
+    qmlRegisterType<GlobeItem>("Kader.Globe", 1, 0, "Globe");
 
     // ── Standalone-viewer fast path ───────────────────────────────────────
     // When launched with a file (e.g. from a file manager), show ONLY that
@@ -77,7 +84,7 @@ int main(int argc, char *argv[]) {
         engine.rootContext()->setContextProperty("FileScanner", &fileScanner);
         engine.rootContext()->setContextProperty("STARTUP_FILE", startupFile);
 
-        const QUrl url(u"qrc:/Kader/qml/views/ViewerWindow.qml"_qs);
+        const QUrl url(QStringLiteral("qrc:/Kader/qml/views/ViewerWindow.qml"));
         QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
                          &app, [url](QObject *obj, const QUrl &objUrl) {
             if (!obj && url == objUrl)
@@ -96,6 +103,7 @@ int main(int argc, char *argv[]) {
     FileScanner fileScanner(&dbManager);
     fileScanner.setThumbnailGenerator(&thumbGenerator);
 
+#if KADER_HAVE_MILFS
     // Sibling-app integration (see milfs-connect): ingest media announced by
     // other apps (e.g. Recamara) live, without waiting for the next startup scan.
     MilfsConnect::Bus bus(QStringLiteral("kader"));
@@ -114,6 +122,7 @@ int main(int argc, char *argv[]) {
             dbManager.addIndexedDirectory(dir);
         fileScanner.startScan(dir);
     });
+#endif
     MediaModel mediaModel(&dbManager, &thumbGenerator);
     TimelineModel timelineModel(&dbManager);
     AlbumModel albumModel(&dbManager, &thumbGenerator);
@@ -263,11 +272,10 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("AlbumModel", &albumModel);
     engine.rootContext()->setContextProperty("VideoEditor", &videoEditor);
     engine.rootContext()->setContextProperty("ThumbGen", &thumbGenerator);
-    engine.rootContext()->setContextProperty("CMAKE_SOURCE_DIR", CMAKE_SOURCE_DIR);
     engine.rootContext()->setContextProperty("STARTUP_FILE", startupFile);
     engine.rootContext()->setContextProperty("AI", &semanticSearch);
 
-    const QUrl url(u"qrc:/Kader/qml/main.qml"_qs);
+    const QUrl url(QStringLiteral("qrc:/Kader/qml/main.qml"));
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
                      &app, [url](QObject *obj, const QUrl &objUrl) {
         if (!obj && url == objUrl)

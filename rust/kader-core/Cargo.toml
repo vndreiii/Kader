@@ -1,0 +1,25 @@
+[package]
+name = "kader-core"
+version = "1.0.0"
+edition = "2021"
+description = "Performance-critical, memory-safe core of the Kader gallery (globe geo engine)"
+license = "MIT"
+publish = false
+
+[lib]
+name = "kader_core"
+crate-type = ["staticlib", "rlib"]
+
+# Deliberately dependency-free: builds fully offline (makepkg, AppImage CI)
+# and keeps the static library small.
+[dependencies]
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+debug = false
+
+[profile.dev]
+panic = "abort"

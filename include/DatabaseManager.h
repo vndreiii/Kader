@@ -41,6 +41,11 @@ public:
     // Returns [{file_path, latitude, longitude, photo_count, thumb_path}] grouped ~1km.
     Q_INVOKABLE QVariantList getGeotaggedLocations();
 
+    // Every non-trashed, non-hidden photo/video of the given places (entries of
+    // getGeotaggedLocations(): {lat, lon} rounded to 2 decimals), newest first,
+    // in the viewer's item format.
+    Q_INVOKABLE QVariantList getMediaForPlaces(const QVariantList &places);
+
     // Get all media for the models.
     // rawFilter: 0=all, 1=JPEG-only (exclude RAW), 2=RAW-only
     // excludeTrashed/excludeHidden: when true, also filter out is_trashed/is_hidden rows.
