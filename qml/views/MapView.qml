@@ -236,6 +236,23 @@ Item {
                     }
                 }
 
+                // Touchpad two-finger scroll pans the map (the map's own handler
+                // would zoom); pinch and Ctrl+wheel still zoom, a mouse wheel
+                // still zooms. Takes no clicks.
+                MouseArea {
+                    anchors.fill: mapView
+                    acceptedButtons: Qt.NoButton
+                    onWheel: (wheel) => {
+                        var touchpad = wheel.pixelDelta.x !== 0 || wheel.pixelDelta.y !== 0
+                        if (!touchpad || (wheel.modifiers & Qt.ControlModifier)) {
+                            wheel.accepted = false   // let the map zoom
+                            return
+                        }
+                        mapView.map.pan(-wheel.pixelDelta.x, -wheel.pixelDelta.y)
+                        wheel.accepted = true
+                    }
+                }
+
                 // ── Pin popup card (shared with the globe) ───────────────
                 PlacePopup {
                     id: placePopup

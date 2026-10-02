@@ -121,9 +121,12 @@ Rectangle {
     property real _targetPanX: 0
     property real _targetPanY: 0
 
-    Behavior on _zoom { enabled: !root._isDraggingPan; NumberAnimation { duration: 180; easing.type: Easing.OutQuint } }
-    Behavior on _panX { enabled: !root._isDraggingPan; NumberAnimation { duration: 180; easing.type: Easing.OutQuint } }
-    Behavior on _panY { enabled: !root._isDraggingPan; NumberAnimation { duration: 180; easing.type: Easing.OutQuint } }
+    // while a touchpad gesture runs, the image follows the fingers exactly
+    property bool _gesturing: false
+    Timer { id: gestureEnd; interval: 160; onTriggered: root._gesturing = false }
+    Behavior on _zoom { enabled: !root._isDraggingPan && !root._gesturing; NumberAnimation { duration: 180; easing.type: Easing.OutQuint } }
+    Behavior on _panX { enabled: !root._isDraggingPan && !root._gesturing; NumberAnimation { duration: 180; easing.type: Easing.OutQuint } }
+    Behavior on _panY { enabled: !root._isDraggingPan && !root._gesturing; NumberAnimation { duration: 180; easing.type: Easing.OutQuint } }
 
     readonly property bool _isVideo: {
         var m = root.mediaData ? (root.mediaData.mime_type || "") : ""
@@ -138,6 +141,34 @@ Rectangle {
         _targetZoom = 1.0; _targetPanX = 0; _targetPanY = 0;
         _zoom = 1.0; _panX = 0; _panY = 0; 
     }
+
+    // Move a zoomed-in image, kept so its edges don't leave the screen.
+    function panBy(dx, dy) {
+        if (_targetZoom <= 1.02) return
+        var w = (mainImg.paintedWidth || mainImg.width) * _targetZoom
+        var h = (mainImg.paintedHeight || mainImg.height) * _targetZoom
+        var mx = Math.max(0, (w - imgArea.width) / 2)
+        var my = Math.max(0, (h - imgArea.height) / 2)
+        _targetPanX = Math.max(-mx, Math.min(mx, _targetPanX + dx))
+        _targetPanY = Math.max(-my, Math.min(my, _targetPanY + dy))
+        _panX = _targetPanX
+        _panY = _targetPanY
+    }
+
+    // Touchpad / touchscreen pinch: zoom around the fingers and follow them
+    // as they move, so zooming and panning happen together.
+    PinchHandler {
+        target: null
+        enabled: root.active && !root._isVideo
+        onActiveChanged: root._gesturing = active
+        onScaleChanged: (delta) => root.zoomTo(root._targetZoom * delta, centroid.position.x, centroid.position.y)
+        onTranslationChanged: (delta) => root.panBy(delta.x, delta.y)
+    }
+
+    // touchpad horizontal swipe → previous / next, once per swipe
+    property real _swipeAcc: 0
+    property bool _swipeDone: false
+    Timer { id: swipeEnd; interval: 220; onTriggered: { root._swipeAcc = 0; root._swipeDone = false } }
 
     function zoomTo(newZoom, focalX, focalY) {
         var oldZoom = _targetZoom;
@@ -233,6 +264,33 @@ Rectangle {
         anchors.fill: parent
         onClicked: { if (root._zoom <= 1.0) root.active = false }
         onWheel: (wheel) => {
+            var touchpad = wheel.pixelDelta.x !== 0 || wheel.pixelDelta.y !== 0
+            // pinch (Windows sends it as Ctrl+wheel) or Ctrl+wheel: smooth zoom
+            if (wheel.modifiers & Qt.ControlModifier) {
+                var steps = touchpad ? wheel.pixelDelta.y / 240 : wheel.angleDelta.y / 600
+                if (touchpad) { root._gesturing = true; gestureEnd.restart() }
+                root.zoomTo(root._targetZoom * Math.pow(2, steps), wheel.x, wheel.y)
+                wheel.accepted = true
+                return
+            }
+            // two-finger scroll: pans a zoomed image, swipes between photos otherwise
+            if (touchpad) {
+                if (root._targetZoom > 1.02) {
+                    root._gesturing = true
+                    gestureEnd.restart()
+                    root.panBy(wheel.pixelDelta.x, wheel.pixelDelta.y)
+                } else if (!root._vidFs) {
+                    swipeEnd.restart()
+                    root._swipeAcc += wheel.pixelDelta.x
+                    if (!root._swipeDone && Math.abs(root._swipeAcc) > 120) {
+                        root._swipeDone = true
+                        if (root._swipeAcc > 0) root.navigatePrev()
+                        else root.navigateNext()
+                    }
+                }
+                wheel.accepted = true
+                return
+            }
             if (wheel.angleDelta.y !== 0) {
                 var factor = wheel.angleDelta.y > 0 ? 1.15 : (1.0 / 1.15)
                 root.zoomTo(root._targetZoom * factor, wheel.x, wheel.y)
@@ -348,6 +406,11 @@ Rectangle {
             anchors.fill: parent
             fillMode: Image.PreserveAspectFit
             autoTransform: true
+            // same decode parameters as mainImg, so the photo just left is a
+            // pixmap-cache hit instead of a full-resolution re-decode
+            asynchronous: true
+            sourceSize.width: 4096
+            sourceSize.height: 4096
             opacity: 0
             z: 5
 
@@ -389,7 +452,9 @@ Rectangle {
             fillMode: Image.PreserveAspectFit
             autoTransform: true
             asynchronous: true
-            cache: false
+            // cached, so the neighbours decoded ahead of time (see preload
+            // below) appear instantly
+            cache: true
             // Cap the decode resolution. Photos larger than this box are scaled
             // down at decode time (much faster, far less memory); smaller images
             // are untouched. 4096 keeps fit-view and normal zoom crisp. Fixed —
@@ -401,6 +466,29 @@ Rectangle {
                 Scale { origin.x: mainImg.width/2; origin.y: mainImg.height/2; xScale: root._zoom; yScale: root._zoom },
                 Translate { x: root._panX; y: root._panY }
             ]
+        }
+
+        // Preload: decode the previous and the next two photos in the
+        // background with mainImg's exact parameters, so moving to them is a
+        // pixmap-cache hit — instant even for large photos. Starts once the
+        // current photo is up so it never competes with it.
+        Repeater {
+            model: root.active ? [1, -1, 2] : []
+            Image {
+                required property var modelData
+                readonly property int _i: root.currentIndex + modelData
+                readonly property var _m: root.allItems && _i >= 0 && _i < root.allItems.length ? root.allItems[_i] : null
+                readonly property string _mime: _m ? String(_m.mime_type || "") : ""
+                readonly property bool _go: mainImg.status === Image.Ready || !mainImg.visible
+                visible: false
+                source: _go && _m && _mime.indexOf("video/") !== 0 && _mime !== "image/gif"
+                        ? Paths.fileUrl(_m.file_path) : ""
+                autoTransform: true
+                asynchronous: true
+                cache: true
+                sourceSize.width: 4096
+                sourceSize.height: 4096
+            }
         }
 
         // Animated GIF viewer — loops silently, supports zoom + pan
