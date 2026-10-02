@@ -17,6 +17,7 @@
 #include "ThumbnailGenerator.h"
 #include "ThumbnailProvider.h"
 #include "MediaModel.h"
+#include "LibraryAnalyzer.h"
 #include "TimelineModel.h"
 #include "AlbumModel.h"
 #include "VideoEditor.h"
@@ -131,8 +132,9 @@ int main(int argc, char *argv[]) {
     SettingsManager settingsManager;
     ThemeManager themeManager;
     StorageManager storageManager(&dbManager);
-    SemanticSearchEngine semanticSearch(&dbManager);
     ThumbnailGenerator thumbGenerator;
+    SemanticSearchEngine semanticSearch(&dbManager, &thumbGenerator);
+    LibraryAnalyzer analyzer(&dbManager, &thumbGenerator);
     FileScanner fileScanner(&dbManager);
     fileScanner.setThumbnailGenerator(&thumbGenerator);
 
@@ -229,6 +231,10 @@ int main(int argc, char *argv[]) {
             }
         });
 
+        // Colour (and, when enabled, face) analysis of new media, in the
+        // background once the UI has settled and the startup scan is done.
+        QTimer::singleShot(6000, &app, [&]() { analyzer.start(); });
+
         // Pre-generate 768px disk thumbnails for all known media.
         // Runs after a short delay so the UI renders first.
         QTimer::singleShot(1500, &app, rebuildThumbnailCache);
@@ -263,8 +269,9 @@ int main(int argc, char *argv[]) {
     // Restarting the timer coalesces the scans of several indexed directories
     // into one refresh (which also re-runs the cache builder for the new files).
     QObject::connect(&fileScanner, &FileScanner::libraryChanged, &app,
-                     [refreshTimer](const QString &) {
+                     [refreshTimer, &analyzer](const QString &) {
         refreshTimer->start();
+        analyzer.start();
     });
 
     // Apply the resource budget: bounds CPU (scan threads, thumbnail concurrency)
@@ -275,6 +282,7 @@ int main(int argc, char *argv[]) {
         thumbGenerator.setResourceBudget(threads);
         fileScanner.setMaxThreads(threads);
         semanticSearch.setResourceBudget(mode);
+        analyzer.setResourceBudget(threads);
     };
     applyResourceBudget();
     QObject::connect(&settingsManager, &SettingsManager::resourceModeChanged, &app, applyResourceBudget);
@@ -307,6 +315,7 @@ int main(int argc, char *argv[]) {
 
     // Register the encrypted thumbnail image provider.
     engine.addImageProvider("thumbnails", new ThumbnailProvider(&dbManager, &thumbGenerator));
+    engine.addImageProvider("faces", new FaceImageProvider(&analyzer));
 
     engine.addImportPath("qrc:/");
     engine.addImportPath(app.applicationDirPath() + "/qml_modules");
@@ -323,6 +332,7 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("ThumbGen", &thumbGenerator);
     engine.rootContext()->setContextProperty("STARTUP_FILE", startupFile);
     engine.rootContext()->setContextProperty("AI", &semanticSearch);
+    engine.rootContext()->setContextProperty("Analyzer", &analyzer);
     engine.rootContext()->setContextProperty("Updater", &updater);
 
     const QUrl url(QStringLiteral("qrc:/Kader/qml/main.qml"));

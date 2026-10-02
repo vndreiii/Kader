@@ -14,6 +14,12 @@
 
 #include "kader_core.h"
 
+#include <QFuture>
+
+// The offline world dataset (coastlines, borders, place names), decoded once
+// on a worker thread and shared by every user; null if it is missing.
+QFuture<KgWorld *> kaderWorld();
+
 class GlobeItem;
 
 // Fixed pool of label slots: a label keeps its slot while it stays on screen,

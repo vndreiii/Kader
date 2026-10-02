@@ -196,6 +196,40 @@ bool DatabaseManager::createTables() {
     );
     query.exec("CREATE INDEX IF NOT EXISTS idx_doc_chunks_path ON doc_chunks(file_path)");
 
+    // ── Library analysis (LibraryAnalyzer): colour + faces/people ──────────
+    query.exec(
+        "CREATE TABLE IF NOT EXISTS media_analysis ("
+        "media_id     INTEGER PRIMARY KEY,"
+        "color_bucket INTEGER DEFAULT 0,"
+        "color_frac   REAL DEFAULT 0,"
+        "avg_rgb      INTEGER DEFAULT 0,"
+        "palette      BLOB,"               // 5 × (r,g,b) bytes
+        "faces_done   INTEGER DEFAULT 0,"  // face pass ran (models were present)
+        "version      INTEGER DEFAULT 1"
+        ")");
+    query.exec("CREATE INDEX IF NOT EXISTS idx_analysis_color ON media_analysis(color_bucket)");
+    query.exec(
+        "CREATE TABLE IF NOT EXISTS persons ("
+        "id      INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "name    TEXT,"
+        "hidden  INTEGER DEFAULT 0,"
+        "cover_face_id INTEGER,"
+        "created INTEGER DEFAULT (strftime('%s','now'))"
+        ")");
+    query.exec(
+        "CREATE TABLE IF NOT EXISTS faces ("
+        "id        INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "media_id  INTEGER NOT NULL,"
+        "x REAL, y REAL, w REAL, h REAL,"   // box, fraction of the image size
+        "score     REAL,"
+        "embedding BLOB NOT NULL,"          // 128 × float32, L2-normalised
+        "person_id INTEGER,"                // NULL = not grouped
+        "confirmed INTEGER DEFAULT 0,"      // user put it in this person
+        "excluded_person INTEGER DEFAULT -1"// user removed it from that person
+        ")");
+    query.exec("CREATE INDEX IF NOT EXISTS idx_faces_media  ON faces(media_id)");
+    query.exec("CREATE INDEX IF NOT EXISTS idx_faces_person ON faces(person_id)");
+
     // Ensure path_prefix has a UNIQUE index. Adding an index is safe under WAL
     // and avoids the DDL-heavy table-recreation that would deadlock with open readers.
     {

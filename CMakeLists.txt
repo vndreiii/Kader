@@ -111,6 +111,7 @@ set(SOURCES
     ${SOURCE_DIR}/Sort.cpp
     ${SOURCE_DIR}/GlobeItem.cpp
     ${SOURCE_DIR}/UpdateManager.cpp
+    ${SOURCE_DIR}/LibraryAnalyzer.cpp
 )
 
 set(HEADERS
@@ -131,6 +132,7 @@ set(HEADERS
     ${INCLUDE_DIR}/Sort.h
     ${INCLUDE_DIR}/GlobeItem.h
     ${INCLUDE_DIR}/UpdateManager.h
+    ${INCLUDE_DIR}/LibraryAnalyzer.h
     ${INCLUDE_DIR}/kader_core.h
 )
 
@@ -212,6 +214,18 @@ qt_add_qml_module(KaderApp
         qml/components/WindowChrome.qml
         qml/components/Skeleton.qml
         qml/components/SkeletonGrid.qml
+        qml/components/FaceAvatar.qml
+        qml/components/ThumbGrid.qml
+        qml/components/CoverCard.qml
+        qml/components/SectionTitle.qml
+        qml/components/InfoCard.qml
+        qml/components/PageHeader.qml
+        qml/components/CalibratePopup.qml
+        qml/components/M3Button.qml
+        qml/components/M3TextField.qml
+        qml/views/SearchView.qml
+        qml/views/PersonPage.qml
+        qml/views/PeoplePage.qml
         qml/views/AlbumListView.qml
         qml/views/AlbumDetailView.qml
         qml/views/ViewerOverlay.qml

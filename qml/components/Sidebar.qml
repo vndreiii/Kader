@@ -91,6 +91,7 @@ Rectangle {
         Item { width: 1; height: 8 }
 
         SidebarItem { id: itTimeline;  icon: "schedule";      label: I18n.t(Settings.language, "timeline");  active: root.currentView === "timeline";   collapsed: root.collapsed; onClicked: root.viewChanged("timeline")  }
+        SidebarItem { id: itSearch;    icon: "search";        label: I18n.t(Settings.language, "search");    active: root.currentView === "search";     collapsed: root.collapsed; onClicked: root.viewChanged("search")   }
         SidebarItem { id: itAlbums;    icon: "folder";        label: I18n.t(Settings.language, "albums");    active: root.currentView === "albums";     collapsed: root.collapsed; onClicked: root.viewChanged("albums")   }
         SidebarItem { id: itVideos;    icon: "video_library"; label: I18n.t(Settings.language, "videos");    active: root.currentView === "videos";     collapsed: root.collapsed; onClicked: root.viewChanged("videos")   }
         SidebarItem { id: itMap;       icon: "explore";       label: I18n.t(Settings.language, "map");       active: root.currentView === "map";        collapsed: root.collapsed; onClicked: root.viewChanged("map")      }
@@ -112,6 +113,7 @@ Rectangle {
     readonly property var _activeItem: {
         switch (root.currentView) {
         case "timeline":  return itTimeline
+        case "search":    return itSearch
         case "albums":    return itAlbums
         case "videos":    return itVideos
         case "map":       return itMap

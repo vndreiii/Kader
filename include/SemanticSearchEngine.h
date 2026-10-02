@@ -11,18 +11,21 @@
 #include <functional>
 
 class DatabaseManager;
+class ThumbnailGenerator;
 
 // Internal worker — lives on a background thread
 class SemanticWorker : public QObject {
     Q_OBJECT
 public:
-    explicit SemanticWorker(DatabaseManager *db, QObject *parent = nullptr);
+    explicit SemanticWorker(DatabaseManager *db, ThumbnailGenerator *thumbs, QObject *parent = nullptr);
     ~SemanticWorker();
 
 public slots:
     void loadModel(const QString &modelPath, const QString &mmprojPath);
     void unloadModel();
     void generateTextEmbedding(const QString &text, int queryId);
+    // Embeds several texts (scene prompts) with the query instruction.
+    void embedTexts(const QStringList &texts, int requestId);
     void indexPendingMedia();
     void indexPendingDocs(QStringList rootDirs);
     void setResourceBudget(int mode) { m_resourceMode = mode; }
@@ -31,16 +34,20 @@ signals:
     void loaded(bool ok);
     void unloaded();
     void textEmbeddingReady(int queryId, QByteArray embedding);
+    void textsEmbedded(int requestId, QList<QByteArray> embeddings);
     void indexProgress(int current, int total);
     void docIndexProgress(int current, int total);
     void workerError(QString message);
 
 private:
     std::vector<float> embedImage(const QString &imagePath);
-    std::vector<float> embedText(const QString &text);
+    // `instruction` is the system line of the embedding prompt
+    std::vector<float> embedText(const QString &text, const QString &instruction);
+    std::vector<float> embedPrompt(const std::string &prompt, const void *bitmap);
     void storeEmbedding(int mediaId, const std::vector<float> &embd);
 
     DatabaseManager *m_db;
+    ThumbnailGenerator *m_thumbs;
 
     // llama.cpp opaque handles — defined as void* to avoid including llama.h in header
     void *m_model   = nullptr;
@@ -79,9 +86,12 @@ class SemanticSearchEngine : public QObject {
     Q_PROPERTY(bool docIndexing    READ docIndexing    NOTIFY docIndexingChanged)
     Q_PROPERTY(int  docIndexedCount READ docIndexedCount NOTIFY docIndexedCountChanged)
     Q_PROPERTY(int  docIndexTotal  READ docIndexTotal  NOTIFY docIndexTotalChanged)
+    // Zero-shot scene groups ("Sunsets", "Food", …) over the image embeddings
+    Q_PROPERTY(QVariantList scenes READ scenes NOTIFY scenesChanged)
+    Q_PROPERTY(bool scenesBusy     READ scenesBusy     NOTIFY scenesChanged)
 
 public:
-    explicit SemanticSearchEngine(DatabaseManager *db, QObject *parent = nullptr);
+    explicit SemanticSearchEngine(DatabaseManager *db, ThumbnailGenerator *thumbs, QObject *parent = nullptr);
     ~SemanticSearchEngine();
 
     bool ready()         const { return m_ready; }
@@ -97,6 +107,8 @@ public:
     bool docIndexing()      const { return m_docIndexing; }
     int  docIndexedCount()  const { return m_docIndexedCount; }
     int  docIndexTotal()    const { return m_docIndexTotal; }
+    QVariantList scenes()   const { return m_scenes; }
+    bool scenesBusy()       const { return m_scenesBusy; }
 
     // Models are stored here
     static QString modelsDir();
@@ -115,6 +127,11 @@ public:
     // Async cosine-similarity search; emits searchFinished([{id,score,type}]) when done
     Q_INVOKABLE void searchByText(const QString &query);
 
+    // (Re)computes `scenes`; needs the model and indexed photos.
+    Q_INVOKABLE void computeScenes();
+    // Media ids of a scene group, best match first.
+    Q_INVOKABLE QVariantList sceneMediaIds(const QString &key) const;
+
 signals:
     void readyChanged();
     void modelsPresentChanged();
@@ -130,11 +147,13 @@ signals:
     void docIndexedCountChanged();
     void docIndexTotalChanged();
     void searchFinished(QVariantList results);
+    void scenesChanged();
     void engineError(QString message);
 
 private slots:
     void onWorkerLoaded(bool ok);
     void onTextEmbeddingReady(int queryId, QByteArray embedding);
+    void onTextsEmbedded(int requestId, QList<QByteArray> embeddings);
     void onIndexProgress(int cur, int total);
     void onDocIndexProgress(int cur, int total);
     void onWorkerError(QString msg);
@@ -176,4 +195,9 @@ private:
     int m_nextQueryId = 0;
 
     static float cosine(const float *a, const float *b, int n);
+
+    QVariantList m_scenes;
+    QHash<QString, QVector<int>> m_sceneMembers;
+    bool m_scenesBusy = false;
+    int  m_sceneRequest = -1;
 };

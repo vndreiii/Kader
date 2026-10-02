@@ -145,6 +145,55 @@ void ks_scan_free(KsScan *scan);
 void ks_probe_batch(const uint8_t *const *paths, const size_t *lens, size_t n, uint32_t threads,
                     KsMeta *out);
 
+// ── Faces, clustering and colour (kf_*, kc_*, kn_*) ─────────────────────────
+// Images are packed 8-bit RGB, `h` rows `stride` bytes apart.
+
+typedef struct KfDetector KfDetector;
+typedef struct KfRecognizer KfRecognizer;
+
+typedef struct KfFace {
+    float x, y, w, h;      // box, input-image pixels
+    float score;           // 0..1
+    float landmarks[10];   // right eye, left eye, nose, right/left mouth corner
+} KfFace;
+
+typedef struct KcStats {
+    uint8_t average[3];
+    uint8_t bucket;        // colour bucket (kc_bucket_name), 0 = none dominant
+    float bucket_frac;     // share of the frame in that bucket
+    uint8_t palette[5][3]; // mean colour of the five largest buckets
+    float palette_frac[5];
+} KcStats;
+
+#define KF_EMBED_DIM 128
+
+// Worker threads for large convolutions (default 1).
+void kn_set_threads(uint32_t n);
+
+// Load ONNX models (YuNet / SFace). On failure return NULL and write a
+// message to err (optional).
+KfDetector *kf_detector_load(const uint8_t *onnx, size_t len, char *err, size_t err_len);
+void kf_detector_free(KfDetector *d);
+KfRecognizer *kf_recognizer_load(const uint8_t *onnx, size_t len, char *err, size_t err_len);
+void kf_recognizer_free(KfRecognizer *r);
+
+// Faces found (best first, at most max_out), or -1. The image is scaled to
+// at most max_side on its longer edge for detection.
+int32_t kf_detect(const KfDetector *d, const uint8_t *rgb, uint32_t w, uint32_t h, uint32_t stride,
+                  uint32_t max_side, float score_thr, KfFace *out, int32_t max_out);
+// L2-normalised 128-d identity embedding of `face` (aligned internally). 0 = ok.
+int32_t kf_embed(const KfRecognizer *r, const uint8_t *rgb, uint32_t w, uint32_t h, uint32_t stride,
+                 const KfFace *face, float *out);
+// Groups n embeddings into people. fixed[i]/exclude[i]: confirmed person id
+// / person id the face must not join, or -1. Writes labels[n] (cluster per
+// face) and cluster_person[n] (person id per cluster, -1 = new group).
+// Returns the cluster count, or -1.
+int64_t kf_cluster(const float *embeddings, size_t n, const int64_t *fixed, const int64_t *exclude,
+                   float threshold, uint32_t *labels, int64_t *cluster_person);
+
+int32_t kc_color_stats(const uint8_t *rgb, uint32_t w, uint32_t h, uint32_t stride, KcStats *out);
+const char *kc_bucket_name(uint32_t bucket);
+
 #ifdef __cplusplus
 }
 #endif
