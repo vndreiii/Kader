@@ -12,7 +12,19 @@ GridView {
     property real minCell: 150
     property int maxRows: 0           // >0: show at most this many rows (preview)
     property bool loading: false      // show skeleton cells instead
+    // Opt-in selection: press-and-hold (or right-click) starts it, then
+    // clicks toggle. `selected` maps media id → true.
+    property bool selectable: false
+    property bool selecting: false
+    property var selected: ({})
+    readonly property int selectedCount: Object.keys(selected).length
     signal openItem(int index)
+    function toggleSelected(id) {
+        var s = Object.assign({}, selected)
+        if (s[id]) delete s[id]; else s[id] = true
+        selected = s
+    }
+    function clearSelection() { selected = ({}); selecting = false }
 
     readonly property int columns: Math.max(2, Math.floor(width / minCell))
     readonly property int _shown: maxRows > 0 ? Math.min(items.length, columns * maxRows) : items.length
@@ -73,13 +85,46 @@ GridView {
                 color: Qt.alpha("black", 0.55)
                 M3Icon { anchors.centerIn: parent; name: "play"; size: 14; color: "white" }
             }
+            // selection: tint + check badge
+            Rectangle {
+                anchors.fill: parent
+                radius: 12
+                visible: root.selecting && cell.media && !!root.selected[cell.media.id]
+                color: Qt.alpha(ThemeManager.primary, 0.28)
+                border.width: 3
+                border.color: ThemeManager.primary
+            }
+            Rectangle {
+                visible: root.selecting && cell.media !== null
+                readonly property bool on: cell.media !== null && !!root.selected[cell.media.id]
+                anchors { right: parent.right; top: parent.top; margins: 8 }
+                width: 26; height: 26; radius: 13
+                color: on ? ThemeManager.primary : Qt.alpha("black", 0.45)
+                border.width: 2
+                border.color: "white"
+                M3Icon { anchors.centerIn: parent; visible: parent.on; name: "check"; size: 16; color: ThemeManager.onPrimary }
+            }
             MouseArea {
                 id: hover
                 anchors.fill: parent
                 hoverEnabled: true
                 enabled: !root.loading
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                pressAndHoldInterval: 450
                 cursorShape: Qt.PointingHandCursor
-                onClicked: root.openItem(cell.index)
+                onPressAndHold: {
+                    if (!root.selectable || !cell.media) return
+                    root.selecting = true
+                    root.toggleSelected(cell.media.id)
+                }
+                onClicked: (mouse) => {
+                    if (root.selectable && cell.media && (root.selecting || mouse.button === Qt.RightButton)) {
+                        root.selecting = true
+                        root.toggleSelected(cell.media.id)
+                    } else if (mouse.button === Qt.LeftButton) {
+                        root.openItem(cell.index)
+                    }
+                }
             }
         }
     }

@@ -4,6 +4,8 @@
 #include <QSqlQuery>
 #include <QSqlRecord>
 #include <QVariantMap>
+#include <QUrl>
+#include <QtConcurrent>
 #include "ThumbnailGenerator.h"
 
 StorageManager::StorageManager(DatabaseManager *db, QObject *parent)
@@ -72,7 +74,7 @@ QVariantMap mediaRow(const QSqlQuery &q, const QSqlRecord &rec) {
         m.insert(rec.fieldName(i), q.value(i));
     const QString fp = m.value(QStringLiteral("file_path")).toString();
     m.insert(QStringLiteral("thumb"), ThumbnailGenerator::thumbnailUrl(fp));
-    m.insert(QStringLiteral("path"), QStringLiteral("file://") + fp);
+    m.insert(QStringLiteral("path"), QUrl::fromLocalFile(fp).toString());
     return m;
 }
 } // namespace
@@ -189,4 +191,24 @@ QVariantList StorageManager::trashItems(int limit) {
     while (q.next())
         out << mediaRow(q, rec);
     return out;
+}
+
+void StorageManager::loadDashboard() {
+    refresh();   // disk + totals: cheap, and the sidebar card wants them too
+    const int gen = ++m_dashboardGen;
+    (void)QtConcurrent::run([this, gen] {
+        // threadDb() gives this worker its own SQLite connection
+        QVariantMap d;
+        d.insert(QStringLiteral("overview"), overview());
+        d.insert(QStringLiteral("folders"), byFolder(8));
+        d.insert(QStringLiteral("years"), byYear());
+        d.insert(QStringLiteral("types"), byType());
+        d.insert(QStringLiteral("largest"), largest(60));
+        d.insert(QStringLiteral("dups"), duplicates(40));
+        d.insert(QStringLiteral("trash"), trashItems(200));
+        QMetaObject::invokeMethod(this, [this, gen, d] {
+            if (gen == m_dashboardGen)
+                emit dashboardLoaded(d);
+        }, Qt::QueuedConnection);
+    });
 }

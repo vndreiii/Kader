@@ -215,22 +215,13 @@ Item {
                 }
             }
 
-            // ── photo pins ──────────────────────────────────────────────────
-            // A squircle photo on a short stem with a ground shadow; clusters show
-            // a stack of photos behind and a count badge; hovered / active
-            // pins lift and get an accent ring with a pulse at the exact spot.
+            // ── photo pins (PhotoPin, shared with the 2D map) ───────────────
             Item {
                 id: pinLayer
                 anchors.fill: globe
-                Rectangle {
-                    id: pinMask
-                    width: 46; height: 46; radius: 14
-                    visible: false
-                    layer.enabled: true
-                }
                 Repeater {
                     model: globe.pins
-                    delegate: Item {
+                    delegate: PhotoPin {
                         id: pin
                         required property real px
                         required property real py
@@ -242,118 +233,22 @@ Item {
                         required property var thumb
                         required property int cluster
 
-                        readonly property bool hot: globe.hoveredCluster === cluster
-                        readonly property bool active: root.activePlace !== null && root.activePlace.cluster === cluster
-                        readonly property bool stacked: members > 1 || count > 1
-                        readonly property color ring: active ? root._accent : "white"
+                        hot: globe.hoveredCluster === cluster
+                        active: root.activePlace !== null && root.activePlace.cluster === cluster
+                        stacked: members > 1 || count > 1
+                        accent: root._accent
+                        badgeBorder: root._space
+                        photo: pin.thumb || ""
+                        photos: count
 
                         // while open, the pin *is* the card (it morphed into it)
                         visible: shown && popacity > 0.02 && !active
                         opacity: popacity
-                        width: 56; height: 70
                         x: px - width / 2
                         y: py - height
                         z: depth + (hot || active ? 2 : 0)
-                        transformOrigin: Item.Bottom
                         scale: (hot || active ? 1.14 : 1.0) * (0.80 + 0.20 * depth)
                         Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack } }
-
-                        // ground shadow + exact spot
-                        Rectangle {
-                            width: 20; height: 7; radius: 3.5
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.bottom: parent.bottom
-                            anchors.bottomMargin: -2
-                            color: Qt.rgba(0, 0, 0, 0.45)
-                        }
-                        Rectangle {
-                            id: spot
-                            width: 7; height: 7; radius: 3.5
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.bottom: parent.bottom
-                            color: pin.active ? root._accent : "white"
-                        }
-                        // pulse at the spot while active
-                        Rectangle {
-                            visible: pin.active
-                            anchors.centerIn: spot
-                            width: 7; height: 7; radius: width / 2
-                            color: "transparent"
-                            border.color: root._accent
-                            border.width: 1.5
-                            SequentialAnimation on width {
-                                running: pin.active
-                                loops: Animation.Infinite
-                                NumberAnimation { from: 7; to: 30; duration: 1200; easing.type: Easing.OutCubic }
-                            }
-                            opacity: 1.0 - (width - 7) / 23
-                        }
-                        // stem
-                        Rectangle {
-                            width: 2.5; height: 14
-                            radius: 1.25
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            y: 50
-                            color: pin.ring
-                        }
-
-                        // stack of photos behind a cluster
-                        Repeater {
-                            model: pin.stacked ? 2 : 0
-                            Rectangle {
-                                required property int index
-                                width: 50; height: 50; radius: 16
-                                x: 3 + (index + 1) * 4
-                                y: 1 - (index + 1) * 3
-                                color: Qt.rgba(1, 1, 1, index === 0 ? 0.55 : 0.30)
-                                z: -1 - index
-                            }
-                        }
-
-                        // photo in a ring
-                        Rectangle {
-                            id: frame
-                            x: 3; y: 1
-                            width: 50; height: 50; radius: 16
-                            color: pin.ring
-                            Rectangle { // placeholder while the thumbnail loads
-                                anchors.centerIn: parent
-                                width: 46; height: 46; radius: 14
-                                color: Qt.rgba(0.12, 0.14, 0.2, 1)
-                            }
-                            Image {
-                                anchors.centerIn: parent
-                                width: 46; height: 46
-                                source: pin.thumb || ""
-                                sourceSize: Qt.size(96, 96)
-                                fillMode: Image.PreserveAspectCrop
-                                asynchronous: true
-                                layer.enabled: true
-                                layer.effect: MultiEffect {
-                                    maskEnabled: true
-                                    maskSource: pinMask
-                                    maskThresholdMin: 0.5
-                                    maskSpreadAtMin: 1.0
-                                }
-                            }
-                        }
-
-                        // photo count
-                        Rectangle {
-                            visible: pin.count > 1
-                            anchors { horizontalCenter: frame.right; verticalCenter: frame.top; horizontalCenterOffset: -6; verticalCenterOffset: 6 }
-                            height: 20; radius: 10
-                            width: Math.max(20, countLbl.implicitWidth + 10)
-                            color: root._accent
-                            border.color: root._space; border.width: 2
-                            Text {
-                                id: countLbl
-                                anchors.centerIn: parent
-                                text: pin.count > 999 ? Math.round(pin.count / 100) / 10 + "k" : pin.count
-                                color: ThemeManager.isDark ? ThemeManager.onPrimary : ThemeManager.primary
-                                font.pixelSize: 11; font.weight: Font.Bold
-                            }
-                        }
                     }
                 }
             }
@@ -379,6 +274,7 @@ Item {
                 }
                 onPlaceChanged: track()
                 onOpenRequested: (place) => root.openPlace(place)
+                onOpenItems: (items, i) => root.openViewer(items[i], items)
                 onCloseRequested: root.activePlace = null
             }
 

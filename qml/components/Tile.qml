@@ -14,6 +14,9 @@ Item {
     signal toggleFav()
     signal selectToggle()
     signal enterSelectionMode()
+    // hold-then-drag: select every tile the pointer passes (scene coordinates)
+    signal dragSelectAt(real sceneX, real sceneY)
+    property bool _dragSelecting: false
 
     readonly property var _d: (tileData !== null && tileData !== undefined) ? tileData : ({})
     readonly property bool _isGif: (root._d.mime_type || "").toString() === "image/gif"
@@ -110,9 +113,12 @@ Item {
             visible: root.selectable || root.selected
             anchors.top: parent.top; anchors.left: parent.left; anchors.margins: 8
             width: 24; height: 24; radius: 12
-            color: ThemeManager.primary
-            opacity: (root.selectable || root.selected) ? 1 : 0
-            M3Icon { anchors.centerIn: parent; name: "check"; size: 16; color: ThemeManager.onPrimary }
+            // empty ring until picked; filled + check only when selected
+            color: root.selected ? ThemeManager.primary : Qt.alpha("black", 0.35)
+            border.width: root.selected ? 0 : 2
+            border.color: "white"
+            Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
+            M3Icon { anchors.centerIn: parent; visible: root.selected; name: "check"; size: 16; color: ThemeManager.onPrimary }
         }
 
         // Favorite button — 28dp visual chip inside a 48dp hit area (centered).
@@ -219,18 +225,22 @@ Item {
         active: false
         sourceComponent: M3Menu {
             M3MenuItem {
+                iconName: "check_circle"
                 text: I18n.t(Settings.language, "ctx_select")
                 onTriggered: root.enterSelectionMode()
             }
             M3MenuItem {
+                iconName: root._isFav ? "heart_minus" : "favorite"
                 text: root._isFav ? "Unfavorite" : "Favorite"
                 onTriggered: { if (root._mediaId) { DB.toggleFavorite(root._mediaId); TimelineModel.refresh() } }
             }
             M3MenuItem {
+                iconName: "folder_open"
                 text: I18n.t(Settings.language, "ctx_open_folder")
                 onTriggered: { if (root._filePath) DB.revealInFolder(root._filePath) }
             }
             M3MenuItem {
+                iconName: "photo_album"
                 text: I18n.t(Settings.language, "ctx_send_album")
                 visible: TimelineModel.filterMode !== 3 /* HiddenMode */
                 onTriggered: {
@@ -240,6 +250,7 @@ Item {
                 }
             }
             M3MenuItem {
+                iconName: root._isHidden ? "visibility" : "visibility_off"
                 text: root._isHidden ? "Unhide" : "Hide"
                 onTriggered: {
                     if (root._mediaId) {
@@ -249,6 +260,7 @@ Item {
                 }
             }
             M3MenuItem {
+                iconName: "block"
                 text: I18n.t(Settings.language, "ctx_add_ignored")
                 onTriggered: {
                     if (root._mediaId) {
@@ -258,6 +270,7 @@ Item {
                 }
             }
             M3MenuItem {
+                iconName: root._isTrashed ? "restore_from_trash" : "delete"
                 text: root._isTrashed ? "Restore" : "Move to Trash"
                 onTriggered: {
                     if (root._mediaId) {
@@ -267,6 +280,8 @@ Item {
                 }
             }
             M3MenuItem {
+                iconName: "delete_forever"
+                destructive: true
                 text: I18n.t(Settings.language, "tip_delete_perm")
                 onTriggered: {
                     if (root._mediaId) { DB.deleteMediaPermanently(root._mediaId); TimelineModel.refresh() }
@@ -348,6 +363,23 @@ Item {
         anchors.fill: parent
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton
+        // Hold a photo to start selecting (it gets selected); keep holding and
+        // drag to select everything you pass over. A quick drag still scrolls.
+        pressAndHoldInterval: 350
+        preventStealing: root._dragSelecting
+        onPressAndHold: (mouse) => {
+            if (mouse.button !== Qt.LeftButton) return
+            root._dragSelecting = true
+            if (root.selectable) { if (!root.selected) root.selectToggle() }
+            else root.enterSelectionMode()
+        }
+        onPositionChanged: (mouse) => {
+            if (!root._dragSelecting) return
+            var p = mapToItem(null, mouse.x, mouse.y)
+            root.dragSelectAt(p.x, p.y)
+        }
+        onReleased: root._dragSelecting = false
+        onCanceled: root._dragSelecting = false
         onClicked: (mouse) => {
             if (mouse.button === Qt.RightButton) {
                 if (root.selectable) root.selectToggle()

@@ -21,6 +21,7 @@ Item {
             flat: true
             Layout.preferredWidth: 48; Layout.preferredHeight: 48
             contentItem: MaterialSymbol { name: "arrow_back"; size: 24; color: ThemeManager.onSurface }
+            background: Rectangle { radius: width / 2; color: parent.pressed ? Qt.alpha(ThemeManager.onSurface, 0.12) : parent.hovered ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent" }
             onClicked: root.back()
         }
         ColumnLayout {

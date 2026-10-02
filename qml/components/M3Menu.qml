@@ -34,7 +34,11 @@ T.Menu {
     transformOrigin: !cascade ? Item.Top : (mirrored ? Item.TopRight : Item.TopLeft)
 
     // Items added via Action / model paths get themed too.
-    delegate: M3MenuItem {}
+    // icon for this menu's entry when it's a submenu (see M3MenuItem.iconName)
+    property string iconName: ""
+    delegate: M3MenuItem {
+        iconName: subMenu && subMenu.iconName !== undefined ? subMenu.iconName : ""
+    }
 
     // M3 grow + fade (emphasized-decelerate, medium2 = 300ms).
     enter: Transition {

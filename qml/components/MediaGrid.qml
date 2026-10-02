@@ -35,6 +35,13 @@ Item {
         if (Object.keys(_selSet).length === 0) selectionMode = false
     }
     function clearSelection() { _selSet = {}; selectionMode = false }
+    // while drag-selecting near the top/bottom edge, scroll that way
+    function _autoScroll(y) {
+        var edge = 60
+        var maxY = Math.max(0, listView.contentHeight - listView.height)
+        if (y < edge) listView.contentY = Math.max(0, listView.contentY - (edge - y) * 0.5)
+        else if (y > listView.height - edge) listView.contentY = Math.min(maxY, listView.contentY + (y - listView.height + edge) * 0.5)
+    }
     function selectedIds() { return Object.keys(_selSet).map(Number) }
 
     Keys.onEscapePressed: if (selectionMode) clearSelection()
@@ -169,8 +176,16 @@ Item {
                     root._layoutRev++
                     Qt.callLater(function() {
                         if (root._pendingRestore) {
-                            var maxY = Math.max(0, listView.contentHeight - listView.height)
-                            listView.contentY = Math.min(root._savedY, maxY)
+                            // A refresh (e.g. a background scan finishing)
+                            // must not yank the view back while the user is
+                            // dragging, flicking or scrubbing — that read as
+                            // the grid "rejecting" the drag and snapping back.
+                            var interacting = listView.dragging || listView.flicking
+                                              || listView.moving || scrubber._dragging
+                            if (!interacting) {
+                                var maxY = Math.max(0, listView.contentHeight - listView.height)
+                                listView.contentY = Math.min(root._savedY, maxY)
+                            }
                             root._scrollTarget = listView.contentY
                             root._pendingRestore = false
                         }
@@ -242,6 +257,11 @@ Item {
                                 }
                                 onEnterSelectionMode: {
                                     if (modelData) { root.selectionMode = true; root.selectId(modelData.id) }
+                                }
+                                onDragSelectAt: (sx, sy) => {
+                                    var p = selOverlay.mapFromItem(null, sx, sy)
+                                    selOverlay._selectAtPos(p.x, p.y)
+                                    root._autoScroll(p.y)
                                 }
                             }
                         }
@@ -372,7 +392,7 @@ Item {
             if (!pressed) return
             var dx = mouse.x - _pressPos.x; var dy = mouse.y - _pressPos.y
             if (Math.sqrt(dx*dx + dy*dy) > 6) _dragging = true
-            if (_dragging) _selectAtPos(mouse.x, mouse.y)
+            if (_dragging) { _selectAtPos(mouse.x, mouse.y); root._autoScroll(mouse.y) }
         }
         onReleased: (mouse) => {
             if (!_dragging) _toggleAtPos(mouse.x, mouse.y)

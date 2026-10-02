@@ -24,7 +24,7 @@ QVariant MediaModel::data(const QModelIndex &index, int role) const {
 
     switch (role) {
         case IdRole: return item.value("id");
-        case PathRole: return "file://" + item.value("file_path").toString();
+        case PathRole: return QUrl::fromLocalFile(item.value("file_path").toString()).toString();
         case ThumbRole:
             // Hand back the image-provider URL rather than generating here:
             // data() runs on the GUI thread, and getOrCreateThumbnail() decodes

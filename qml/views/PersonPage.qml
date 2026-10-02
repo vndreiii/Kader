@@ -51,6 +51,7 @@ Item {
         RoundButton {
             flat: true
             contentItem: MaterialSymbol { name: "tune"; size: 22; color: ThemeManager.onSurfaceVariant }
+            background: Rectangle { radius: width / 2; color: parent.pressed ? Qt.alpha(ThemeManager.onSurface, 0.12) : parent.hovered ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent" }
             ToolTip.text: root._t("calibrate_title"); ToolTip.visible: hovered
             onClicked: calibrate.open()
         }
@@ -115,15 +116,19 @@ Item {
         }
         ListView {
             Layout.fillWidth: true
-            Layout.preferredHeight: 92
+            // room for the selection ring (4 px outside the avatar) so it
+            // isn't clipped at the top or the ends
+            Layout.preferredHeight: 104
             orientation: ListView.Horizontal
             spacing: 14
+            leftMargin: 8
+            rightMargin: 8
             clip: true
             model: root.faces
             delegate: FaceAvatar {
                 required property var modelData
                 width: 84; height: 84
-                y: 4
+                y: 10
                 faceId: modelData.faceId
                 selectable: root.selecting
                 selected: !!root.selected[modelData.faceId]
@@ -135,12 +140,49 @@ Item {
             }
         }
 
-        Label { text: root._t("photos_title"); font.pixelSize: 17; font.weight: Font.Medium; color: ThemeManager.onSurface }
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 10
+            Label {
+                text: photoGrid.selecting ? root._t("n_selected").arg(photoGrid.selectedCount) : root._t("photos_title")
+                font.pixelSize: 17; font.weight: Font.Medium; color: ThemeManager.onSurface
+            }
+            Label {
+                visible: !photoGrid.selecting
+                text: root._t("hold_to_select")
+                font.pixelSize: 13; color: ThemeManager.onSurfaceVariant
+            }
+            Item { Layout.fillWidth: true }
+            M3Button {
+                visible: photoGrid.selecting && photoGrid.selectedCount > 0
+                text: root._t("not_a_face")
+                onClicked: {
+                    Analyzer.discardPersonFacesInMedia(root.personId, Object.keys(photoGrid.selected).map(Number))
+                    photoGrid.clearSelection()
+                }
+            }
+            M3Button {
+                visible: photoGrid.selecting && photoGrid.selectedCount > 0
+                highlighted: true
+                text: root._t("not_this_person").arg(photoGrid.selectedCount)
+                onClicked: {
+                    Analyzer.removePersonFromMedia(root.personId, Object.keys(photoGrid.selected).map(Number))
+                    photoGrid.clearSelection()
+                }
+            }
+            M3Button {
+                visible: photoGrid.selecting
+                text: root._t("done")
+                onClicked: photoGrid.clearSelection()
+            }
+        }
         ThumbGrid {
+            id: photoGrid
             Layout.fillWidth: true
             Layout.fillHeight: true
             items: root.media
             minCell: 160
+            selectable: true
             onOpenItem: (i) => root.openViewer(items[i], items)
         }
     }
@@ -273,5 +315,5 @@ Item {
         }
     }
 
-    CalibratePopup { id: calibrate }
+    CalibratePopup { id: calibrate; personId: root.personId }
 }

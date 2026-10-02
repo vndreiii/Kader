@@ -10,13 +10,65 @@ import "../I18n.js" as I18n
 Item {
     id: root
     property var    locations:    []
-    property var    activePin:    null
-        property point  _pinScreenPos: Qt.point(0, 0)
+    // The open place: {lat, lon, count, thumb, places: [...]} — a single
+    // location or a cluster of them, like the globe's.
+    property var    activePlace:  null
+    property point  _pinScreenPos: Qt.point(0, 0)
+    // Screen-space clusters of the locations, rebuilt as the map moves:
+    // [{x, y, lat, lon, count, members, thumb, places, key}]
+    property var    clusters: []
+    readonly property real clusterCell: 64
 
     function _updatePinPos() {
-        if (!activePin) return
+        if (!activePlace) return
         _pinScreenPos = mapView.map.fromCoordinate(
-            QtPositioning.coordinate(activePin.lat, activePin.lon), false)
+            QtPositioning.coordinate(activePlace.lat, activePlace.lon), false)
+    }
+    function placeOf(loc) {
+        return { lat: loc.lat, lon: loc.lon, count: loc.count, thumb: loc.thumb || "", places: [loc] }
+    }
+
+    // Group pins that would overlap on screen (cells of clusterCell px),
+    // weighted by photo count; the busiest location leads (photo + anchor).
+    function recluster() {
+        var m = mapView.map
+        if (!m || !m.mapReady) { clusters = []; return }
+        var cells = {}, out = []
+        var w = mapCanvasRoot.width, h = mapCanvasRoot.height
+        for (var i = 0; i < locations.length; i++) {
+            var loc = locations[i]
+            var p = m.fromCoordinate(QtPositioning.coordinate(loc.lat, loc.lon), false)
+            if (isNaN(p.x) || p.x < -80 || p.y < -80 || p.x > w + 80 || p.y > h + 120) continue
+            var key = Math.floor(p.x / clusterCell) + ":" + Math.floor(p.y / clusterCell)
+            var c = cells[key]
+            if (!c) {
+                c = { sx: 0, sy: 0, count: 0, members: 0, places: [], lead: loc, key: key }
+                cells[key] = c
+                out.push(c)
+            }
+            var n = Math.max(1, loc.count)
+            c.sx += p.x * n; c.sy += p.y * n
+            c.count += loc.count
+            c.members++
+            c.places.push(loc)
+            if (loc.count > c.lead.count) c.lead = loc
+        }
+        for (var j = 0; j < out.length; j++) {
+            var cl = out[j]
+            var lp = m.fromCoordinate(QtPositioning.coordinate(cl.lead.lat, cl.lead.lon), false)
+            // a single location sits exactly on its spot; a cluster on its lead
+            cl.x = lp.x; cl.y = lp.y
+            cl.lat = cl.lead.lat; cl.lon = cl.lead.lon
+            cl.thumb = cl.lead.thumb || ""
+        }
+        clusters = out
+    }
+    function _scheduleRecluster() { Qt.callLater(root.recluster) }
+    function _isActive(c) {
+        if (!activePlace) return false
+        for (var i = 0; i < c.places.length; i++)
+            if (c.places[i].lat === activePlace.lat && c.places[i].lon === activePlace.lon) return true
+        return false
     }
 
     signal openViewer(var data, var items)
@@ -47,18 +99,25 @@ Item {
         function onLibraryChanged() { if (root._loaded) root.locations = DB.getGeotaggedLocations() }
     }
 
-    // Keep popup anchored to the pin as the map pans/zooms
+    // Keep pins and the popup on their places as the map pans/zooms
     Connections {
         target: mapView.map
-        function onCenterChanged()    { if (root.activePin) root._updatePinPos() }
-        function onZoomLevelChanged() { if (root.activePin) root._updatePinPos() }
+        function onCenterChanged()    { root._updatePinPos(); root._scheduleRecluster() }
+        function onZoomLevelChanged() { root._updatePinPos(); root._scheduleRecluster() }
+        function onWidthChanged()     { root._scheduleRecluster() }
+        function onHeightChanged()    { root._scheduleRecluster() }
     }
+    onLocationsChanged: _scheduleRecluster()
 
+    // OpenStreetMap's own tiles: no API key (CARTO's basemaps now require
+    // one). OSM's tile policy asks apps to identify themselves.
     Plugin {
         id: mapPlugin
         name: "osm"
-        PluginParameter { name: "osm.mapping.custom.host";  value: "https://a.basemaps.cartocdn.com/dark_all/" }
-        PluginParameter { name: "osm.mapping.copyright";    value: "© OpenStreetMap contributors, © CARTO" }
+        PluginParameter { name: "osm.mapping.custom.host";  value: "https://tile.openstreetmap.org/" }
+        PluginParameter { name: "osm.mapping.copyright";    value: "© OpenStreetMap contributors" }
+        PluginParameter { name: "osm.useragent";            value: "Kader/" + Qt.application.version + " (+https://github.com/vndreiii/kader)" }
+        PluginParameter { name: "osm.mapping.providersrepository.disabled"; value: true }
     }
 
     RowLayout {
@@ -116,6 +175,7 @@ Item {
                     map.onMapReadyChanged: {
                         if (map.mapReady && root.locations.length > 0)
                             fitToLocations()
+                        root._scheduleRecluster()
                     }
 
                     function fitToLocations() {
@@ -124,89 +184,46 @@ Item {
                             map.center = QtPositioning.coordinate(root.locations[0].lat, root.locations[0].lon)
                             map.zoomLevel = 10
                         } else {
-                            map.fitViewportToMapItems()
+                            var lats = root.locations.map(l => l.lat), lons = root.locations.map(l => l.lon)
+                            var r = QtPositioning.rectangle(
+                                QtPositioning.coordinate(Math.max.apply(null, lats), Math.min.apply(null, lons)),
+                                QtPositioning.coordinate(Math.min.apply(null, lats), Math.max.apply(null, lons)))
+                            map.visibleRegion = r
+                            map.zoomLevel = Math.max(map.minimumZoomLevel, map.zoomLevel - 0.4)
                         }
                     }
 
-                    // Location pins
-                    MapItemView {
-                        parent: mapView.map
-                        model: root.locations
-                        delegate: MapQuickItem {
-                            coordinate: QtPositioning.coordinate(modelData.lat, modelData.lon)
-                            anchorPoint.x: pinBubble.width / 2
-                            anchorPoint.y: pinBubble.height + 8
+                }
 
-                            sourceItem: Item {
-                                id: pinBubble
-                                width: pinRow.width + 16
-                                height: 44
-
-                                // Drop shadow
-                                Rectangle {
-                                    anchors.fill: pinBody
-                                    anchors.margins: -1
-                                    radius: pinBody.radius + 1
-                                    color: Qt.alpha("black", 0.35)
-                                    anchors.topMargin: 3
-                                    z: -1
-                                }
-
-                                // Dark pill body
-                                Rectangle {
-                                    id: pinBody
-                                    anchors.fill: parent
-                                    radius: 22
-                                    color: Qt.rgba(0.08, 0.08, 0.10, 0.92)
-
-                                    Row {
-                                        id: pinRow
-                                        anchors.centerIn: parent
-                                        spacing: 8
-                                        leftPadding: 6
-                                        rightPadding: 10
-
-                                        // Thumbnail with rounded corners
-                                        Rectangle {
-                                            width: 32; height: 32; radius: 10
-                                            color: Qt.rgba(1,1,1,0.12)
-                                            anchors.verticalCenter: parent.verticalCenter
-                                            clip: true
-                                            Image {
-                                                anchors.fill: parent
-                                                source: modelData.thumb || ""
-                                                fillMode: Image.PreserveAspectCrop
-                                                asynchronous: true
-                                            }
-                                        }
-
-                                        Label {
-                                            text: modelData.count
-                                            color: "white"
-                                            font.pixelSize: ThemeManager.fontLabelL
-                                            font.weight: Font.SemiBold
-                                            anchors.verticalCenter: parent.verticalCenter
-                                        }
-                                    }
-                                }
-
-                                // Pin tail
-                                Rectangle {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    anchors.top: pinBody.bottom
-                                    anchors.topMargin: -6
-                                    width: 10; height: 10
-                                    color: pinBody.color
-                                    rotation: 45
-                                }
-
-                                MouseArea {
-                                    anchors.fill: pinBody
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        root.activePin = modelData
-                                        root._updatePinPos()
-                                    }
+                // ── photo pins: the globe's PhotoPin, clustered on screen ──
+                Item {
+                    id: pinOverlay
+                    anchors.fill: parent
+                    z: 20
+                    Repeater {
+                        model: root.clusters
+                        delegate: PhotoPin {
+                            required property var modelData
+                            readonly property bool isActive: root._isActive(modelData)
+                            photo: modelData.thumb
+                            photos: modelData.count
+                            stacked: modelData.members > 1 || modelData.count > 1
+                            hot: pinHover.hovered
+                            active: isActive
+                            accent: ThemeManager.primary
+                            // while open, the pin *is* the card (it morphed into it)
+                            visible: !isActive
+                            x: modelData.x - width / 2
+                            y: modelData.y - height
+                            z: hot ? 2 : 0
+                            scale: hot ? 1.14 : 1.0
+                            Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack } }
+                            HoverHandler { id: pinHover; cursorShape: Qt.PointingHandCursor }
+                            TapHandler {
+                                onTapped: {
+                                    var c = modelData
+                                    root.activePlace = { lat: c.lat, lon: c.lon, count: c.count, thumb: c.thumb, places: c.places }
+                                    root._updatePinPos()
                                 }
                             }
                         }
@@ -217,13 +234,13 @@ Item {
                 PlacePopup {
                     anchors.fill: parent
                     z: 60
-                    place: root.activePin ? { lat: root.activePin.lat, lon: root.activePin.lon,
-                                              count: root.activePin.count, places: [root.activePin] } : null
+                    place: root.activePlace
+                    pinThumb: root.activePlace ? root.activePlace.thumb : ""
                     anchorX: root._pinScreenPos.x
                     anchorY: root._pinScreenPos.y
-                    anchorGap: 60
                     onOpenRequested: (place) => root.openPlaces(place.places)
-                    onCloseRequested: root.activePin = null
+                    onOpenItems: (items, i) => root.openViewer(items[i], items)
+                    onCloseRequested: root.activePlace = null
                 }
 
                 // Attribution
@@ -232,7 +249,7 @@ Item {
                     anchors.bottom: parent.bottom
                     anchors.margins: 8
                     z: 10
-                    text: "© OpenStreetMap contributors, © CARTO"
+                    text: "© OpenStreetMap contributors"
                     font.pixelSize: 9
                     color: Qt.alpha("white", 0.45)
                 }
@@ -342,7 +359,7 @@ Item {
                             onClicked: {
                                 mapView.map.center = QtPositioning.coordinate(modelData.lat, modelData.lon)
                                 mapView.map.zoomLevel = 13
-                                root.activePin = modelData
+                                root.activePlace = root.placeOf(modelData)
                                 root._updatePinPos()
                             }
                         }

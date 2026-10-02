@@ -135,8 +135,9 @@ int main(int argc, char *argv[]) {
     // which needs a style that allows customisation. The platform default
     // doesn't on Windows (native style) and can differ on KDE, so pin
     // Fusion everywhere — what most Linux desktops already use.
+    // (KaderStyle = Fusion plus M3 tooltips; see qml/style)
     if (qEnvironmentVariableIsEmpty("QT_QUICK_CONTROLS_STYLE"))
-        qputenv("QT_QUICK_CONTROLS_STYLE", "Fusion");
+        qputenv("QT_QUICK_CONTROLS_STYLE", "KaderStyle");
 
     // The frameless ApplicationWindow renders its own rounded-corner
     // background in QML; without an alpha-enabled surface the window itself

@@ -48,11 +48,19 @@ public:
     Q_INVOKABLE QVariantList duplicates(int limit = 40);
     Q_INVOKABLE QVariantList trashItems(int limit = 200);
 
+    // Everything the dashboard shows, computed on a worker thread so opening
+    // it never stalls the UI; answered by dashboardLoaded({overview, folders,
+    // years, types, largest, dups, trash}). Overlapping requests: only the
+    // latest one is delivered.
+    Q_INVOKABLE void loadDashboard();
+
 signals:
     void storageChanged();
+    void dashboardLoaded(const QVariantMap &data);
 
 private:
     DatabaseManager *m_db;
+    int              m_dashboardGen = 0;
     QStorageInfo     m_storage;
     qint64           m_mediaSizeBytes = 0;
     qint64           m_photoSizeBytes = 0;

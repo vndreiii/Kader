@@ -25,7 +25,7 @@ Item {
         subtitle: root._t("n_people").arg(root.list.length)
         onBack: root.back()
         Label { text: root._t("show_hidden"); color: ThemeManager.onSurfaceVariant }
-        Switch { checked: root.showHidden; onToggled: root.showHidden = checked }
+        M3Switch { checked: root.showHidden; onToggled: (c) => root.showHidden = c }
         M3Button { flat: true; text: root._t("calibrate_title"); onClicked: calibrate.open() }
         M3Button { flat: true; text: root._t("turn_off"); onClicked: { Analyzer.disableFaces(); root.back() } }
     }
@@ -45,16 +45,28 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 faceId: modelData.cover !== undefined ? modelData.cover : -1
                 revision: Analyzer.revision
-                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.openPerson(modelData.id) }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                    onClicked: (m) => m.button === Qt.RightButton ? personMenu.popup() : root.openPerson(modelData.id)
+                    onPressAndHold: personMenu.popup()
+                }
+                PersonMenu {
+                    id: personMenu
+                    personId: modelData.id
+                    hiddenPerson: !!modelData.hidden
+                    onOpenRequested: root.openPerson(modelData.id)
+                    onRenameRequested: nameLbl.startEdit()
+                }
             }
-            Label {
+            NameLabel {
+                id: nameLbl
                 width: parent.width
-                horizontalAlignment: Text.AlignHCenter
-                text: modelData.name || root._t("add_name")
-                color: modelData.name ? ThemeManager.onSurface : ThemeManager.primary
-                font.pixelSize: 15
-                font.weight: Font.Medium
-                elide: Text.ElideRight
+                name: modelData.name || ""
+                placeholder: root._t("add_name")
+                pixelSize: 15
+                onRenamed: (n) => Analyzer.renamePerson(modelData.id, n)
             }
             Label {
                 width: parent.width

@@ -1,4 +1,5 @@
 #include "MediaRepository.h"
+#include <QUrl>
 #include "DatabaseManager.h"
 #include "ThumbnailGenerator.h"
 #include <QSqlDatabase>
@@ -106,7 +107,7 @@ QVariantMap MediaRepository::getById(int mediaId) {
         for (int i = 0; i < rec.count(); ++i)
             map[rec.fieldName(i)] = q.value(i);
         map["thumb"] = ThumbnailGenerator::thumbnailUrl(map["file_path"].toString());
-        map["path"]  = "file://" + map["file_path"].toString();
+        map["path"]  = QUrl::fromLocalFile(map["file_path"].toString()).toString();
         return map;
     }
     return {};
@@ -192,7 +193,7 @@ QVariantList MediaRepository::getGeotaggedLocations() {
         m["is_favorite"]   = q.value("is_favorite").toBool();
         m["is_trashed"]    = q.value("is_trashed").toBool();
         m["is_hidden"]     = q.value("is_hidden").toBool();
-        m["path"]          = "file://" + fp;
+        m["path"]          = QUrl::fromLocalFile(fp).toString();
         m["thumb"]         = ThumbnailGenerator::thumbnailUrl(fp);
         list.append(m);
     }

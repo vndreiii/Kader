@@ -193,6 +193,7 @@ Item {
                             flat: true
                             icon.source: ""
                             contentItem: MaterialSymbol { name: "close"; size: 20; color: ThemeManager.onSurfaceVariant }
+                            background: Rectangle { radius: width / 2; color: parent.pressed ? Qt.alpha(ThemeManager.onSurface, 0.12) : parent.hovered ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent" }
                             onClicked: { searchBox.text = ""; root.runSearch("", false) }
                         }
                     }
@@ -203,13 +204,13 @@ Item {
                     visible: Analyzer.running && Analyzer.total > 0
                     Layout.fillWidth: true
                     spacing: 12
-                    BusyIndicator { running: parent.visible; Layout.preferredWidth: 22; Layout.preferredHeight: 22 }
+                    M3CircularProgress { running: parent.visible; Layout.preferredWidth: 20; Layout.preferredHeight: 20 }
                     Label {
                         text: root._t("analyzing").arg(Analyzer.done).arg(Analyzer.total)
                         color: ThemeManager.onSurfaceVariant
                         font.pixelSize: 13
                     }
-                    ProgressBar {
+                    M3LinearProgress {
                         Layout.fillWidth: true
                         from: 0; to: Math.max(1, Analyzer.total); value: Analyzer.done
                     }
@@ -380,18 +381,31 @@ Item {
                                         id: faceMa
                                         anchors.fill: parent
                                         hoverEnabled: true
+                                        acceptedButtons: Qt.LeftButton | Qt.RightButton
                                         cursorShape: Qt.PointingHandCursor
-                                        onClicked: if (!parent.parent._ph) root.openPerson(modelData.id)
+                                        onClicked: (m) => {
+                                            if (parent.parent._ph) return
+                                            if (m.button === Qt.RightButton) personMenu.popup()
+                                            else root.openPerson(modelData.id)
+                                        }
+                                        onPressAndHold: if (!parent.parent._ph) personMenu.popup()
+                                    }
+                                    PersonMenu {
+                                        id: personMenu
+                                        personId: modelData && modelData.id !== undefined ? modelData.id : -1
+                                        hiddenPerson: !!(modelData && modelData.hidden)
+                                        onOpenRequested: root.openPerson(modelData.id)
+                                        onRenameRequested: nameLbl.startEdit()
                                     }
                                 }
-                                Label {
+                                NameLabel {
+                                    id: nameLbl
                                     width: parent.width
-                                    horizontalAlignment: Text.AlignHCenter
-                                    text: parent._ph ? "" : (modelData.name || root._t("add_name"))
-                                    color: parent._ph || modelData.name ? ThemeManager.onSurface : ThemeManager.primary
-                                    font.pixelSize: 14
-                                    font.weight: Font.Medium
-                                    elide: Text.ElideRight
+                                    visible: !parent._ph
+                                    name: modelData.name || ""
+                                    placeholder: root._t("add_name")
+                                    pixelSize: 14
+                                    onRenamed: (n) => Analyzer.renamePerson(modelData.id, n)
                                 }
                             }
                         }
