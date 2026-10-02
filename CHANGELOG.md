@@ -3,6 +3,14 @@
 Kader follows [semantic versioning](https://semver.org): MAJOR.MINOR.FIX.
 Release notes for each version are taken from this file.
 
+## [2.0.2]
+
+### Fixed
+- The AppImage crashed at start on Wayland (Hyprland, niri, GNOME, KDE…)
+  with "Failed to create RHI": Qt's Wayland EGL integration wasn't bundled,
+  so no OpenGL context could be created. It is now, and every AppImage is
+  launched on a Wayland compositor in CI before release.
+
 ## [2.0.1]
 
 ### Fixed
