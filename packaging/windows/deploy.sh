@@ -60,6 +60,7 @@ done
 
 cp "$root/packaging/windows/kader.ico" "$stage/"
 du -sh "$stage"
+echo "largest files:"; find "$stage" -type f -printf '%s\t%P\n' | sort -rn | head -25 | awk -F'\t' '{printf "%8.1f MB  %s\n", $1/1048576, $2}'
 
 # ── Portable .zip ───────────────────────────────────────────────────────────
 portable="$build/stage/portable/Kader"
