@@ -8,6 +8,8 @@
 #include <QFileInfo>
 #include <QtConcurrent>
 #include <QTimer>
+#include <QElapsedTimer>
+#include <cstdio>
 #include <algorithm>
 #include "ThemeManager.h"
 #include "FileScanner.h"
@@ -27,7 +29,27 @@
 #include <MilfsConnect/Connect.h>
 #endif
 
+// KADER_TRACE_STARTUP=1 prints milestones of the cold start to stderr.
+static QElapsedTimer g_startClock;
+static bool g_traceStartup = false;
+static void trace(const char *what) {
+    if (g_traceStartup)
+        fprintf(stderr, "[startup] %6lld ms  %s\n", static_cast<long long>(g_startClock.elapsed()), what);
+}
+static void traceFirstFrame(QQmlApplicationEngine &engine) {
+    if (!g_traceStartup)
+        return;
+    QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, [](QObject *obj, const QUrl &) {
+        trace("root object created");
+        if (auto *w = qobject_cast<QQuickWindow *>(obj))
+            QObject::connect(w, &QQuickWindow::frameSwapped, w, [] { trace("first frame on screen"); },
+                             Qt::SingleShotConnection);
+    });
+}
+
 int main(int argc, char *argv[]) {
+    g_startClock.start();
+    g_traceStartup = qEnvironmentVariableIsSet("KADER_TRACE_STARTUP");
     // Prefer Qt's FFmpeg multimedia backend over GStreamer for better codec
     // compatibility and stability (avoids GStreamer plugin crashes on VAAPI/VDPAU).
     if (qgetenv("QT_MEDIA_BACKEND").isEmpty())
@@ -40,6 +62,7 @@ int main(int argc, char *argv[]) {
     QQuickWindow::setDefaultAlphaBuffer(true);
 
     QGuiApplication app(argc, argv);
+    trace("QGuiApplication");
 
     // File passed on the command line (e.g. "kader /path/to/photo.jpg" or via .desktop %U)
     QString startupFile;
@@ -76,7 +99,9 @@ int main(int argc, char *argv[]) {
         VideoEditor     videoEditor;
         FileScanner     fileScanner(nullptr);   // only listSiblingMedia() is used; no DB needed
 
+        trace("viewer backend");
         QQmlApplicationEngine engine;
+        traceFirstFrame(engine);
         engine.addImportPath("qrc:/");
         engine.addImportPath(app.applicationDirPath() + "/qml_modules");
         engine.rootContext()->setContextProperty("Settings", &settingsManager);
