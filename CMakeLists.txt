@@ -241,12 +241,11 @@ qt_add_shaders(KaderApp "kader_shaders"
 # ── Application ─────────────────────────────────────────────────────────────
 add_executable(kader ${SOURCE_DIR}/main.cpp)
 
-# The 5 MB vector world dataset is linked as an object file rather than a
-# generated C++ array (BIG_RESOURCES) to keep compile time and memory down.
-qt_add_resources(kader "kader_geo"
-    PREFIX "/Kader"
-    BIG_RESOURCES
-    FILES assets/geo/world.kgeo)
+# The vector world dataset (assets/geo/world.kgeo, ~6 MB) is a data file, not
+# a resource: memory-mapped at runtime instead of living in the binary. It is
+# copied next to the binary for development builds and installed to
+# share/kader for packages.
+configure_file(assets/geo/world.kgeo ${CMAKE_CURRENT_BINARY_DIR}/world.kgeo COPYONLY)
 
 target_link_libraries(kader PRIVATE KaderLib KaderApp)
 if(MilfsConnect_FOUND)
@@ -256,6 +255,7 @@ endif()
 
 include(GNUInstallDirs)
 install(TARGETS kader RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(FILES assets/geo/world.kgeo DESTINATION ${CMAKE_INSTALL_DATADIR}/kader)
 install(FILES kader.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
 install(FILES "assets/Kader Logoicon.svg"
         DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps RENAME kader.svg)

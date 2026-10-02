@@ -7,7 +7,12 @@
 #include <QMutex>
 #include <QFuture>
 #include <atomic>
+// GLib (via libvips) has struct fields named `signals`, which Qt's keyword
+// macro would rewrite — shield the include from it.
+#pragma push_macro("signals")
+#undef signals
 #include <vips/vips8>
+#pragma pop_macro("signals")
 
 class ThumbnailGenerator : public QObject {
     Q_OBJECT

@@ -23,7 +23,12 @@
 #include <QElapsedTimer>
 #include <QTimeZone>
 #include "kader_core.h"
+// GLib (via libvips) has struct fields named `signals`, which Qt's keyword
+// macro would rewrite — shield the include from it.
+#pragma push_macro("signals")
+#undef signals
 #include <vips/vips8>
+#pragma pop_macro("signals")
 
 namespace {
 
