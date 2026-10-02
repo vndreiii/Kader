@@ -64,7 +64,7 @@ ApplicationWindow {
     function _activatePlacesView() {
         var inst
         if (Settings.use3DGlobe) {
-            if (!window._globeViewInst) window._globeViewInst = globeView.createObject(null)
+            if (!window._globeViewInst) window._globeViewInst = window._fitStack(globeView.createObject(null))
             inst = window._globeViewInst
         } else {
             if (!window._mapViewInst) {
@@ -72,7 +72,7 @@ ApplicationWindow {
                 // map is actually used (and is optional at runtime).
                 var comp = Qt.createComponent("qrc:/Kader/qml/views/MapView.qml")
                 if (comp.status === Component.Ready) {
-                    window._mapViewInst = comp.createObject(null)
+                    window._mapViewInst = window._fitStack(comp.createObject(null))
                     window._mapViewInst.openViewer.connect(window._openPlaceItems)
                 } else {
                     console.warn("2D map unavailable (QtLocation missing?):", comp.errorString())
@@ -80,7 +80,7 @@ ApplicationWindow {
             }
             inst = window._mapViewInst
             if (!inst) {
-                if (!window._globeViewInst) window._globeViewInst = globeView.createObject(null)
+                if (!window._globeViewInst) window._globeViewInst = window._fitStack(globeView.createObject(null))
                 inst = window._globeViewInst
             }
         }
@@ -98,7 +98,7 @@ ApplicationWindow {
     // Search tab (people, memories, places, things, colours + unified search)
     property Item _searchViewInst: null
     function _activateSearchView() {
-        if (!window._searchViewInst) window._searchViewInst = searchView.createObject(null)
+        if (!window._searchViewInst) window._searchViewInst = window._fitStack(searchView.createObject(null))
         if (mainStack.currentItem !== window._searchViewInst) mainStack.replace(window._searchViewInst)
     }
     // Sidebar navigation (also used by views that link to another tab)
@@ -135,7 +135,7 @@ ApplicationWindow {
             TimelineModel.filterMode = 2
             window.applyViewSort("trash")
         } else if (view === "albums") {
-            if (!window._albumsViewInst) window._albumsViewInst = albumsView.createObject(null)
+            if (!window._albumsViewInst) window._albumsViewInst = window._fitStack(albumsView.createObject(null))
             mainStack.replace(window._albumsViewInst)
             window.applyViewSort("albums")
         } else if (view === "search") {
@@ -143,9 +143,21 @@ ApplicationWindow {
         } else if (view === "map") {
             window._activatePlacesView()
         } else if (view === "settings") {
-            if (!window._settingsViewInst) window._settingsViewInst = settingsView.createObject(null)
+            if (!window._settingsViewInst) window._settingsViewInst = window._fitStack(settingsView.createObject(null))
             mainStack.replace(window._settingsViewInst)
         }
+    }
+
+    // Views created once and reused across tab switches must track the stack's
+    // size themselves: StackView only resizes items whose size it set the
+    // first time, and on the second push it takes its own earlier size for an
+    // explicit one — so a reused view kept the window's old size (cut off
+    // after maximising).
+    function _fitStack(item) {
+        if (!item) return item
+        item.width = Qt.binding(function () { return mainStack.width })
+        item.height = Qt.binding(function () { return mainStack.height })
+        return item
     }
 
     // Leave a pushed page (album detail …) — the top bar's back arrow.
@@ -298,7 +310,7 @@ ApplicationWindow {
         // an object, it survives every view switch. Other views are still
         // created lazily on first navigation.
         if (!isViewerOnly) {
-            _tlViewInst = timelineView.createObject(null, { width: mainStack.width, height: mainStack.height })
+            _tlViewInst = window._fitStack(timelineView.createObject(null))
             mainStack.push(_tlViewInst, {}, StackView.Immediate)
         }
 
