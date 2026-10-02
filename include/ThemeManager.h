@@ -69,6 +69,17 @@ class ThemeManager : public QObject {
 
     Q_PROPERTY(bool isDark READ isDark NOTIFY themeChanged)
     Q_PROPERTY(int themeMode READ themeMode WRITE setThemeMode NOTIFY themeModeChanged)
+    // Where the colours come from: 0 Kader's own, 1 a preset colour, 2 the
+    // system (matugen, Quickshell, or the desktop accent colour).
+    Q_PROPERTY(int colorSource READ colorSource WRITE setColorSource NOTIFY colorSourceChanged)
+    Q_PROPERTY(QString seedColor READ seedColor WRITE setSeedColor NOTIFY colorSourceChanged)
+    // Material 3 scheme style (MaterialColor::Variant)
+    Q_PROPERTY(int schemeVariant READ schemeVariant WRITE setSchemeVariant NOTIFY colorSourceChanged)
+    Q_PROPERTY(QStringList presetColors READ presetColors CONSTANT)
+    Q_PROPERTY(QStringList variantNames READ variantNames CONSTANT)
+    // what "system" colours were found: "matugen", "quickshell", "accent" or ""
+    Q_PROPERTY(QString systemSource READ systemSource NOTIFY themeChanged)
+    Q_PROPERTY(QString matugenPath READ matugenPath CONSTANT)
 
 public:
     explicit ThemeManager(QObject *parent = nullptr);
@@ -138,23 +149,36 @@ public:
     Q_INVOKABLE void refreshTheme();
 
     Q_PROPERTY(bool dynamicColor READ dynamicColor WRITE setDynamicColor NOTIFY dynamicColorChanged)
-    bool dynamicColor() const { return m_dynamicColor; }
+    bool dynamicColor() const { return m_colorSource == 2; }
     Q_INVOKABLE void setDynamicColor(bool dynamic);
+
+    int colorSource() const { return m_colorSource; }
+    void setColorSource(int s);
+    QString seedColor() const { return m_seed; }
+    void setSeedColor(const QString &c);
+    int schemeVariant() const { return m_variant; }
+    void setSchemeVariant(int v);
+    QStringList presetColors() const;
+    QStringList variantNames() const;
+    QString systemSource() const { return m_systemSource; }
+    QString matugenPath() const;
 
 signals:
     void themeChanged();
     void themeModeChanged();
     void dynamicColorChanged();
+    void colorSourceChanged();
 
 private:
-    void parseScss();
-    void loadHardcoded(int mode);
-    void applyAccent(const QColor &accent, bool dark);
+    QColor systemSeed(bool *darkHint, bool *hasHint);
+    void watchFiles();
     static bool systemIsLight();
-    QString getScssPath() const;
 
     QVariantMap m_colors;
     QFileSystemWatcher *m_watcher;
     int m_themeMode = 0; // 0=system, 1=light, 2=dark
-    bool m_dynamicColor = true;
+    int m_colorSource = 0;
+    QString m_seed = QStringLiteral("#6750A4");
+    int m_variant = 0;
+    QString m_systemSource;
 };

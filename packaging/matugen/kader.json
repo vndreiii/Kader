@@ -1,0 +1,5 @@
+{
+  "source_color": "{{colors.source_color.default.hex}}",
+  "primary": "{{colors.primary.default.hex}}",
+  "mode": "{{mode}}"
+}
