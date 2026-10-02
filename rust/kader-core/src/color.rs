@@ -126,7 +126,7 @@ mod tests {
 
     fn solid(rgb: [u8; 3]) -> RgbImage {
         let mut img = RgbImage::new(20, 10);
-        for p in img.data.chunks_exact_mut(3) {
+        for p in img.data.as_chunks_mut::<3>().0.iter_mut() {
             p.copy_from_slice(&rgb);
         }
         img
@@ -154,7 +154,7 @@ mod tests {
         }
         // an image split evenly between colours names none of them
         let mut img = RgbImage::new(9, 1);
-        for (i, p) in img.data.chunks_exact_mut(3).enumerate() {
+        for (i, p) in img.data.as_chunks_mut::<3>().0.iter_mut().enumerate() {
             p.copy_from_slice(&[[230, 30, 30], [30, 90, 220], [40, 170, 60]][i % 3]);
         }
         assert_eq!(analyze(&img).bucket, 0);

@@ -257,10 +257,7 @@ pub unsafe extern "C" fn kf_cluster(
     };
     // SAFETY: lengths as documented above.
     let flat = unsafe { std::slice::from_raw_parts(embeddings, total) };
-    let embs: Vec<[f32; EMBED_DIM]> = flat
-        .chunks_exact(EMBED_DIM)
-        .map(|c| c.try_into().unwrap())
-        .collect();
+    let embs: Vec<[f32; EMBED_DIM]> = flat.as_chunks::<EMBED_DIM>().0.to_vec();
     let (fixed, exclude) = unsafe {
         (
             std::slice::from_raw_parts(fixed, n),

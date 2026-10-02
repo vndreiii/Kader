@@ -549,7 +549,7 @@ pub fn gemm(
                 let mut acc = [0.0f32; 8];
                 let (ac8, at) = ar.split_at(k - k % 8);
                 let (bc8, bt) = br.split_at(k - k % 8);
-                for (x, y) in ac8.chunks_exact(8).zip(bc8.chunks_exact(8)) {
+                for (x, y) in ac8.as_chunks::<8>().0.iter().zip(bc8.as_chunks::<8>().0) {
                     for l in 0..8 {
                         acc[l] += x[l] * y[l];
                     }
