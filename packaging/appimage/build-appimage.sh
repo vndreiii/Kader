@@ -33,6 +33,9 @@ DESTDIR="$appdir" cmake --install "$build" --prefix /usr
 export PATH="$tools:$PATH"
 export APPIMAGE_EXTRACT_AND_RUN=1           # no FUSE needed (CI containers)
 export QMAKE="${QMAKE:-$(command -v qmake6 || command -v qmake)}"
+# linuxdeploy resolves libraries like the dynamic loader does: a Qt outside
+# the system prefix (aqtinstall in CI) has to be on the search path
+export LD_LIBRARY_PATH="$("$QMAKE" -query QT_INSTALL_LIBS)${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export QML_SOURCES_PATHS="$root/qml"
 export EXTRA_QT_MODULES="svg;waylandclient"
 # Ship native Wayland support alongside xcb (whichever plugins this Qt has).
