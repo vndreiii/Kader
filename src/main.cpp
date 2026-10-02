@@ -195,6 +195,7 @@ int main(int argc, char *argv[]) {
         traceFirstFrame(engine);
         engine.addImportPath("qrc:/");
         engine.addImportPath(app.applicationDirPath() + "/qml_modules");
+        engine.addImportPath(app.applicationDirPath() + "/qml");  // deployed Windows layout
         engine.rootContext()->setContextProperty("Settings", &settingsManager);
         engine.rootContext()->setContextProperty("ThemeManager", &themeManager);
         engine.rootContext()->setContextProperty("VideoEditor", &videoEditor);
@@ -470,6 +471,7 @@ int main(int argc, char *argv[]) {
 
     engine.addImportPath("qrc:/");
     engine.addImportPath(app.applicationDirPath() + "/qml_modules");
+    engine.addImportPath(app.applicationDirPath() + "/qml");  // deployed Windows layout (windeployqt)
 
     engine.rootContext()->setContextProperty("ThemeManager", &themeManager);
     engine.rootContext()->setContextProperty("StorageManager", &storageManager);
