@@ -34,6 +34,9 @@ vipsver="$(pkg-config --modversion vips | cut -d. -f1,2)"
 if [[ -d "$prefix/lib/vips-modules-$vipsver" ]]; then
     mkdir -p "$stage/lib"
     cp -r "$prefix/lib/vips-modules-$vipsver" "$stage/lib/"
+    # ImageMagick and OpenSlide loaders would drag in large libraries for
+    # formats Kader doesn't list; libvips skips modules that aren't there.
+    rm -f "$stage/lib/vips-modules-$vipsver/vips-magick.dll" "$stage/lib/vips-modules-$vipsver/vips-openslide.dll"
 fi
 if [[ -d "$prefix/lib/libheif/plugins" ]]; then
     mkdir -p "$stage/lib/libheif"

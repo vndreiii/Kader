@@ -84,8 +84,13 @@ static QtMessageHandler g_prevHandler = nullptr;
 static void smokeMessageHandler(QtMsgType type, const QMessageLogContext &ctx, const QString &msg) {
     if (type != QtDebugMsg && type != QtInfoMsg
         && (msg.contains(QLatin1String(".qml:")) || msg.contains(QLatin1String("is not installed"))
-            || msg.contains(QLatin1String("Cannot load library"))))
+            || msg.contains(QLatin1String("Cannot load library")))) {
         ++g_qmlProblems;
+        // Windows GUI apps send Qt messages to the debugger, so print the
+        // ones that fail the test where CI can see them.
+        fprintf(stderr, "smoke test problem: %s\n", qPrintable(msg));
+        fflush(stderr);
+    }
     if (g_prevHandler)
         g_prevHandler(type, ctx, msg);
 }
