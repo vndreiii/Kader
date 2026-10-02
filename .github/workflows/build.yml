@@ -1,0 +1,60 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+
+    steps:
+      - name: Update system and install dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm \
+            git cmake ninja qt6-base qt6-declarative qt6-location \
+            qt6-positioning qt6-shadertools libvips exiv2 openssl \
+            libheif libraw poppler maplibre-native-qt qt6-webengine \
+            qt6-webchannel openscenegraph qt6-tools pkgconf unzip curl
+
+      - name: Checkout milfs-connect
+        uses: actions/checkout@v4
+        with:
+          repository: vndreiii/milfs-connect
+          path: milfs-connect
+
+      - name: Build and install milfs-connect
+        run: |
+          cd milfs-connect
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DMILFS_CONNECT_BUILD_TESTS=OFF
+          cmake --build build
+          cmake --install build
+
+      - name: Checkout Kader
+        uses: actions/checkout@v4
+        with:
+          path: Kader
+
+      - name: Prepare bundled Cesium
+        run: |
+          cd Kader
+          if [ ! -f web/cesium/Build/Cesium/Cesium.js ]; then
+              echo "Fetching bundled Cesium 1.134..."
+              tmp=$(mktemp -d)
+              curl -fsSL -o "$tmp/cesium.zip" "https://github.com/CesiumGS/cesium/releases/download/1.134/cesium-1.134.zip"
+              unzip -q -o "$tmp/cesium.zip" "Build/Cesium/*" -d "$tmp"
+              mkdir -p web/cesium
+              cp -a "$tmp/Build" web/cesium/
+              rm -rf "$tmp"
+          fi
+
+      - name: Build Kader
+        run: |
+          cd Kader
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j$(nproc)
