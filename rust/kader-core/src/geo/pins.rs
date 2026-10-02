@@ -47,7 +47,11 @@ impl Pins {
         let cos_thr = (merge_px / radius.max(1.0)).min(std::f64::consts::PI).cos();
 
         let mut order: Vec<u32> = (0..self.inputs.len() as u32).collect();
-        order.sort_by(|&a, &b| self.inputs[b as usize].weight.cmp(&self.inputs[a as usize].weight));
+        order.sort_by(|&a, &b| {
+            self.inputs[b as usize]
+                .weight
+                .cmp(&self.inputs[a as usize].weight)
+        });
 
         let mut clusters: Vec<Cluster> = Vec::new();
         let mut sums: Vec<V3> = Vec::new();
@@ -64,13 +68,21 @@ impl Pins {
                 }
                 None => {
                     sums.push(scale(p.pos, f64::from(w)));
-                    clusters.push(Cluster { pos: p.pos, weight: w, lead: i, members: vec![i] });
+                    clusters.push(Cluster {
+                        pos: p.pos,
+                        weight: w,
+                        lead: i,
+                        members: vec![i],
+                    });
                 }
             }
         }
 
         let changed = clusters.len() != self.clusters.len()
-            || clusters.iter().zip(&self.clusters).any(|(a, b)| a.members != b.members);
+            || clusters
+                .iter()
+                .zip(&self.clusters)
+                .any(|(a, b)| a.members != b.members);
         self.clusters = clusters;
         if changed {
             self.epoch = self.epoch.wrapping_add(1);
@@ -84,14 +96,21 @@ mod tests {
     use crate::geo::math::from_lat_lon;
 
     fn pin(lat: f64, lon: f64, w: u32) -> PinInput {
-        PinInput { pos: from_lat_lon(lat.to_radians(), lon.to_radians()), weight: w }
+        PinInput {
+            pos: from_lat_lon(lat.to_radians(), lon.to_radians()),
+            weight: w,
+        }
     }
 
     #[test]
     fn merges_when_zoomed_out_and_splits_when_zoomed_in() {
         let mut p = Pins::default();
         // Paris + Versailles (~17 km apart) and Tokyo
-        p.set(vec![pin(48.85, 2.35, 10), pin(48.80, 2.13, 3), pin(35.68, 139.69, 5)]);
+        p.set(vec![
+            pin(48.85, 2.35, 10),
+            pin(48.80, 2.13, 3),
+            pin(35.68, 139.69, 5),
+        ]);
         p.update(300.0, 40.0);
         assert_eq!(p.clusters.len(), 2);
         assert_eq!(p.clusters[0].weight, 13);

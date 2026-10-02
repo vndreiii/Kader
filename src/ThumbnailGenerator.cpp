@@ -9,6 +9,8 @@
 #include <QDebug>
 #include <QtConcurrent>
 #include <QThreadPool>
+#include <QHash>
+#include <QMutex>
 #include <algorithm>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
@@ -31,6 +33,19 @@ bool ThumbnailGenerator::isRawFile(const QString &filePath) {
 }
 
 static constexpr int AES_IV_SIZE = 16;
+
+// Resolve an external tool once via PATH (works for AppImages and distros that
+// don't install to /usr/bin); empty when missing.
+static const QString &tool(const char *name) {
+    static QHash<QString, QString> cache;
+    static QMutex mutex;
+    QMutexLocker lock(&mutex);
+    const QString key = QString::fromLatin1(name);
+    auto it = cache.find(key);
+    if (it == cache.end())
+        it = cache.insert(key, QStandardPaths::findExecutable(key));
+    return it.value();
+}
 
 ThumbnailGenerator::ThumbnailGenerator(QObject *parent) : QObject(parent) {
     if (vips_init("Kader")) {
@@ -108,14 +123,14 @@ QString ThumbnailGenerator::getOrCreateThumbnail(const QString &filePath, int si
         }
 
         if (isVideoFile(filePath)) {
-            if (QProcess::execute("/usr/bin/ffmpegthumbnailer", {
+            if (QProcess::execute(tool("ffmpegthumbnailer"), {
                     "-i", filePath, "-o", thumbPath,
                     "-s", QString::number(size), "-t", "10%", "-c", "jpeg"
                 }) == 0 && QFile::exists(thumbPath) && QFile(thumbPath).size() > 0)
                 return thumbPath;
             QFile::remove(thumbPath);
 
-            if (QProcess::execute("/usr/bin/ffmpeg", {
+            if (QProcess::execute(tool("ffmpeg"), {
                     "-y", "-hide_banner", "-loglevel", "error",
                     "-i", filePath, "-ss", "00:00:02", "-frames:v", "1",
                     "-vf", QString("scale=%1:-1").arg(size), "-q:v", "2", thumbPath
@@ -171,7 +186,7 @@ QByteArray ThumbnailGenerator::generateVideoThumbnailBytes(const QString &filePa
     QString tmpPath = m_cacheDir + "/_vtmp_" + generateHash(filePath) + ".jpg";
 
     // Try ffmpegthumbnailer first (QProcess::execute is thread-safe / blocking)
-    if (QProcess::execute("/usr/bin/ffmpegthumbnailer", {
+    if (QProcess::execute(tool("ffmpegthumbnailer"), {
             "-i", filePath, "-o", tmpPath,
             "-s", QString::number(size), "-t", "10%", "-c", "jpeg"
         }) == 0) {
@@ -181,7 +196,7 @@ QByteArray ThumbnailGenerator::generateVideoThumbnailBytes(const QString &filePa
     QFile::remove(tmpPath);
 
     // Fallback: ffmpeg
-    if (QProcess::execute("/usr/bin/ffmpeg", {
+    if (QProcess::execute(tool("ffmpeg"), {
             "-y", "-hide_banner", "-loglevel", "error",
             "-i", filePath, "-ss", "00:00:02", "-frames:v", "1",
             "-vf", QString("scale=%1:-1").arg(size), "-q:v", "2", tmpPath

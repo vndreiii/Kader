@@ -36,17 +36,25 @@ pkg_check_modules(POPPLER REQUIRED IMPORTED_TARGET poppler-cpp)
 # Sibling-app event bus (private; optional so public CI and AppImages build).
 find_package(MilfsConnect QUIET)
 
-# llama.cpp for semantic search
+# llama.cpp for semantic search. Prefers the CMake package (static builds from
+# packaging/build-llama.sh carry their ggml dependencies), falls back to plain
+# shared libraries (e.g. the AUR llama.cpp package).
 set(KADER_HAVE_LLAMA 0)
 if(KADER_WITH_AI)
-    find_library(LLAMA_LIBRARY llama)
+    find_package(llama CONFIG QUIET)
     find_library(MTMD_LIBRARY mtmd)
-    find_path(LLAMA_INCLUDE_DIR llama.h)
     find_path(MTMD_INCLUDE_DIR mtmd.h)
-    if(LLAMA_LIBRARY AND MTMD_LIBRARY AND LLAMA_INCLUDE_DIR AND MTMD_INCLUDE_DIR)
+    if(llama_FOUND AND TARGET llama)
+        set(KADER_LLAMA_LIBS llama)
+    else()
+        find_library(LLAMA_LIBRARY llama)
+        set(KADER_LLAMA_LIBS ${LLAMA_LIBRARY})
+    endif()
+    find_path(LLAMA_INCLUDE_DIR llama.h)
+    if(KADER_LLAMA_LIBS AND MTMD_LIBRARY AND MTMD_INCLUDE_DIR AND LLAMA_INCLUDE_DIR)
         set(KADER_HAVE_LLAMA 1)
     else()
-        message(WARNING "llama.cpp not found — building without AI search")
+        message(WARNING "llama.cpp not found — building without AI search (see packaging/build-llama.sh)")
     endif()
 endif()
 
@@ -102,6 +110,7 @@ set(SOURCES
     ${SOURCE_DIR}/VideoEditor.cpp
     ${SOURCE_DIR}/Sort.cpp
     ${SOURCE_DIR}/GlobeItem.cpp
+    ${SOURCE_DIR}/UpdateManager.cpp
 )
 
 set(HEADERS
@@ -121,14 +130,24 @@ set(HEADERS
     ${INCLUDE_DIR}/VideoEditor.h
     ${INCLUDE_DIR}/Sort.h
     ${INCLUDE_DIR}/GlobeItem.h
+    ${INCLUDE_DIR}/UpdateManager.h
     ${INCLUDE_DIR}/kader_core.h
 )
 
 add_library(KaderLib STATIC ${SOURCES} ${HEADERS})
 target_include_directories(KaderLib PUBLIC ${INCLUDE_DIR})
+# Ed25519 public key that release manifests must be signed with (see
+# packaging/README.md). Rotating the key = replacing this file.
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/packaging/release-signing.pub KADER_UPDATE_PUBKEY)
+string(STRIP "${KADER_UPDATE_PUBKEY}" KADER_UPDATE_PUBKEY)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS packaging/release-signing.pub)
+
 target_compile_definitions(KaderLib PUBLIC
     KADER_VERSION="${PROJECT_VERSION}"
-    KADER_HAVE_LLAMA=${KADER_HAVE_LLAMA})
+    KADER_HAVE_LLAMA=${KADER_HAVE_LLAMA}
+    KADER_UPDATE_REPO="${KADER_UPDATE_REPO}"
+    KADER_UPDATE_CHANNEL="${KADER_UPDATE_CHANNEL}"
+    KADER_UPDATE_PUBKEY="${KADER_UPDATE_PUBKEY}")
 
 target_link_libraries(KaderLib PUBLIC
     Qt6::Core
@@ -153,7 +172,8 @@ target_link_libraries(KaderLib PUBLIC
 )
 if(KADER_HAVE_LLAMA)
     target_include_directories(KaderLib PRIVATE ${LLAMA_INCLUDE_DIR} ${MTMD_INCLUDE_DIR})
-    target_link_libraries(KaderLib PUBLIC ${LLAMA_LIBRARY} ${MTMD_LIBRARY})
+    # mtmd first: static archives resolve left to right
+    target_link_libraries(KaderLib PUBLIC ${MTMD_LIBRARY} ${KADER_LLAMA_LIBS})
 endif()
 
 # ── QML module ──────────────────────────────────────────────────────────────
@@ -188,6 +208,7 @@ qt_add_qml_module(KaderApp
         qml/components/CascadeMenuItem.qml
         qml/components/SortMenu.qml
         qml/components/PlacePopup.qml
+        qml/components/UpdateDialog.qml
         qml/views/AlbumListView.qml
         qml/views/AlbumDetailView.qml
         qml/views/ViewerOverlay.qml
@@ -237,8 +258,10 @@ install(TARGETS kader RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES kader.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
 install(FILES "assets/Kader Logoicon.svg"
         DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps RENAME kader.svg)
-install(FILES assets/KaderPNGicon.png
-        DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/256x256/apps RENAME kader.png)
+foreach(size 48 128 256 512)
+    install(FILES assets/icons/kader-${size}.png
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/${size}x${size}/apps RENAME kader.png)
+endforeach()
 
 message(STATUS "Kader ${PROJECT_VERSION}: AI search=${KADER_HAVE_LLAMA} milfs-connect=${MilfsConnect_FOUND} "
                "QtLocation=${Qt6Location_FOUND} update-channel='${KADER_UPDATE_CHANNEL}'")

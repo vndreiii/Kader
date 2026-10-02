@@ -61,7 +61,12 @@ impl LandMask {
             }
         }
         row_start.push(toggles.len() as u32);
-        Ok(Self { width, height, row_start, toggles })
+        Ok(Self {
+            width,
+            height,
+            row_start,
+            toggles,
+        })
     }
 
     /// Is the pixel at (x, y) land?
@@ -96,7 +101,9 @@ impl LandMask {
     #[inline]
     pub fn row_of(&self, lat: f64) -> u32 {
         let h = f64::from(self.height);
-        ((std::f64::consts::FRAC_PI_2 - lat) / std::f64::consts::PI * h).floor().clamp(0.0, h - 1.0) as u32
+        ((std::f64::consts::FRAC_PI_2 - lat) / std::f64::consts::PI * h)
+            .floor()
+            .clamp(0.0, h - 1.0) as u32
     }
 
     /// Angular size of one mask pixel, in radians.
@@ -182,7 +189,12 @@ impl LineLayer {
                 s = e;
             }
         }
-        Ok(Self { kind, lod, points, chunks })
+        Ok(Self {
+            kind,
+            lod,
+            points,
+            chunks,
+        })
     }
 }
 
@@ -229,7 +241,10 @@ pub struct Place<'a> {
 
 #[inline]
 fn cell_of(lat_deg: f64, lon_deg: f64) -> (i16, i16) {
-    (lat_deg.floor().clamp(-90.0, 89.0) as i16, lon_deg.floor().clamp(-180.0, 179.0) as i16)
+    (
+        lat_deg.floor().clamp(-90.0, 89.0) as i16,
+        lon_deg.floor().clamp(-180.0, 179.0) as i16,
+    )
 }
 
 impl World {
@@ -259,10 +274,15 @@ impl World {
                 b"CTRY" => {
                     let n = s.varint_usize(4096)?;
                     for _ in 0..n {
-                        let iso: [u8; 2] = s.bytes(2)?.try_into().map_err(|_| DecodeError("iso"))?;
+                        let iso: [u8; 2] =
+                            s.bytes(2)?.try_into().map_err(|_| DecodeError("iso"))?;
                         let len = s.varint_usize(512)?;
-                        let name = std::str::from_utf8(s.bytes(len)?).map_err(|_| DecodeError("country utf-8"))?;
-                        countries.push(Country { iso, name: name.to_owned() });
+                        let name = std::str::from_utf8(s.bytes(len)?)
+                            .map_err(|_| DecodeError("country utf-8"))?;
+                        countries.push(Country {
+                            iso,
+                            name: name.to_owned(),
+                        });
                     }
                 }
                 _ => {} // forward compatible: ignore unknown sections
@@ -281,10 +301,21 @@ impl World {
         for (i, l) in labels.iter().enumerate() {
             if l.kind == LabelKind::City {
                 let (la, lo) = super::math::to_lat_lon(super::math::f32v(l.pos));
-                city_cells.entry(cell_of(la.to_degrees(), lo.to_degrees())).or_default().push(i as u32);
+                city_cells
+                    .entry(cell_of(la.to_degrees(), lo.to_degrees()))
+                    .or_default()
+                    .push(i as u32);
             }
         }
-        Ok(Self { land, lines, labels, countries, names, label_order, city_cells })
+        Ok(Self {
+            land,
+            lines,
+            labels,
+            countries,
+            names,
+            label_order,
+            city_cells,
+        })
     }
 
     /// Nearest town (5000+ inhabitants) to a point, within `max_km`. Prefers
@@ -307,7 +338,9 @@ impl World {
                 } else if lo > 179 {
                     lo -= 360;
                 }
-                let Some(ids) = self.city_cells.get(&(cla + dla, lo)) else { continue };
+                let Some(ids) = self.city_cells.get(&(cla + dla, lo)) else {
+                    continue;
+                };
                 for &id in ids {
                     let l = &self.labels[id as usize];
                     let km = dot(p, super::math::f32v(l.pos)).clamp(-1.0, 1.0).acos() * EARTH_KM;
@@ -323,7 +356,7 @@ impl World {
         for &(km, id) in cands.iter().filter(|c| c.0 <= window) {
             let pop = f64::from(self.labels[id as usize].population.max(5000));
             let score = (km + 1.0) / (1.0 + (pop / 5000.0).log10() * 0.8);
-            if best.map_or(true, |b| score < b.0) {
+            if best.is_none_or(|b| score < b.0) {
                 best = Some((score, km, id));
             }
         }
@@ -331,7 +364,10 @@ impl World {
         let l = &self.labels[id as usize];
         Some(Place {
             city: self.label_name(id as usize)?,
-            country: (l.country > 0).then(|| self.countries.get(l.country as usize - 1)).flatten().map(|c| c.name.as_str()),
+            country: (l.country > 0)
+                .then(|| self.countries.get(l.country as usize - 1))
+                .flatten()
+                .map(|c| c.name.as_str()),
             distance_km: km,
         })
     }
@@ -354,7 +390,8 @@ impl World {
             let population = r.varint()?.min(u64::from(u32::MAX)) as u32;
             let country = r.varint()?.min(u64::from(u16::MAX)) as u16;
             let len = r.varint_usize(4096)?;
-            let name = std::str::from_utf8(r.bytes(len)?).map_err(|_| DecodeError("label utf-8"))?;
+            let name =
+                std::str::from_utf8(r.bytes(len)?).map_err(|_| DecodeError("label utf-8"))?;
             let p = from_lat_lon(lat, lon);
             labels.push(Label {
                 pos: [p[0] as f32, p[1] as f32, p[2] as f32],
@@ -415,8 +452,11 @@ pub(crate) mod tests {
             .map(|&i| w.label_name(i as usize).unwrap().to_string())
             .collect::<Vec<_>>();
         assert!(first.iter().any(|n| n.contains("Ocean")), "{first:?}");
-        assert!(w.labels.iter().enumerate().any(|(i, l)| l.capital
-            && w.label_name(i) == Some("Paris")));
+        assert!(w
+            .labels
+            .iter()
+            .enumerate()
+            .any(|(i, l)| l.capital && w.label_name(i) == Some("Paris")));
     }
 
     #[test]
@@ -426,7 +466,10 @@ pub(crate) mod tests {
         assert_eq!((p.city, p.country), ("Paris", Some("France")));
         let p = w.place_name(40.7128, -74.0060, 30.0).unwrap();
         assert_eq!(p.country, Some("United States"));
-        assert!(w.place_name(0.0, -140.0, 30.0).is_none(), "middle of the Pacific");
+        assert!(
+            w.place_name(0.0, -140.0, 30.0).is_none(),
+            "middle of the Pacific"
+        );
         // Muizenberg (a town in its own right) must not become "Cape Town"
         let p = w.place_name(-34.07, 18.45, 250.0).unwrap();
         assert!(p.distance_km < 10.0, "{p:?}");

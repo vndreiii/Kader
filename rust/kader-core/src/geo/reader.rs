@@ -28,8 +28,14 @@ impl<'a> Reader<'a> {
     }
 
     pub fn bytes(&mut self, n: usize) -> Result<&'a [u8]> {
-        let end = self.pos.checked_add(n).ok_or(DecodeError("length overflow"))?;
-        let s = self.buf.get(self.pos..end).ok_or(DecodeError("unexpected end of data"))?;
+        let end = self
+            .pos
+            .checked_add(n)
+            .ok_or(DecodeError("length overflow"))?;
+        let s = self
+            .buf
+            .get(self.pos..end)
+            .ok_or(DecodeError("unexpected end of data"))?;
         self.pos = end;
         Ok(s)
     }

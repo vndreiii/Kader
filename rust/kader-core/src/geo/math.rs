@@ -20,7 +20,11 @@ pub fn scale(a: V3, s: f64) -> V3 {
 
 #[inline]
 pub fn lerp(a: V3, b: V3, t: f64) -> V3 {
-    [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]
+    [
+        a[0] + (b[0] - a[0]) * t,
+        a[1] + (b[1] - a[1]) * t,
+        a[2] + (b[2] - a[2]) * t,
+    ]
 }
 
 #[inline]
