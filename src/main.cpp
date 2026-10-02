@@ -131,6 +131,13 @@ int main(int argc, char *argv[]) {
         qputenv("QT_MEDIA_BACKEND", "ffmpeg");
 #endif
 
+    // Kader draws its own Material 3 controls on top of Qt Quick Controls,
+    // which needs a style that allows customisation. The platform default
+    // doesn't on Windows (native style) and can differ on KDE, so pin
+    // Fusion everywhere — what most Linux desktops already use.
+    if (qEnvironmentVariableIsEmpty("QT_QUICK_CONTROLS_STYLE"))
+        qputenv("QT_QUICK_CONTROLS_STYLE", "Fusion");
+
     // The frameless ApplicationWindow renders its own rounded-corner
     // background in QML; without an alpha-enabled surface the window itself
     // stays an opaque rectangle, showing through as a white border/corners
