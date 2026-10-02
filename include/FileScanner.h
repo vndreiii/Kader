@@ -14,6 +14,9 @@ class ThumbnailGenerator;
 
 class FileScanner : public QObject {
     Q_OBJECT
+    // true while any scan is running — views show loading skeletons instead
+    // of an "empty library" message during the first discovery
+    Q_PROPERTY(bool scanning READ isScanning NOTIFY scanningChanged)
 public:
     explicit FileScanner(DatabaseManager *db, QObject *parent = nullptr);
     ~FileScanner();
@@ -39,6 +42,8 @@ public:
     // Cap the number of directory-traversal worker threads. 0 = auto (all cores).
     void setMaxThreads(int n) { m_maxThreads.store(n > 0 ? n : 0); }
 
+    bool isScanning() const { return m_activeScans > 0; }
+
 signals:
     void scanStarted(const QString &rootPath);
     // Carries the file count, not the paths: no consumer ever used the list for
@@ -49,6 +54,7 @@ signals:
     // Emitted before scanFinished when the scan added, updated or pruned rows.
     void libraryChanged(const QString &rootPath);
     void scanProgress(int filesFound);
+    void scanningChanged();
 
 private:
     void runScan(const std::string &rootPath, const std::vector<std::string> &exclusions);
@@ -58,4 +64,5 @@ private:
     ThumbnailGenerator   *m_thumbGen = nullptr;
     QFuture<void>         m_scanFuture;
     std::atomic<int>      m_maxThreads{0};   // 0 = auto (all cores)
+    int                   m_activeScans = 0; // GUI thread only
 };

@@ -15,6 +15,12 @@ Item {
     readonly property real gap:      6
     readonly property real contentW: width - hMargin * 2
 
+    // Nothing laid out yet, and either the first query hasn't run or a scan is
+    // still discovering the library: show the skeleton, not "no photos".
+    readonly property bool _isEmpty: (root._layoutRev, TimelineModel.totalContentHeight()) <= 0
+    readonly property bool _showSkeleton: !TimelineModel.loaded
+        || (_isEmpty && FileScanner.scanning && !TimelineModel.aiFilterActive && TimelineModel.filterMode === 0)
+
     // ── Multi-select state ─────────────────────────────────────────────────
     property bool selectionMode: false
     property var  _selSet: ({})
@@ -562,10 +568,20 @@ Item {
         }
     }
 
+    // Loading skeleton (first query after the window appears, first scan)
+    SkeletonGrid {
+        anchors.fill: parent
+        anchors.leftMargin: root.hMargin
+        anchors.rightMargin: root.hMargin
+        anchors.topMargin: 8
+        gap: root.gap
+        visible: root._showSkeleton
+    }
+
     // Empty state
     ColumnLayout {
         anchors.centerIn: parent
-        visible: (root._layoutRev, TimelineModel.totalContentHeight()) <= 0
+        visible: root._isEmpty && !root._showSkeleton
         spacing: 16
 
         readonly property int    mode:    TimelineModel.filterMode

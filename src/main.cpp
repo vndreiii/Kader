@@ -250,12 +250,14 @@ int main(int argc, char *argv[]) {
         timelineModel.setNumColumns(7 - std::max(1, std::min(d, 4)));  // 1→6 … 4→3 columns
     }
 
-    // Initial refresh. The flat MediaModel only backs the dashboard, which
-    // loads it when first opened, so it isn't queried here.
-    if (!viewerOnly) {
+    // Initial refresh runs once the window has shown its first frame (see
+    // below), so the user sees the loading skeleton immediately instead of a
+    // window that appears only after the library query. The flat MediaModel
+    // only backs the dashboard, which loads it when first opened.
+    auto initialRefresh = [&]() {
         timelineModel.refresh(settingsManager.hideIgnoredInTimeline());
         albumModel.refresh(true);
-    }
+    };
 
     // Context object (&app) ensures the lambda runs on the main thread via a queued connection.
     // Restarting the timer coalesces the scans of several indexed directories
@@ -329,6 +331,17 @@ int main(int argc, char *argv[]) {
         if (!obj && url == objUrl)
             QCoreApplication::exit(-1);
     }, Qt::QueuedConnection);
+    // First library query after the first frame (queued, so it runs on the
+    // GUI thread once the frame is out).
+    QObject::connect(&engine, &QQmlApplicationEngine::objectCreated, &app, [&](QObject *obj, const QUrl &) {
+        auto *w = qobject_cast<QQuickWindow *>(obj);
+        if (!w) {
+            initialRefresh();
+            return;
+        }
+        QObject::connect(w, &QQuickWindow::frameSwapped, &app, initialRefresh,
+                         static_cast<Qt::ConnectionType>(Qt::QueuedConnection | Qt::SingleShotConnection));
+    });
     engine.load(url);
 
     return app.exec();

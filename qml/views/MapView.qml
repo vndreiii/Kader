@@ -72,11 +72,13 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
 
-            // Placeholder background (visible while map loads)
-            Rectangle {
+            // Loading placeholder, on top until the map plugin is ready
+            Skeleton {
+                z: 5
                 anchors.fill: parent
                 radius: 16
-                color: ThemeManager.surfaceContainerLow
+                visible: !mapView.map.mapReady
+                active: visible
             }
 
             // Round mask — fed into MultiEffect below

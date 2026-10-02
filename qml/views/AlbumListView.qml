@@ -132,13 +132,23 @@ Item {
                     Item {
                         anchors.fill: parent
 
+                        Skeleton {
+                            anchors.fill: parent
+                            radius: 0   // the mask rounds it
+                            active: visible
+                            visible: coverImg.status !== Image.Ready
+                        }
+
                         Image {
+                            id: coverImg
                             anchors.fill: parent
                             source: {
                                 var p = model.cover || ""
                                 if (p && p.indexOf("://") === -1) return "file://" + p
                                 return p
                             }
+                            // covers fill ~220px cells; never decode a full photo
+                            sourceSize: Qt.size(512, 512)
                             fillMode: Image.PreserveAspectCrop; asynchronous: true
                         }
 
@@ -328,9 +338,32 @@ Item {
         }
     }
 
+    // Loading skeleton: album cards until the first query / first scan lands
+    readonly property bool _showSkeleton: !AlbumModel.loaded || (gridView.count === 0 && FileScanner.scanning)
+    Grid {
+        visible: root._showSkeleton
+        anchors.fill: parent
+        anchors.leftMargin: gridView.leftMargin; anchors.rightMargin: gridView.rightMargin
+        anchors.topMargin: gridView.topMargin
+        columns: gridView.numCols
+        clip: true
+        Repeater {
+            model: root._showSkeleton ? gridView.numCols * Math.ceil(root.height / gridView.cellHeight) : 0
+            Item {
+                width: gridView.cellWidth; height: gridView.cellHeight
+                Column {
+                    anchors.fill: parent; anchors.margins: 8; spacing: 10
+                    Skeleton { width: parent.width; height: width; radius: 24 }
+                    Skeleton { width: parent.width * 0.7; height: 14; radius: 7 }
+                    Skeleton { width: parent.width * 0.35; height: 10; radius: 5 }
+                }
+            }
+        }
+    }
+
     ColumnLayout {
         anchors.centerIn: parent
-        visible: gridView.count === 0
+        visible: gridView.count === 0 && !root._showSkeleton
         spacing: 16
         M3Icon { Layout.alignment: Qt.AlignHCenter; name: "folder"; size: 96; color: ThemeManager.onSurfaceVariant; opacity: 0.5 }
         Label { Layout.alignment: Qt.AlignHCenter; text: I18n.t(Settings.language, "empty_albums"); font.pixelSize: 24; font.weight: Font.Light; color: ThemeManager.onSurface }

@@ -20,11 +20,11 @@ Item {
     // Whichever media element is active — used to gate layer FBO allocation
     readonly property int _activeStatus: root._isGif ? gifImg.status : img.status
 
-    // ── Background placeholder (visible while image loads) ────────────────
-    Rectangle {
+    // ── Loading placeholder: pulses until the thumbnail is decoded ────────
+    Skeleton {
         anchors.fill: parent
         radius: 16
-        color: ThemeManager.surfaceContainerHigh
+        active: root._activeStatus === Image.Loading || root._activeStatus === Image.Null
     }
 
     // ── Round mask shape — feeds MultiEffect below ────────────────────────

@@ -19,9 +19,17 @@ Item {
         MediaModel.sortBy(sortKey, sortAsc)
     }
 
-    // Populate the list when the dashboard appears (and on reopen).
-    Component.onCompleted: reload()
-    onVisibleChanged: if (visible) reload()
+    // Populate the list when the dashboard appears (and on reopen). The query
+    // is synchronous, so let the skeleton paint first and load a frame later.
+    property bool _loading: true
+    function scheduleReload() { _loading = true; reloadTimer.restart() }
+    Timer {
+        id: reloadTimer
+        interval: 32
+        onTriggered: { root.reload(); root._loading = false }
+    }
+    Component.onCompleted: scheduleReload()
+    onVisibleChanged: if (visible) scheduleReload()
 
     function formatSize(bytes) {
         if (bytes === 0) return "0 B"
@@ -219,7 +227,27 @@ Item {
         Rectangle { Layout.fillWidth: true; Layout.topMargin: -16; height: 1; color: ThemeManager.outlineVariant }
 
         // List
+        // Skeleton rows while the list loads
+        Column {
+            visible: root._loading
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            spacing: 8
+            clip: true
+            Repeater {
+                model: root._loading ? 10 : 0
+                Item {
+                    width: parent.width; height: 60
+                    Skeleton { x: 8; anchors.verticalCenter: parent.verticalCenter; width: 44; height: 44; radius: 10 }
+                    Skeleton { x: 68; y: 14; width: parent.width * 0.35; height: 14; radius: 7 }
+                    Skeleton { x: 68; y: 34; width: parent.width * 0.18; height: 10; radius: 5 }
+                    Skeleton { anchors.right: parent.right; anchors.rightMargin: 16; anchors.verticalCenter: parent.verticalCenter; width: 72; height: 12; radius: 6 }
+                }
+            }
+        }
+
         ListView {
+            visible: !root._loading
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true

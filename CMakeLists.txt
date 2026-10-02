@@ -210,6 +210,8 @@ qt_add_qml_module(KaderApp
         qml/components/PlacePopup.qml
         qml/components/UpdateDialog.qml
         qml/components/WindowChrome.qml
+        qml/components/Skeleton.qml
+        qml/components/SkeletonGrid.qml
         qml/views/AlbumListView.qml
         qml/views/AlbumDetailView.qml
         qml/views/ViewerOverlay.qml
