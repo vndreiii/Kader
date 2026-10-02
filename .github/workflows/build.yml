@@ -53,11 +53,11 @@ jobs:
           useradd -m builder
           chown -R builder:builder "$GITHUB_WORKSPACE"
           sudo -u builder git config --global --add safe.directory '*'
-          sudo -u builder makepkg --noconfirm --cleanbuild
+          (cd packaging/arch && sudo -u builder makepkg --noconfirm --cleanbuild)
           # pacman names it kader-1:X.Y.Z-…; colons are not allowed in
           # release asset names, so publish it without the epoch prefix.
           mkdir -p dist
-          for f in kader-*.pkg.tar.zst; do mv "$f" "dist/${f/1:/}"; done
+          for f in packaging/arch/kader-*.pkg.tar.zst; do b="$(basename "$f")"; mv "$f" "dist/${b/1:/}"; done
           ls -la dist
       - uses: actions/upload-artifact@v4
         with:
@@ -85,11 +85,22 @@ jobs:
             patchelf desktop-file-utils zsync
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: jurplel/install-qt-action@v4
+      # aqtinstall with the container's own Python (install-qt-action brings a
+      # Python built for a newer glibc than 22.04 has).
+      - name: Cache Qt
+        uses: actions/cache@v4
         with:
-          version: '6.8.3'
-          modules: 'qtmultimedia qtpositioning qtlocation qtshadertools qtimageformats qtwaylandcompositor'
-          cache: true
+          path: /opt/qt
+          key: qt-6.8.3-linux-gcc64-1
+      - name: Install Qt 6.8
+        run: |
+          if [ ! -x /opt/qt/6.8.3/gcc_64/bin/qmake ]; then
+            python3 -m pip install --quiet 'aqtinstall==3.3.*'
+            python3 -m aqt install-qt linux desktop 6.8.3 linux_gcc_64 -O /opt/qt \
+              -m qtmultimedia qtpositioning qtlocation qtshadertools qtimageformats qtwaylandcompositor
+          fi
+          echo "QT_ROOT_DIR=/opt/qt/6.8.3/gcc_64" >> "$GITHUB_ENV"
+          echo "/opt/qt/6.8.3/gcc_64/bin" >> "$GITHUB_PATH"
       - name: Checkout milfs-connect (sibling-app event bus)
         uses: actions/checkout@v4
         with:
@@ -112,7 +123,7 @@ jobs:
       - name: Build Kader
         run: |
           cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
-            -DCMAKE_PREFIX_PATH="$HOME/llama" -DKADER_UPDATE_CHANNEL=appimage
+            -DCMAKE_PREFIX_PATH="$HOME/llama;$QT_ROOT_DIR" -DKADER_UPDATE_CHANNEL=appimage
           cmake --build build
       - name: Package AppImage
         run: QMAKE="$QT_ROOT_DIR/bin/qmake" packaging/appimage/build-appimage.sh build dist

@@ -61,3 +61,9 @@ rust/*/target/
 # Downloaded inputs of the data/screenshot tools
 tools/geo/.cache/
 tools/screenshots/.cache/
+
+# makepkg scratch space (packaging/arch)
+packaging/arch/src/
+packaging/arch/pkg/
+packaging/arch/llama.cpp/
+packaging/arch/*.pkg.tar.zst

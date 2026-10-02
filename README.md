@@ -43,7 +43,7 @@ cmake --build build -j$(nproc)
 
 On Arch Linux:
 ```bash
-makepkg -si
+cd packaging/arch && makepkg -si
 ```
 
 ## Usage

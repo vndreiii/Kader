@@ -1,6 +1,8 @@
 # Maintainer: Alex <alex@milfs.party>
 #
-# Builds Kader from this checkout (run `makepkg -si` in the repository root).
+# Builds Kader from this checkout: `cd packaging/arch && makepkg -si`.
+# (It lives here, not in the repository root, because makepkg uses
+# <PKGBUILD dir>/src as scratch space — in the root that is Kader's sources.)
 # CI uses the same file to produce the pacman package attached to GitHub
 # releases, which the in-app updater installs with `pkexec pacman -U`.
 pkgname=kader
@@ -48,8 +50,8 @@ source=("llama.cpp::git+https://github.com/ggml-org/llama.cpp.git#tag=${_llama_t
 sha256sums=('SKIP')
 
 _root() {
-    # The repository this PKGBUILD lives in.
-    realpath "$startdir"
+    # The repository this PKGBUILD lives in (packaging/arch → ../..).
+    realpath "$startdir/../.."
 }
 
 pkgver() {
