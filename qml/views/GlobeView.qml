@@ -212,7 +212,7 @@ Item {
             }
 
             // ── photo pins ──────────────────────────────────────────────────
-            // A round photo on a short stem with a ground shadow; clusters show
+            // A squircle photo on a short stem with a ground shadow; clusters show
             // a stack of photos behind and a count badge; hovered / active
             // pins lift and get an accent ring with a pulse at the exact spot.
             Item {
@@ -220,7 +220,7 @@ Item {
                 anchors.fill: globe
                 Rectangle {
                     id: pinMask
-                    width: 46; height: 46; radius: 23
+                    width: 46; height: 46; radius: 14
                     visible: false
                     layer.enabled: true
                 }
@@ -297,7 +297,7 @@ Item {
                             model: pin.stacked ? 2 : 0
                             Rectangle {
                                 required property int index
-                                width: 50; height: 50; radius: 25
+                                width: 50; height: 50; radius: 16
                                 x: 3 + (index + 1) * 4
                                 y: 1 - (index + 1) * 3
                                 color: Qt.rgba(1, 1, 1, index === 0 ? 0.55 : 0.30)
@@ -309,11 +309,11 @@ Item {
                         Rectangle {
                             id: frame
                             x: 3; y: 1
-                            width: 50; height: 50; radius: 25
+                            width: 50; height: 50; radius: 16
                             color: pin.ring
                             Rectangle { // placeholder while the thumbnail loads
                                 anchors.centerIn: parent
-                                width: 46; height: 46; radius: 23
+                                width: 46; height: 46; radius: 14
                                 color: Qt.rgba(0.12, 0.14, 0.2, 1)
                             }
                             Image {
