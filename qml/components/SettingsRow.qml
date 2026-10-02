@@ -11,7 +11,20 @@ Item {
     property bool last: false
 
     width: parent ? parent.width : 0
-    height: Math.max(64, infoColumn.height + 32)
+    height: Math.max(72, infoColumn.height + 32)
+
+    // settings search: rows hide when they don't match the query
+    readonly property Item _view: {
+        var p = parent
+        while (p && p.settingsQuery === undefined) p = p.parent
+        return p
+    }
+    readonly property string _q: _view ? _view.settingsQuery.toLowerCase() : ""
+    readonly property bool matches: _q === "" || label.toLowerCase().indexOf(_q) >= 0 || sub.toLowerCase().indexOf(_q) >= 0
+    visible: matches
+
+    SegmentBg { target: root; hovered: rowHover.hovered }
+    HoverHandler { id: rowHover }
 
     Row {
         anchors.fill: parent
@@ -55,17 +68,5 @@ Item {
                 }
             }
         }
-    }
-
-    Rectangle {
-        visible: !root.last
-        anchors.bottom: parent.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.leftMargin: 20
-        anchors.rightMargin: 20
-        height: 1
-        color: ThemeManager.outlineVariant
-        opacity: 0.5
     }
 }
