@@ -257,6 +257,11 @@ qt_add_qml_module(KaderApp
         qml/components/SegmentBg.qml
         qml/components/SettingsTile.qml
         qml/components/M3Slider.qml
+        qml/components/M3LinearProgress.qml
+        qml/components/NameLabel.qml
+        qml/components/PhotoPin.qml
+        qml/components/PersonMenu.qml
+        qml/components/M3CircularProgress.qml
         qml/components/WindowControls.qml
         qml/views/SearchView.qml
         qml/views/PersonPage.qml
@@ -275,6 +280,22 @@ qt_add_qml_module(KaderApp
         assets/icons/kader-128.png
         assets/icons/kader-256.png
         assets/MaterialSymbolsRounded.ttf
+)
+
+# Kader's Qt Quick Controls style: M3 versions of the few controls used
+# stock (ToolTip), everything else from Fusion (customisable, unlike the
+# Windows native style).
+qt_add_qml_module(KaderStyle
+    STATIC
+    URI KaderStyle
+    VERSION 1.0
+    RESOURCE_PREFIX /
+    OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/KaderStyle
+    NO_PLUGIN
+    QML_FILES
+        qml/style/ToolTip.qml
+    IMPORTS
+        QtQuick.Controls.Fusion
 )
 
 # BATCHABLE: scene-graph materials need the batchable vertex-shader variant.
@@ -308,7 +329,7 @@ endif()
 # share/kader for packages.
 configure_file(assets/geo/world.kgeo ${CMAKE_CURRENT_BINARY_DIR}/world.kgeo COPYONLY)
 
-target_link_libraries(kader PRIVATE KaderLib KaderApp)
+target_link_libraries(kader PRIVATE KaderLib KaderApp KaderStyle)
 if(MilfsConnect_FOUND)
     target_link_libraries(kader PRIVATE MilfsConnect::MilfsConnect)
     target_compile_definitions(kader PRIVATE KADER_HAVE_MILFS=1)

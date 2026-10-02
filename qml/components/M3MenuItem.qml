@@ -33,17 +33,41 @@ T.MenuItem {
     // by the secondary_container row fill (see background), so no leading box.
     indicator: null
 
-    contentItem: Text {
+    // Leading icon (Material Symbols name); every menu item should have one
+    // so menus can be scanned at a glance.
+    property string iconName: ""
+    // destructive actions (delete, …) in the error colour
+    property bool destructive: false
+    readonly property color _fg: destructive ? ThemeManager.error
+                                 : control.checked ? ThemeManager.onSecondaryContainer : ThemeManager.onSurface
+
+    contentItem: Item {
         readonly property real _trail: control.subMenu ? (22 + control.spacing) : 0
-        leftPadding: control.mirrored ? _trail : 0
-        rightPadding: control.mirrored ? 0 : _trail
-        text: control.text
-        font: control.font
-        color: ThemeManager.onSurface
+        implicitWidth: (icon.visible ? icon.width + control.spacing : 0) + label.implicitWidth + _trail
+        implicitHeight: Math.max(24, label.implicitHeight)
         opacity: control.enabled ? 1.0 : 0.38
-        elide: Text.ElideRight
-        horizontalAlignment: Text.AlignLeft
-        verticalAlignment: Text.AlignVCenter
+        MaterialSymbol {
+            id: icon
+            visible: control.iconName !== ""
+            anchors.verticalCenter: parent.verticalCenter
+            x: control.mirrored ? parent.width - width : 0
+            name: control.iconName
+            size: 22
+            fill: control.checked ? 1 : 0
+            color: control.destructive ? ThemeManager.error
+                 : control.checked ? ThemeManager.onSecondaryContainer : ThemeManager.onSurfaceVariant
+        }
+        Text {
+            id: label
+            anchors.verticalCenter: parent.verticalCenter
+            x: control.mirrored ? parent._trail : (icon.visible ? icon.width + control.spacing : 0)
+            width: parent.width - (icon.visible ? icon.width + control.spacing : 0) - parent._trail
+            text: control.text
+            font: control.font
+            color: control._fg
+            elide: Text.ElideRight
+            horizontalAlignment: Text.AlignLeft
+        }
     }
 
     arrow: M3Icon {

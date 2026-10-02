@@ -12,8 +12,10 @@ Rectangle {
     readonly property bool maximized: win && (win.visibility === Window.Maximized || win.visibility === Window.FullScreen)
 
     // Settings → Appearance → Window buttons (auto follows the desktop)
-    visible: Settings.windowButtons === 1
+    // (users overriding `visible` must AND it with `wanted`)
+    readonly property bool wanted: Settings.windowButtons === 1
              || (Settings.windowButtons === 0 && typeof SYSTEM_WINDOW_BUTTONS !== "undefined" && SYSTEM_WINDOW_BUTTONS)
+    visible: wanted
     implicitWidth: row.implicitWidth + (glass ? 8 : 0)
     implicitHeight: glass ? 48 : 40
     radius: height / 2

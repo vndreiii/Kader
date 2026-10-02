@@ -200,14 +200,17 @@ ApplicationWindow {
 
         window._refreshPhotoCount()
 
-        // The StackView's initialItem already built the timeline grid, so just
-        // adopt it. Creating a second instance here and replace()-ing it in
-        // meant the whole grid was built twice at startup, and the throwaway
-        // was parented to null — it laid out at its 800px implicitWidth first,
-        // so TimelineModel re-packed a third time once the StackView sized it.
-        // Other views are still created lazily on first navigation.
-        if (!isViewerOnly)
-            _tlViewInst = mainStack.currentItem
+        // The timeline is created here, not as the StackView's initialItem:
+        // StackView destroys items it created itself as soon as they are
+        // replaced, so after the first visit to Search, Map or Settings the
+        // Gallery view was gone and its sidebar entry did nothing. Created
+        // once at the stack's size (so the grid lays out once) and pushed as
+        // an object, it survives every view switch. Other views are still
+        // created lazily on first navigation.
+        if (!isViewerOnly) {
+            _tlViewInst = timelineView.createObject(null, { width: mainStack.width, height: mainStack.height })
+            mainStack.push(_tlViewInst, {}, StackView.Immediate)
+        }
 
         if (isViewerOnly) {
             // NOTE: the standalone viewer fast path is handled by ViewerWindow.qml
@@ -577,10 +580,10 @@ ApplicationWindow {
 
                         M3Menu {
                             id: densityMenu
-                            M3MenuItem { text: I18n.t(Settings.language, "density_dense");       checkable: true; checked: Settings.mosaicDensity === 1; onTriggered: Settings.mosaicDensity = 1 }
-                            M3MenuItem { text: I18n.t(Settings.language, "density_compact");     checkable: true; checked: Settings.mosaicDensity === 2; onTriggered: Settings.mosaicDensity = 2 }
-                            M3MenuItem { text: I18n.t(Settings.language, "density_comfortable"); checkable: true; checked: Settings.mosaicDensity === 3; onTriggered: Settings.mosaicDensity = 3 }
-                            M3MenuItem { text: I18n.t(Settings.language, "density_spacious");    checkable: true; checked: Settings.mosaicDensity === 4; onTriggered: Settings.mosaicDensity = 4 }
+                            M3MenuItem { iconName: "view_comfy"; text: I18n.t(Settings.language, "density_dense");       checkable: true; checked: Settings.mosaicDensity === 1; onTriggered: Settings.mosaicDensity = 1 }
+                            M3MenuItem { iconName: "grid_view"; text: I18n.t(Settings.language, "density_compact");     checkable: true; checked: Settings.mosaicDensity === 2; onTriggered: Settings.mosaicDensity = 2 }
+                            M3MenuItem { iconName: "view_module"; text: I18n.t(Settings.language, "density_comfortable"); checkable: true; checked: Settings.mosaicDensity === 3; onTriggered: Settings.mosaicDensity = 3 }
+                            M3MenuItem { iconName: "view_agenda"; text: I18n.t(Settings.language, "density_spacious");    checkable: true; checked: Settings.mosaicDensity === 4; onTriggered: Settings.mosaicDensity = 4 }
                         }
                     }
 
@@ -638,21 +641,21 @@ ApplicationWindow {
 
                             // Most views share one field set; albums get their own.
                             readonly property var _mediaFields: [
-                                { key: 0, label: I18n.t(Settings.language, "k_date_taken") },
-                                { key: 1, label: I18n.t(Settings.language, "k_date_modified") },
-                                { key: 2, label: I18n.t(Settings.language, "k_name") },
-                                { key: 3, label: I18n.t(Settings.language, "k_size") },
-                                { key: 5, label: I18n.t(Settings.language, "k_type") },
-                                { key: 4, label: I18n.t(Settings.language, "k_last_viewed") },
-                                { key: 8, label: I18n.t(Settings.language, "k_dimensions") },
-                                { key: 6, label: I18n.t(Settings.language, "k_width") },
-                                { key: 7, label: I18n.t(Settings.language, "k_height") },
-                                { key: 9, label: I18n.t(Settings.language, "k_orientation") }
+                                { key: 0, label: I18n.t(Settings.language, "k_date_taken"), icon: "photo_camera" },
+                                { key: 1, label: I18n.t(Settings.language, "k_date_modified"), icon: "edit_calendar" },
+                                { key: 2, label: I18n.t(Settings.language, "k_name"), icon: "sort_by_alpha" },
+                                { key: 3, label: I18n.t(Settings.language, "k_size"), icon: "straighten" },
+                                { key: 5, label: I18n.t(Settings.language, "k_type"), icon: "category" },
+                                { key: 4, label: I18n.t(Settings.language, "k_last_viewed"), icon: "visibility" },
+                                { key: 8, label: I18n.t(Settings.language, "k_dimensions"), icon: "aspect_ratio" },
+                                { key: 6, label: I18n.t(Settings.language, "k_width"), icon: "width" },
+                                { key: 7, label: I18n.t(Settings.language, "k_height"), icon: "height" },
+                                { key: 9, label: I18n.t(Settings.language, "k_orientation"), icon: "crop_rotate" }
                             ]
                             readonly property var _albumFields: [
-                                { key: 0, label: I18n.t(Settings.language, "k_name") },
-                                { key: 1, label: I18n.t(Settings.language, "k_item_count") },
-                                { key: 2, label: I18n.t(Settings.language, "k_size") }
+                                { key: 0, label: I18n.t(Settings.language, "k_name"), icon: "sort_by_alpha" },
+                                { key: 1, label: I18n.t(Settings.language, "k_item_count"), icon: "tag" },
+                                { key: 2, label: I18n.t(Settings.language, "k_size"), icon: "straighten" }
                             ]
 
                             fields:     _alb ? _albumFields : _mediaFields
@@ -683,18 +686,20 @@ ApplicationWindow {
 
                             // ── Type filter — a real Qt submenu (cascade is managed
                             //    as one focus unit, so it no longer fights the parent). ──
-                            MenuSeparator {
+                            M3MenuSeparator {
                                 visible: ["timeline","favorites"].indexOf(window.currentView) >= 0
                                 height: visible ? implicitHeight : 0
                             }
                             M3Menu {
                                 id: typeMenu
                                 title: I18n.t(Settings.language, "filter_by_type")
+                                iconName: "filter_alt"
                                 enabled: ["timeline","favorites"].indexOf(window.currentView) >= 0
                                 property var _types: []
-                                onAboutToShow: _types = TimelineModel.getAvailableMimeTypes()
+                                onAboutToShow: _types = TimelineModel.availableTypes()
 
                                 M3MenuItem {
+                                    iconName: "filter_list"
                                     text: I18n.t(Settings.language, "filter_all_types")
                                     checkable: true
                                     checked: TimelineModel.mimeFilter === ""
@@ -705,22 +710,12 @@ ApplicationWindow {
                                 Instantiator {
                                     model: typeMenu._types
                                     delegate: M3MenuItem {
-                                        required property string modelData
-                                        text: {
-                                            var m = {
-                                                "image/jpeg":"JPEG","image/png":"PNG","image/gif":"GIF",
-                                                "image/webp":"WebP","image/heic":"HEIC","image/heif":"HEIF",
-                                                "image/tiff":"TIFF","image/bmp":"BMP","image/avif":"AVIF",
-                                                "image/x-canon-cr2":"Canon RAW","image/x-nikon-nef":"Nikon RAW",
-                                                "image/x-sony-arw":"RAW","image/x-adobe-dng":"DNG","video/mp4":"MP4",
-                                                "video/quicktime":"MOV","video/x-msvideo":"AVI",
-                                                "video/webm":"WebM","video/x-matroska":"MKV"
-                                            }
-                                            return m[modelData] || modelData.split("/").pop().toUpperCase()
-                                        }
+                                        iconName: modelData.filter.indexOf("video/") === 0 ? "movie" : "image"
+                                        required property var modelData
+                                        text: modelData.label
                                         checkable: true
-                                        checked: TimelineModel.mimeFilter === modelData
-                                        onTriggered: TimelineModel.setMimeFilter(modelData)
+                                        checked: TimelineModel.mimeFilter === modelData.filter
+                                        onTriggered: TimelineModel.setMimeFilter(modelData.filter)
                                     }
                                     onObjectAdded: (index, obj) => typeMenu.insertItem(index + 2, obj)
                                     onObjectRemoved: (index, obj) => typeMenu.removeItem(obj)
@@ -868,7 +863,6 @@ ApplicationWindow {
                 id: mainStack
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                initialItem: timelineView
                 
                 pushEnter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: ThemeManager.durMed; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
                 pushExit: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: ThemeManager.durMed; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }

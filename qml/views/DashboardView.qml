@@ -37,17 +37,22 @@ Item {
     property var selected: ({})
     readonly property int selCount: Object.keys(selected).length
 
-    function reload() {
-        StorageManager.refresh()
-        ov = StorageManager.overview()
-        folders = StorageManager.byFolder(8)
-        years = StorageManager.byYear()
-        types = StorageManager.byType()
-        largest = StorageManager.largest(60)
-        dups = StorageManager.duplicates(40)
-        trash = StorageManager.trashItems(200)
-        selected = ({})
-        _loading = false
+    // Queries run on a worker thread (StorageManager.loadDashboard); the
+    // skeleton shows until they arrive, so opening the page never stalls.
+    function reload() { StorageManager.loadDashboard() }
+    Connections {
+        target: StorageManager
+        function onDashboardLoaded(d) {
+            root.ov = d.overview
+            root.folders = d.folders
+            root.years = d.years
+            root.types = d.types
+            root.largest = d.largest
+            root.dups = d.dups
+            root.trash = d.trash
+            root.selected = ({})
+            root._loading = false
+        }
     }
     function scheduleReload() { _loading = true; reloadTimer.restart() }
     Timer { id: reloadTimer; interval: 32; onTriggered: root.reload() }
@@ -514,6 +519,7 @@ Item {
                 visible: fr.item !== null
                 Layout.preferredWidth: 40; Layout.preferredHeight: 40
                 contentItem: MaterialSymbol { name: "folder_open"; size: 20; color: ThemeManager.onSurfaceVariant }
+                background: Rectangle { radius: width / 2; color: parent.pressed ? Qt.alpha(ThemeManager.onSurface, 0.12) : parent.hovered ? Qt.alpha(ThemeManager.onSurface, 0.08) : "transparent" }
                 onClicked: DB.revealInFolder(fr.item.file_path)
                 ToolTip.visible: hovered; ToolTip.text: root._t("show_in_folder")
             }
@@ -524,6 +530,15 @@ Item {
                 border.width: fr.sel ? 0 : 2
                 border.color: ThemeManager.outline
                 MaterialSymbol { anchors.centerIn: parent; visible: fr.sel; name: "check"; size: 16; color: ThemeManager.onPrimary }
+                // the row's MouseArea stops short of the buttons; the box
+                // needs its own (with a 40 px touch target)
+                MouseArea {
+                    anchors.centerIn: parent
+                    width: 40; height: 40
+                    enabled: fr.item !== null
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.toggle(fr.item)
+                }
             }
         }
         MouseArea {

@@ -74,7 +74,26 @@ public:
     Q_INVOKABLE QVariantList suggestedFaces(int id, int limit = 48);
     Q_INVOKABLE void renamePerson(int id, const QString &name);
     Q_INVOKABLE void setPersonHidden(int id, bool hidden);
+    // Remove a person from People for good (e.g. an actor on a TV still):
+    // their detected faces are dropped, the photos stay.
+    Q_INVOKABLE void forgetPerson(int id);
     Q_INVOKABLE void removeFaces(const QVariantList &faceIds);
+    // Photos picked on a person's page: their faces of this person are "not
+    // this person" (removeFromPerson) or not a face at all (discard).
+    Q_INVOKABLE void removePersonFromMedia(int personId, const QVariantList &mediaIds);
+    Q_INVOKABLE void discardPersonFacesInMedia(int personId, const QVariantList &mediaIds);
+
+    // ── review deck (Calibrate) ──────────────────────────────────────────
+    // Faces the grouping is least sure about, for "is this <person>?" cards:
+    // the person's own least typical faces and look-alikes from outside.
+    // personId < 0: a mix across the largest people. Each card:
+    // {faceId, personId, personName, similarity, inPerson, thumb}.
+    Q_INVOKABLE QVariantList reviewQueue(int personId, int limit = 24);
+    // One swipe: pins the face to the person (same) or excludes it from them.
+    Q_INVOKABLE void answerReview(int faceId, int personId, bool same, double similarity);
+    // After a round: learn the grouping threshold from every answer so far
+    // and re-group. Returns {answered, threshold, changed}.
+    Q_INVOKABLE QVariantMap finishReview();
     Q_INVOKABLE void assignFaces(const QVariantList &faceIds, int personId);
     Q_INVOKABLE int newPerson(const QVariantList &faceIds, const QString &name);
     Q_INVOKABLE void mergePeople(int from, int into);
@@ -146,6 +165,7 @@ private:
     int m_total = 0;
     bool m_facesEnabled = false;
     double m_threshold = 0.38;
+    int m_reviewAnswered = 0;
     int m_revision = 0;
     QString m_error;
 

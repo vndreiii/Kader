@@ -306,21 +306,17 @@ Item {
     property string settingsQuery: ""
     readonly property bool compactNav: width < 900
     readonly property var categories: [
-        { key: "library",     icon: "photo_library",  hue: 0.58, t: "section_library" },
-        { key: "appearance",  icon: "palette",        hue: 0.83, t: "section_appearance" },
-        { key: "playback",    icon: "play_circle",    hue: 0.95, t: "section_playback" },
-        { key: "raw",         icon: "raw_on",         hue: 0.08, t: "section_raw" },
-        { key: "privacy",     icon: "shield",         hue: 0.36, t: "section_privacy" },
-        { key: "places",      icon: "public",         hue: 0.50, t: "section_map" },
-        { key: "ai",          icon: "auto_awesome",   hue: 0.72, t: "section_ai" },
-        { key: "performance", icon: "speed",          hue: 0.13, t: "section_performance" },
-        { key: "updates",     icon: "system_update",  hue: 0.62, t: "section_updates" },
-        { key: "about",       icon: "info",           hue: 0.0,  t: "section_about" }
+        { key: "library",     icon: "photo_library",  t: "section_library" },
+        { key: "appearance",  icon: "palette",        t: "section_appearance" },
+        { key: "playback",    icon: "play_circle",    t: "section_playback" },
+        { key: "raw",         icon: "raw_on",         t: "section_raw" },
+        { key: "privacy",     icon: "shield",         t: "section_privacy" },
+        { key: "places",      icon: "public",         t: "section_map" },
+        { key: "ai",          icon: "auto_awesome",   t: "section_ai" },
+        { key: "performance", icon: "speed",          t: "section_performance" },
+        { key: "updates",     icon: "system_update",  t: "section_updates" },
+        { key: "about",       icon: "info",           t: "section_about" }
     ]
-    function tileBg(h) { return h === 0.0 ? ThemeManager.surfaceContainerHighest
-                                           : Qt.hsla(h, ThemeManager.isDark ? 0.35 : 0.70, ThemeManager.isDark ? 0.28 : 0.86, 1) }
-    function tileFg(h) { return h === 0.0 ? ThemeManager.onSurfaceVariant
-                                           : Qt.hsla(h, ThemeManager.isDark ? 0.70 : 0.65, ThemeManager.isDark ? 0.82 : 0.28, 1) }
     function applyPages() {
         var q = settingsQuery.trim()
         for (var i = 0; i < settingsColumn.children.length; i++) {
@@ -384,12 +380,17 @@ Item {
                     Row {
                         anchors { left: parent.left; leftMargin: root.compactNav ? (parent.width - 40) / 2 : 10; verticalCenter: parent.verticalCenter }
                         spacing: 14
-                        Rectangle {
+                        // plain icons, like the main sidebar
+                        Item {
                             width: 40; height: 40
-                            radius: sel ? 14 : 20   // circle → squircle when selected (shape morph)
-                            Behavior on radius { NumberAnimation { duration: 260; easing.type: Easing.OutBack } }
-                            color: root.tileBg(modelData.hue)
-                            MaterialSymbol { anchors.centerIn: parent; name: modelData.icon; size: 22; color: root.tileFg(modelData.hue); fill: sel ? 1 : 0 }
+                            MaterialSymbol {
+                                anchors.centerIn: parent
+                                name: modelData.icon
+                                size: 24
+                                color: sel ? ThemeManager.onSecondaryContainer : ThemeManager.onSurfaceVariant
+                                fill: sel ? 1 : 0
+                                Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
+                            }
                         }
                         Label {
                             visible: !root.compactNav
@@ -397,7 +398,7 @@ Item {
                             text: I18n.t(Settings.language, modelData.t)
                             font.pixelSize: 15
                             font.weight: sel ? Font.DemiBold : Font.Medium
-                            color: sel ? ThemeManager.onSecondaryContainer : ThemeManager.onSurface
+                            color: sel ? ThemeManager.onSecondaryContainer : ThemeManager.onSurfaceVariant
                         }
                     }
                     MouseArea {
@@ -975,7 +976,7 @@ Item {
                         }
 
                         // Spinner while loading
-                        BusyIndicator {
+                        M3CircularProgress {
                             visible: AI.loading
                             width: 28; height: 28
                             running: AI.loading
@@ -1342,7 +1343,7 @@ Item {
                     font.pixelSize: 13
                 }
             }
-            ProgressBar { id: stripBar; width: parent.width; visible: FileScanner.stripping; from: 0; to: 1 }
+            M3LinearProgress { id: stripBar; width: parent.width; visible: FileScanner.stripping; from: 0; to: 1 }
             Label { visible: stripDialog.result.length > 0; text: stripDialog.result; color: ThemeManager.primary }
             Row {
                 anchors.right: parent.right

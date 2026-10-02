@@ -20,10 +20,15 @@ Item {
     property string offlineName: ""         // instant name from the globe dataset
 
     signal openRequested(var place)
+    // Open the viewer on the photo currently shown in the card's strip.
+    signal openItems(var items, int index)
     signal closeRequested()
 
     readonly property bool shown: place !== null
     readonly property int placeCount: place && place.places ? place.places.length : 0
+    // every photo of the place, newest first (the strip swipes through them)
+    property var items: []
+    readonly property var stripModel: items.length > 0 ? items : thumbs.map(function(t) { return { thumb: t } })
     readonly property var thumbs: {
         if (!place || !place.places) return []
         var out = []
@@ -41,6 +46,9 @@ Item {
 
     onPlaceChanged: {
         if (place && !_closing) { closeAnim.stop(); morph = 0; openAnim.restart() }
+        items = place && place.places ? DB.getMediaForPlaces(place.places) : []
+        strip.positionViewAtBeginning()
+        strip.currentIndex = 0
         address = ""
         if (!place) return
         var k = _key(place.lat, place.lon)
@@ -216,43 +224,101 @@ Item {
                     opacity: root.contentOpacity
                     visible: opacity > 0.01
 
-                    // Mosaic: one hero + up to two side thumbs
+                    // Every photo of the place: drag or use the arrows to
+                    // swipe; Open starts the viewer on the one shown.
                     Item {
+                        id: stripBox
                         width: parent.width
-                        height: 128
-                        Rectangle {
-                            id: hero
-                            anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                            width: root.thumbs.length > 1 ? parent.width * 0.64 : parent.width
-                            radius: 12; clip: true
-                            color: Qt.rgba(1, 1, 1, 0.06)
-                            Image {
-                                anchors.fill: parent
-                                source: root.thumbs.length > 0 ? root.thumbs[0] : ""
-                                fillMode: Image.PreserveAspectCrop
-                                asynchronous: true
-                                sourceSize.width: 360
+                        height: 150
+                        ListView {
+                            id: strip
+                            anchors.fill: parent
+                            orientation: ListView.Horizontal
+                            snapMode: ListView.SnapOneItem
+                            highlightRangeMode: ListView.StrictlyEnforceRange
+                            preferredHighlightBegin: 0
+                            preferredHighlightEnd: width
+                            highlightMoveDuration: 220
+                            boundsBehavior: Flickable.StopAtBounds
+                            spacing: 8
+                            clip: true
+                            model: root.stripModel
+                            delegate: Rectangle {
+                                required property var modelData
+                                width: strip.width
+                                height: strip.height
+                                radius: 12
+                                clip: true
+                                color: Qt.rgba(1, 1, 1, 0.06)
+                                Image {
+                                    anchors.fill: parent
+                                    source: parent.modelData.thumb || ""
+                                    fillMode: Image.PreserveAspectCrop
+                                    asynchronous: true
+                                    sourceSize.width: 480
+                                }
+                                Rectangle {
+                                    visible: (parent.modelData.mime_type || "").toString().startsWith("video/")
+                                    anchors { left: parent.left; top: parent.top; margins: 8 }
+                                    width: 24; height: 24; radius: 12
+                                    color: Qt.alpha("black", 0.55)
+                                    M3Icon { anchors.centerIn: parent; name: "play"; size: 14; color: "white" }
+                                }
                             }
                         }
-                        Column {
-                            visible: root.thumbs.length > 1
-                            anchors { left: hero.right; leftMargin: 6; right: parent.right; top: parent.top; bottom: parent.bottom }
-                            spacing: 6
+                        HoverHandler { id: stripHover }
+                        // position: "2 / 5"
+                        Rectangle {
+                            visible: strip.count > 1
+                            anchors { right: parent.right; top: parent.top; margins: 8 }
+                            height: 22; radius: 11
+                            width: posLbl.implicitWidth + 16
+                            color: Qt.alpha("black", 0.6)
+                            Label {
+                                id: posLbl
+                                anchors.centerIn: parent
+                                text: (strip.currentIndex + 1) + " / " + strip.count
+                                color: "white"; font.pixelSize: 11; font.weight: Font.Medium
+                            }
+                        }
+                        // dots
+                        Row {
+                            visible: strip.count > 1 && strip.count <= 12
+                            anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: 8 }
+                            spacing: 5
                             Repeater {
-                                model: root.thumbs.slice(1, 3)
+                                model: strip.count <= 12 ? strip.count : 0
                                 Rectangle {
-                                    required property var modelData
-                                    width: parent.width
-                                    height: root.thumbs.length > 2 ? (128 - 6) / 2 : 128
-                                    radius: 10; clip: true
-                                    color: Qt.rgba(1, 1, 1, 0.06)
-                                    Image {
-                                        anchors.fill: parent
-                                        source: parent.modelData
-                                        fillMode: Image.PreserveAspectCrop
-                                        asynchronous: true
-                                        sourceSize.width: 200
-                                    }
+                                    required property int index
+                                    width: index === strip.currentIndex ? 14 : 6
+                                    height: 6; radius: 3
+                                    color: index === strip.currentIndex ? "white" : Qt.alpha("white", 0.5)
+                                    Behavior on width { NumberAnimation { duration: 160 } }
+                                }
+                            }
+                        }
+                        // prev / next on hover
+                        Repeater {
+                            model: [-1, 1]
+                            Rectangle {
+                                required property var modelData
+                                readonly property bool can: modelData < 0 ? strip.currentIndex > 0 : strip.currentIndex < strip.count - 1
+                                visible: stripHover.hovered && can
+                                anchors.verticalCenter: parent.verticalCenter
+                                x: modelData < 0 ? 6 : parent.width - width - 6
+                                width: 30; height: 30; radius: 15
+                                color: navMa.containsMouse ? Qt.alpha("black", 0.75) : Qt.alpha("black", 0.55)
+                                MaterialSymbol {
+                                    anchors.centerIn: parent
+                                    name: parent.modelData < 0 ? "chevron_left" : "chevron_right"
+                                    size: 20; color: "white"
+                                }
+                                MouseArea {
+                                    id: navMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: strip.currentIndex += parent.modelData
                                 }
                             }
                         }
@@ -316,7 +382,10 @@ Item {
                                 id: openMa
                                 anchors.fill: parent
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: root.openRequested(root.place)
+                                onClicked: {
+                                    if (root.items.length > 0) root.openItems(root.items, strip.currentIndex)
+                                    else root.openRequested(root.place)
+                                }
                             }
                         }
                     }

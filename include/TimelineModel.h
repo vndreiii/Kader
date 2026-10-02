@@ -71,6 +71,7 @@ public:
     Q_INVOKABLE QString monthAtRow(int row) const;
     Q_INVOKABLE void markAsViewed(int mediaId);
     Q_INVOKABLE QStringList getAvailableMimeTypes() const;
+    Q_INVOKABLE QVariantList availableTypes() const;   // [{label, filter}]
 
     // Exact layout — the grid uses these instead of ListView's estimated
     // contentHeight, so large libraries scroll precisely (no bottom spring-back).

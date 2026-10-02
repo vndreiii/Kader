@@ -1,4 +1,5 @@
 #include "LibraryAnalyzer.h"
+#include <QUrl>
 #include "AppPaths.h"
 
 #include "DatabaseManager.h"
@@ -23,6 +24,7 @@
 #include <QThreadPool>
 #include <QtConcurrent>
 #include <algorithm>
+#include <climits>
 #include <cmath>
 #include <map>
 
@@ -56,7 +58,7 @@ QVariantMap rowToMedia(const QSqlQuery &q, const QSqlRecord &rec) {
         m.insert(rec.fieldName(i), q.value(i));
     const QString fp = m.value(QStringLiteral("file_path")).toString();
     m.insert(QStringLiteral("thumb"), ThumbnailGenerator::thumbnailUrl(fp));
-    m.insert(QStringLiteral("path"), QStringLiteral("file://") + fp);
+    m.insert(QStringLiteral("path"), QUrl::fromLocalFile(fp).toString());
     return m;
 }
 
@@ -706,6 +708,20 @@ void LibraryAnalyzer::setPersonHidden(int id, bool hidden) {
     bump();
 }
 
+void LibraryAnalyzer::forgetPerson(int id) {
+    QSqlDatabase db = m_db->threadDb();
+    db.transaction();
+    QSqlQuery q(db);
+    q.prepare(QStringLiteral("DELETE FROM faces WHERE person_id = ?"));
+    q.addBindValue(id);
+    q.exec();
+    q.prepare(QStringLiteral("DELETE FROM persons WHERE id = ?"));
+    q.addBindValue(id);
+    q.exec();
+    db.commit();
+    bump();
+}
+
 void LibraryAnalyzer::removeFaces(const QVariantList &faceIds) {
     QSqlDatabase db = m_db->threadDb();
     db.transaction();
@@ -717,6 +733,9 @@ void LibraryAnalyzer::removeFaces(const QVariantList &faceIds) {
         q.exec();
     }
     db.commit();
+    // Show the change now: recluster() is deferred while the library is
+    // being analysed, which left removed faces on screen until it finished.
+    bump();
     recluster();
 }
 
@@ -731,7 +750,259 @@ void LibraryAnalyzer::assignFaces(const QVariantList &faceIds, int personId) {
         q.exec();
     }
     db.commit();
+    bump();
     recluster();
+}
+
+namespace {
+QString idList(const QVariantList &ids) {
+    QStringList out;
+    for (const QVariant &v : ids)
+        out << QString::number(v.toInt());
+    return out.join(QLatin1Char(','));
+}
+} // namespace
+
+void LibraryAnalyzer::removePersonFromMedia(int personId, const QVariantList &mediaIds) {
+    if (mediaIds.isEmpty())
+        return;
+    QSqlQuery q(m_db->threadDb());
+    q.prepare(QStringLiteral("SELECT id FROM faces WHERE person_id = ? AND media_id IN (%1)").arg(idList(mediaIds)));
+    q.addBindValue(personId);
+    q.exec();
+    QVariantList faces;
+    while (q.next())
+        faces << q.value(0);
+    removeFaces(faces);
+}
+
+void LibraryAnalyzer::discardPersonFacesInMedia(int personId, const QVariantList &mediaIds) {
+    if (mediaIds.isEmpty())
+        return;
+    // Not a face (a mask, a poster, a statue…): forget the detection. The
+    // photo stays analysed, so it isn't detected again.
+    QSqlQuery q(m_db->threadDb());
+    q.prepare(QStringLiteral("DELETE FROM faces WHERE person_id = ? AND media_id IN (%1)").arg(idList(mediaIds)));
+    q.addBindValue(personId);
+    q.exec();
+    bump();
+    recluster();
+}
+
+// ── review deck ───────────────────────────────────────────────────────────
+
+namespace {
+// Unit-length mean embedding of a person's faces (empty if none).
+std::vector<float> personCentroid(QSqlDatabase &db, int personId) {
+    std::vector<float> c(KF_EMBED_DIM, 0.f);
+    QSqlQuery q(db);
+    q.prepare(QStringLiteral("SELECT embedding FROM faces WHERE person_id = ?"));
+    q.addBindValue(personId);
+    q.exec();
+    int n = 0;
+    while (q.next()) {
+        const QByteArray e = q.value(0).toByteArray();
+        if (e.size() != int(KF_EMBED_DIM * sizeof(float)))
+            continue;
+        const auto *f = reinterpret_cast<const float *>(e.constData());
+        for (int i = 0; i < KF_EMBED_DIM; ++i)
+            c[size_t(i)] += f[i];
+        ++n;
+    }
+    float norm = 0;
+    for (float v : c)
+        norm += v * v;
+    norm = std::sqrt(norm);
+    if (n == 0 || norm < 1e-6f)
+        return {};
+    for (float &v : c)
+        v /= norm;
+    return c;
+}
+
+float dotEmb(const QByteArray &e, const std::vector<float> &c) {
+    const auto *f = reinterpret_cast<const float *>(e.constData());
+    float s = 0;
+    for (int i = 0; i < KF_EMBED_DIM; ++i)
+        s += f[i] * c[size_t(i)];
+    return s;
+}
+
+QVector<double> readSims(const QString &csv) {
+    QVector<double> out;
+    for (const QString &p : csv.split(QLatin1Char(','), Qt::SkipEmptyParts))
+        out << p.toDouble();
+    return out;
+}
+QString writeSims(QVector<double> v) {
+    if (v.size() > 400)              // keep the most recent answers
+        v.remove(0, v.size() - 400);
+    QStringList out;
+    for (double d : v)
+        out << QString::number(d, 'f', 4);
+    return out.join(QLatin1Char(','));
+}
+} // namespace
+
+QVariantList LibraryAnalyzer::reviewQueue(int personId, int limit) {
+    QVariantList out;
+    if (!m_facesEnabled || limit <= 0)
+        return out;
+    QList<QPair<int, QString>> targets;
+    if (personId >= 0) {
+        targets << qMakePair(personId, person(personId).value(QStringLiteral("name")).toString());
+    } else {
+        const QVariantList ps = people(false);
+        for (int i = 0; i < ps.size() && targets.size() < 6; ++i) {
+            const QVariantMap p = ps[i].toMap();
+            targets << qMakePair(p.value(QStringLiteral("id")).toInt(), p.value(QStringLiteral("name")).toString());
+        }
+    }
+    if (targets.isEmpty())
+        return out;
+    const int per = std::max(4, limit / int(targets.size()));
+    const float thr = float(m_threshold);
+    QSqlDatabase db = m_db->threadDb();
+
+    struct Card {
+        int face;
+        QString path;
+        float sim;
+        bool in;
+    };
+    QList<QVariantList> decks;
+    for (const auto &[pid, pname] : std::as_const(targets)) {
+        const std::vector<float> c = personCentroid(db, pid);
+        if (c.empty())
+            continue;
+        std::vector<Card> mine, others;
+        QSqlQuery q(db);
+        // the person's unconfirmed faces, least typical first
+        q.prepare(QStringLiteral("SELECT f.id, m.file_path, f.embedding FROM faces f JOIN media m ON m.id = f.media_id "
+                                 "WHERE %1 AND f.person_id = ? AND f.confirmed = 0").arg(QLatin1String(kAlive)));
+        q.addBindValue(pid);
+        q.exec();
+        while (q.next()) {
+            const QByteArray e = q.value(2).toByteArray();
+            if (e.size() == int(KF_EMBED_DIM * sizeof(float)))
+                mine.push_back({q.value(0).toInt(), q.value(1).toString(), dotEmb(e, c), true});
+        }
+        // look-alikes outside the person, closest to the line first
+        q.prepare(QStringLiteral("SELECT f.id, m.file_path, f.embedding FROM faces f JOIN media m ON m.id = f.media_id "
+                                 "WHERE %1 AND COALESCE(f.person_id,-1) != ? AND f.excluded_person != ? AND f.confirmed = 0")
+                      .arg(QLatin1String(kAlive)));
+        q.addBindValue(pid);
+        q.addBindValue(pid);
+        q.exec();
+        while (q.next()) {
+            const QByteArray e = q.value(2).toByteArray();
+            if (e.size() != int(KF_EMBED_DIM * sizeof(float)))
+                continue;
+            const float s = dotEmb(e, c);
+            if (s >= thr - 0.15f)
+                others.push_back({q.value(0).toInt(), q.value(1).toString(), s, false});
+        }
+        std::sort(mine.begin(), mine.end(), [](const Card &a, const Card &b) { return a.sim < b.sim; });
+        std::sort(others.begin(), others.end(), [thr](const Card &a, const Card &b) {
+            return std::abs(a.sim - thr) < std::abs(b.sim - thr);
+        });
+        // alternate the two kinds so the answers aren't all "yes" then "no"
+        QVariantList deck;
+        size_t a = 0, b = 0;
+        while (deck.size() < per && (a < mine.size() || b < others.size())) {
+            const bool takeMine = (deck.size() % 2 == 0 && a < mine.size()) || b >= others.size();
+            const Card &cd = takeMine ? mine[a++] : others[b++];
+            deck << QVariantMap{{QStringLiteral("faceId"), cd.face},
+                                {QStringLiteral("personId"), pid},
+                                {QStringLiteral("personName"), pname},
+                                {QStringLiteral("personCover"), person(pid).value(QStringLiteral("cover"))},
+                                {QStringLiteral("similarity"), double(cd.sim)},
+                                {QStringLiteral("inPerson"), cd.in},
+                                {QStringLiteral("thumb"), ThumbnailGenerator::thumbnailUrl(cd.path)}};
+        }
+        decks << deck;
+    }
+    // interleave people for the "everyone" deck
+    for (int i = 0; out.size() < limit; ++i) {
+        bool any = false;
+        for (const QVariantList &d : std::as_const(decks))
+            if (i < d.size() && out.size() < limit) {
+                out << d[i];
+                any = true;
+            }
+        if (!any)
+            break;
+    }
+    return out;
+}
+
+void LibraryAnalyzer::answerReview(int faceId, int personId, bool same, double similarity) {
+    QSqlDatabase db = m_db->threadDb();
+    QSqlQuery q(db);
+    if (same) {
+        q.prepare(QStringLiteral("UPDATE faces SET person_id = ?, confirmed = 1, excluded_person = -1 WHERE id = ?"));
+        q.addBindValue(personId);
+        q.addBindValue(faceId);
+    } else {
+        // out of this person (if it was in), and never grouped back into them
+        q.prepare(QStringLiteral("UPDATE faces SET excluded_person = ?, "
+                                 "person_id = CASE WHEN person_id = ? THEN NULL ELSE person_id END, "
+                                 "confirmed = CASE WHEN person_id = ? THEN 0 ELSE confirmed END WHERE id = ?"));
+        q.addBindValue(personId);
+        q.addBindValue(personId);
+        q.addBindValue(personId);
+        q.addBindValue(faceId);
+    }
+    q.exec();
+    // every answer is a labelled example for the threshold
+    const QString key = same ? QStringLiteral("faces_review_yes") : QStringLiteral("faces_review_no");
+    QVector<double> sims = readSims(setting(key, QString()));
+    sims << similarity;
+    setSetting(key, writeSims(sims));
+    ++m_reviewAnswered;
+}
+
+QVariantMap LibraryAnalyzer::finishReview() {
+    QVariantMap res{{QStringLiteral("answered"), m_reviewAnswered},
+                    {QStringLiteral("threshold"), m_threshold},
+                    {QStringLiteral("changed"), false}};
+    if (m_reviewAnswered == 0)
+        return res;
+    m_reviewAnswered = 0;
+    QVector<double> yes = readSims(setting(QStringLiteral("faces_review_yes"), QString()));
+    QVector<double> no = readSims(setting(QStringLiteral("faces_review_no"), QString()));
+    const double before = m_threshold;
+    if (!yes.isEmpty() && !no.isEmpty()) {
+        // the similarity that best separates "same person" from "not": try
+        // every cut between the answers, keep the one with fewest mistakes
+        QVector<double> all = yes + no;
+        std::sort(all.begin(), all.end());
+        double best = m_threshold;
+        int bestErr = INT_MAX;
+        for (int i = 0; i + 1 < all.size(); ++i) {
+            const double cut = (all[i] + all[i + 1]) / 2;
+            int err = 0;
+            for (double y : std::as_const(yes))
+                err += y < cut;
+            for (double n : std::as_const(no))
+                err += n >= cut;
+            if (err < bestErr || (err == bestErr && std::abs(cut - m_threshold) < std::abs(best - m_threshold)))
+                bestErr = err, best = cut;
+        }
+        // trust grows with the number of answers; move gradually
+        const double w = std::min(0.8, double(yes.size() + no.size()) / 60.0);
+        const double t = std::clamp(m_threshold * (1 - w) + best * w, 0.25, 0.6);
+        if (std::abs(t - m_threshold) >= 0.005) {
+            setThreshold(t);          // re-groups
+            res.insert(QStringLiteral("threshold"), m_threshold);
+            res.insert(QStringLiteral("changed"), std::abs(m_threshold - before) >= 0.005);
+            bump();
+            return res;
+        }
+    }
+    bump();
+    recluster();
+    return res;
 }
 
 int LibraryAnalyzer::newPerson(const QVariantList &faceIds, const QString &name) {

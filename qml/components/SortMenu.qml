@@ -37,6 +37,7 @@ M3Menu {
     Instantiator {
         model: root.fields
         delegate: M3MenuItem {
+            iconName: modelData.icon || ""
             required property var modelData
             text: modelData.label
             checkable: true
@@ -55,12 +56,14 @@ M3Menu {
 
     // ── Order ────────────────────────────────────────────────────────────────
     M3MenuItem {
+        iconName: "arrow_upward"
         text: root.ascLabel
         checkable: true
         checked: root.ascending
         onTriggered: root.orderPicked(true)
     }
     M3MenuItem {
+        iconName: "arrow_downward"
         text: root.descLabel
         checkable: true
         checked: !root.ascending

@@ -1,4 +1,5 @@
 #include "TimelineModel.h"
+#include <QUrl>
 #include "DatabaseManager.h"
 #include "ThumbnailGenerator.h"
 #include <QDateTime>
@@ -134,6 +135,45 @@ void TimelineModel::markAsViewed(int mediaId) {
     q.exec();
 }
 
+// A file type's everyday name: "AVI", not "VND.AVI"; "MKV", not "MATROSKA".
+static QString typeLabel(const QString &mime) {
+    static const QHash<QString, QString> known = {
+        {"image/jpeg", "JPEG"}, {"image/png", "PNG"}, {"image/gif", "GIF"}, {"image/webp", "WebP"},
+        {"image/heic", "HEIC"}, {"image/heif", "HEIF"}, {"image/avif", "AVIF"}, {"image/tiff", "TIFF"},
+        {"image/bmp", "BMP"}, {"image/x-adobe-dng", "DNG"}, {"image/x-canon-cr2", "Canon RAW"},
+        {"image/x-canon-cr3", "Canon RAW"}, {"image/x-nikon-nef", "Nikon RAW"}, {"image/x-sony-arw", "Sony RAW"},
+        {"image/x-fuji-raf", "Fujifilm RAW"}, {"image/x-olympus-orf", "Olympus RAW"},
+        {"image/x-panasonic-rw2", "Panasonic RAW"},
+        {"video/mp4", "MP4"}, {"video/quicktime", "MOV"}, {"video/webm", "WebM"},
+        {"video/x-matroska", "MKV"}, {"video/matroska", "MKV"}, {"video/mkv", "MKV"},
+        {"video/x-msvideo", "AVI"}, {"video/vnd.avi", "AVI"}, {"video/avi", "AVI"}, {"video/msvideo", "AVI"},
+    };
+    const auto it = known.constFind(mime);
+    if (it != known.constEnd())
+        return it.value();
+    QString sub = mime.section(QLatin1Char('/'), 1);
+    for (const char *junk : {"x-", "vnd.", "ms-"})
+        if (sub.startsWith(QLatin1String(junk)))
+            sub = sub.mid(int(qstrlen(junk)));
+    return sub.toUpper();
+}
+
+QVariantList TimelineModel::availableTypes() const {
+    // {label, filter}: one entry per everyday name, the filter covering every
+    // MIME type stored under it
+    QMap<QString, QStringList> byLabel;
+    for (const QString &mime : getAvailableMimeTypes()) {
+        QStringList &l = byLabel[typeLabel(mime)];
+        if (!l.contains(mime))
+            l << mime;
+    }
+    QVariantList out;
+    for (auto it = byLabel.constBegin(); it != byLabel.constEnd(); ++it)
+        out << QVariantMap{{QStringLiteral("label"), it.key()},
+                           {QStringLiteral("filter"), it.value().join(QLatin1Char('|'))}};
+    return out;
+}
+
 QStringList TimelineModel::getAvailableMimeTypes() const {
     QSet<QString> seen;
     QStringList result;
@@ -240,12 +280,16 @@ void TimelineModel::refresh(bool hideIgnored) {
         allMedia = filtered;
     }
 
-    // In-memory MIME prefix filter (e.g. "video/" shows only videos)
+    // In-memory MIME prefix filter (e.g. "video/" shows only videos); several
+    // prefixes separated by '|' (one file type stored under different names)
     if (!m_mimeFilter.isEmpty()) {
+        const QStringList prefixes = m_mimeFilter.split(QLatin1Char('|'), Qt::SkipEmptyParts);
         QVariantList filtered;
-        for (const QVariant &v : allMedia)
-            if (v.toMap().value("mime_type").toString().startsWith(m_mimeFilter))
-                filtered.append(v);
+        for (const QVariant &v : allMedia) {
+            const QString mime = v.toMap().value("mime_type").toString();
+            for (const QString &p : prefixes)
+                if (mime.startsWith(p)) { filtered.append(v); break; }
+        }
         allMedia = filtered;
     }
 
@@ -396,7 +440,7 @@ void TimelineModel::repack() {
         }
 
         map["thumb"]       = ThumbnailGenerator::thumbnailUrl(fp);
-        map["path"]        = "file://" + fp;
+        map["path"]        = QUrl::fromLocalFile(fp).toString();
         map["_flat_index"] = flatIdx++;
         const float itemAr = aspectRatio(map, flatIdx - 1);
         rowBuf.append(map);

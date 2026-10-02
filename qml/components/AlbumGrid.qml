@@ -42,14 +42,17 @@ Item {
             M3Menu {
                 id: albumMenu
                 M3MenuItem {
+                    iconName: model.pinned ? "keep_off" : "keep"
                     text: model.pinned ? "Unpin album" : "Pin album"
                     onTriggered: { DB.pinAlbum(model.path, !model.pinned); AlbumModel.refresh() }
                 }
                 M3MenuItem {
+                    iconName: "block"
                     text: I18n.t(Settings.language, "ctx_add_ignored")
                     onTriggered: { DB.ignoreAlbum(model.path, true); AlbumModel.refresh(); TimelineModel.refresh() }
                 }
                 M3MenuItem {
+                    iconName: "delete"
                     text: I18n.t(Settings.language, "ctx_move_trash")
                     onTriggered: { DB.trashAlbum(model.path); AlbumModel.refresh(); TimelineModel.refresh() }
                 }

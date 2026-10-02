@@ -49,7 +49,7 @@ Rectangle {
                 color: ThemeManager.onSurfaceVariant
                 wrapMode: Text.WordWrap
             }
-            ProgressBar {
+            M3LinearProgress {
                 visible: root.progress >= 0
                 Layout.fillWidth: true
                 Layout.topMargin: 6

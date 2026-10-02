@@ -73,10 +73,9 @@ Rectangle {
             RowLayout {
                 Layout.alignment: Qt.AlignRight
                 spacing: 8
-                Button {
+                M3Button {
                     text: I18n.t(Settings.language, "cancel")
                     onClicked: root.closed()
-                    flat: true
                 }
                 Button {
                     text: root.isAll ? "Strip all" : "Strip metadata"

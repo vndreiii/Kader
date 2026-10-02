@@ -557,7 +557,7 @@ QVariantList DatabaseManager::getGeotaggedLocations() {
         m["is_favorite"]   = query.value("is_favorite").toBool();
         m["is_trashed"]    = query.value("is_trashed").toBool();
         m["is_hidden"]     = query.value("is_hidden").toBool();
-        m["path"]          = "file://" + fp;
+        m["path"]          = QUrl::fromLocalFile(fp).toString();
         m["thumb"]         = ThumbnailGenerator::thumbnailUrl(fp);
         list.append(m);
     }
@@ -598,7 +598,7 @@ QVariantList DatabaseManager::getMediaForPlaces(const QVariantList &places) {
             m.insert(rec.fieldName(i), q.value(i));
         const QString fp = q.value(fpCol).toString();
         m.insert(QStringLiteral("thumb"), ThumbnailGenerator::thumbnailUrl(fp));
-        m.insert(QStringLiteral("path"), QStringLiteral("file://") + fp);
+        m.insert(QStringLiteral("path"), QUrl::fromLocalFile(fp).toString());
         list.append(m);
     }
     return list;
@@ -695,7 +695,7 @@ QVariantMap DatabaseManager::getMediaById(int mediaId) {
         for (int i = 0; i < rec.count(); ++i)
             map[rec.fieldName(i)] = q.value(i);
         map["thumb"] = ThumbnailGenerator::thumbnailUrl(map["file_path"].toString());
-        map["path"]  = "file://" + map["file_path"].toString();
+        map["path"]  = QUrl::fromLocalFile(map["file_path"].toString()).toString();
         return map;
     }
     return {};

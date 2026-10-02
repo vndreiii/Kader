@@ -604,15 +604,14 @@ Rectangle {
                             id: volWrapper
                             anchors.verticalCenter: parent.verticalCenter
                             height: 28
-                            width: volHoverMa.containsMouse ? (30 + 6 + 80) : 30
+                            // A HoverHandler sees the pointer even over the mute
+                            // button's MouseArea (which used to swallow the hover,
+                            // so the slider never slid out).
+                            readonly property bool open: volHover.hovered || volDragMa.pressed
+                            width: open ? (30 + 6 + 96) : 30
                             clip: true
                             Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutQuint } }
-
-                            MouseArea {
-                                id: volHoverMa
-                                anchors.fill: parent; hoverEnabled: true
-                                acceptedButtons: Qt.NoButton
-                            }
+                            HoverHandler { id: volHover }
 
                             Row {
                                 anchors.right: parent.right
@@ -620,9 +619,9 @@ Rectangle {
                                 spacing: 6
 
                                 Item {
-                                    width: 80; height: 12
+                                    width: 96; height: 24
                                     anchors.verticalCenter: parent.verticalCenter
-                                    opacity: volHoverMa.containsMouse ? (audioOut.muted ? 0.35 : 1.0) : 0
+                                    opacity: volWrapper.open ? (audioOut.muted ? 0.35 : 1.0) : 0
                                     Behavior on opacity { NumberAnimation { duration: 150 } }
 
                                     Rectangle {
@@ -641,7 +640,13 @@ Rectangle {
                                         width: 12; height: 12; radius: 6; color: "white"
                                     }
                                     MouseArea {
+                                        id: volDragMa
                                         anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                        preventStealing: true
+                                        onPressed: (m) => {
+                                            audioOut.muted = false
+                                            audioOut.volume = Math.max(0, Math.min(1, m.x / width))
+                                        }
                                         onClicked: (m) => {
                                             audioOut.muted = false
                                             audioOut.volume = Math.max(0, Math.min(1, m.x / width))
@@ -703,7 +708,7 @@ Rectangle {
                 Item {
                     id: seekTrack
                     width: parent.width
-                    height: 20
+                    height: root._editMode ? 30 : 20
 
                     readonly property real _playRatio:
                         videoPlayer.duration > 0
@@ -727,6 +732,85 @@ Rectangle {
                         width: seekDrag.pressed ? 20 : 12
                         height: 12; radius: 6; color: "white"
                         Behavior on width { NumberAnimation { duration: ThemeManager.durShort; easing.type: Easing.OutQuart } }
+                    }
+
+                    // ── trim range (edit mode): dimmed cuts, tinted kept part,
+                    //    and two draggable handles; the Set buttons still work ──
+                    readonly property real _dur: Math.max(1, videoPlayer.duration)
+                    readonly property real _startX: root._trimStartMs / _dur * width
+                    readonly property real _endX: root._trimEndMs / _dur * width
+                    Rectangle {   // kept range
+                        visible: root._editMode
+                        anchors.verticalCenter: parent.verticalCenter
+                        x: seekTrack._startX
+                        width: Math.max(0, seekTrack._endX - seekTrack._startX)
+                        height: 12; radius: 4
+                        color: Qt.alpha(ThemeManager.primary, 0.35)
+                        border.width: 2
+                        border.color: ThemeManager.primary
+                    }
+                    Rectangle {   // cut before
+                        visible: root._editMode && seekTrack._startX > 0
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: seekTrack._startX; height: 12; radius: 4
+                        color: Qt.alpha("black", 0.55)
+                    }
+                    Rectangle {   // cut after
+                        visible: root._editMode && seekTrack._endX < seekTrack.width
+                        anchors.verticalCenter: parent.verticalCenter
+                        x: seekTrack._endX
+                        width: seekTrack.width - seekTrack._endX; height: 12; radius: 4
+                        color: Qt.alpha("black", 0.55)
+                    }
+                    Repeater {
+                        model: root._editMode ? 2 : 0
+                        Rectangle {
+                            id: trimHandle
+                            required property int index        // 0 start, 1 end
+                            readonly property bool isStart: index === 0
+                            z: 5
+                            width: 10; height: 28; radius: 5
+                            anchors.verticalCenter: parent.verticalCenter
+                            x: (isStart ? seekTrack._startX : seekTrack._endX) - width / 2
+                            color: handleMa.pressed || handleMa.containsMouse ? Qt.lighter(ThemeManager.primary, 1.15) : ThemeManager.primary
+                            border.width: 2
+                            border.color: "white"
+                            Rectangle {   // grip
+                                anchors.centerIn: parent
+                                width: 2; height: 10; radius: 1
+                                color: ThemeManager.onPrimary
+                            }
+                            // time while dragging
+                            Rectangle {
+                                visible: handleMa.pressed
+                                anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.top; bottomMargin: 6 }
+                                width: tLbl.implicitWidth + 14; height: 22; radius: 11
+                                color: Qt.alpha("black", 0.85)
+                                Label {
+                                    id: tLbl
+                                    anchors.centerIn: parent
+                                    text: root._fmt(trimHandle.isStart ? root._trimStartMs : root._trimEndMs)
+                                    color: "white"; font.pixelSize: 11
+                                }
+                            }
+                            MouseArea {
+                                id: handleMa
+                                anchors.fill: parent
+                                anchors.margins: -8          // easier to grab
+                                hoverEnabled: true
+                                preventStealing: true
+                                cursorShape: Qt.SizeHorCursor
+                                onPositionChanged: (m) => {
+                                    if (!pressed) return
+                                    var px = mapToItem(seekTrack, m.x, m.y).x
+                                    var ms = Math.max(0, Math.min(1, px / seekTrack.width)) * seekTrack._dur
+                                    if (trimHandle.isStart) root._trimStartMs = Math.min(ms, root._trimEndMs - 100)
+                                    else root._trimEndMs = Math.max(ms, root._trimStartMs + 100)
+                                    // show the frame being cut at
+                                    videoPlayer.position = Math.round(trimHandle.isStart ? root._trimStartMs : root._trimEndMs)
+                                }
+                            }
+                        }
                     }
 
                     MouseArea {
@@ -956,7 +1040,7 @@ Rectangle {
         glass: true
         anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 24
         opacity: root.chromeOpacity
-        visible: opacity > 0
+        visible: wanted && opacity > 0   // none on Hyprland, niri & co.
         Behavior on opacity { NumberAnimation { duration: 200 } }
         z: 60
         HoverHandler { onHoveredChanged: root._overChrome = hovered }
@@ -1148,7 +1232,9 @@ Rectangle {
             border.color: Qt.alpha("white", 0.24); border.width: 1
             Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
             scale: delMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
-            M3Icon { anchors.centerIn: parent; name: "delete_forever"; size: 22; color: ThemeManager.tertiaryContainer }
+            // red, readable on the dark glass in either theme (was tertiaryContainer,
+            // which is blue in many palettes)
+            M3Icon { anchors.centerIn: parent; name: "delete_forever"; size: 22; color: "#ff8a80" }
             MouseArea { id: delMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                 onClicked: deleteConfirm.showing = !deleteConfirm.showing }
         }
