@@ -146,6 +146,17 @@ void SettingsManager::setAutoScan(bool on) {
     }
 }
 
+int SettingsManager::windowButtons() const {
+    return m_data.value("windowButtons").toInt(0);
+}
+void SettingsManager::setWindowButtons(int mode) {
+    if (windowButtons() != mode) {
+        m_data["windowButtons"] = mode;
+        save();
+        emit windowButtonsChanged();
+    }
+}
+
 int SettingsManager::trashRetentionDays() const {
     return m_data.value("trashRetentionDays").toInt(30);
 }

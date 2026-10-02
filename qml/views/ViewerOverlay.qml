@@ -86,12 +86,16 @@ Rectangle {
         }
     }
 
-    // Auto-hide the chrome after 2.5 s without pointer movement, so the photo
-    // owns the whole window; any movement brings it back.
+    // In a normal window the controls stay put. In fullscreen they step
+    // aside after 2.5 s without pointer movement so the photo owns the
+    // screen; any movement brings them back.
+    readonly property bool _anyFullscreen: Window.window !== null && Window.window.visibility === Window.FullScreen
+    on_AnyFullscreenChanged: _poke()
     Timer {
         id: controlsHideTimer
         interval: 2500
         onTriggered: {
+            if (!root._anyFullscreen) return
             if (root._overChrome || root.infoPanelOpen || deleteConfirm.showing || root._editMode) restart()
             else root._controlsVisible = false
         }
@@ -946,21 +950,32 @@ Rectangle {
         MouseArea { id: nextMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; enabled: root.currentIndex < root.allItems.length - 1; onClicked: root.navigateNext() }
     }
 
-    // ── Close ─────────────────────────────────────────────────────────────
-    Rectangle {
+    // ── Window controls (the viewer covers the window's own chrome) ──────
+    WindowControls {
+        glass: true
         anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 24
+        opacity: root.chromeOpacity
+        visible: opacity > 0
+        Behavior on opacity { NumberAnimation { duration: 200 } }
+        z: 60
+        HoverHandler { onHoveredChanged: root._overChrome = hovered }
+    }
+
+    // ── Back to the gallery ───────────────────────────────────────────────
+    Rectangle {
+        visible: opacity > 0 && !root.viewerOnlyMode
+        anchors.top: parent.top; anchors.left: parent.left; anchors.margins: 24
         width: 48; height: 48; radius: 24
         color: closeMa.pressed ? Qt.rgba(0, 0, 0, 0.72) : closeMa.containsMouse ? Qt.rgba(0, 0, 0, 0.60) : Qt.rgba(0, 0, 0, 0.44)
         border.color: Qt.alpha("white", 0.24); border.width: 1
         opacity: root.chromeOpacity
         z: 60
         HoverHandler { onHoveredChanged: root._overChrome = hovered }
-        visible: opacity > 0
         Behavior on opacity { NumberAnimation { duration: 200 } }
         Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
         scale: closeMa.pressed ? 0.92 : 1.0
         Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
-        M3Icon { anchors.centerIn: parent; name: "close"; size: 22; color: "white" }
+        M3Icon { anchors.centerIn: parent; name: "arrow_back"; size: 22; color: "white" }
         MouseArea { id: closeMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.active = false }
     }
 
