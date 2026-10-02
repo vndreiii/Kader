@@ -21,6 +21,7 @@ ApplicationWindow {
         anchors.fill: parent
         viewerOnlyMode: true
     }
+    WindowChrome { z: 100000; move: false }
 
     Component.onCompleted: {
         var fp = STARTUP_FILE

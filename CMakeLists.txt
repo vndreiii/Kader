@@ -209,6 +209,7 @@ qt_add_qml_module(KaderApp
         qml/components/SortMenu.qml
         qml/components/PlacePopup.qml
         qml/components/UpdateDialog.qml
+        qml/components/WindowChrome.qml
         qml/views/AlbumListView.qml
         qml/views/AlbumDetailView.qml
         qml/views/ViewerOverlay.qml

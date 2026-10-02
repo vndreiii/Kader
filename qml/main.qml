@@ -135,6 +135,12 @@ ApplicationWindow {
         }
     }
 
+    // Frameless window: drag from empty header space (under everything)…
+    WindowChrome { z: -1; edges: false; moveAreaHeight: 76 }
+    // …and resize from the edges (above everything). Needed on Wayland,
+    // where only the compositor may move or resize windows.
+    WindowChrome { z: 100000; move: false }
+
     // Cached view instances — created once, reused across switches
     property Item _tlViewInst:       null
     property Item _albumsViewInst:   null
