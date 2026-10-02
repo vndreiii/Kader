@@ -17,11 +17,15 @@ endif()
 
 option(KADER_WITH_AI "Build semantic AI search (needs llama.cpp)" ON)
 set(KADER_UPDATE_CHANNEL "" CACHE STRING
-    "How this build is distributed: 'appimage', 'arch' or empty (auto-detect)")
+    "How this build is distributed: 'appimage', 'arch' or empty (auto-detect; Windows detects installer vs portable itself)")
 set(KADER_UPDATE_REPO "vndreiii/kader" CACHE STRING "GitHub owner/repo the updater reads releases from")
 
 find_package(Qt6 6.5 REQUIRED COMPONENTS
-    Core Gui Qml Quick ShaderTools QuickDialogs2 Sql Positioning Concurrent Multimedia DBus Network)
+    Core Gui Qml Quick ShaderTools QuickDialogs2 Sql Positioning Concurrent Multimedia Network)
+# D-Bus (file manager integration) is Linux-only.
+if(NOT WIN32)
+    find_package(Qt6 6.5 REQUIRED COMPONENTS DBus)
+endif()
 # QtLocation backs the optional classic 2D map (QML only); the 3D globe has no
 # dependency on it.
 find_package(Qt6 6.5 QUIET OPTIONAL_COMPONENTS Location Test QuickTest)
@@ -112,6 +116,7 @@ set(SOURCES
     ${SOURCE_DIR}/GlobeItem.cpp
     ${SOURCE_DIR}/UpdateManager.cpp
     ${SOURCE_DIR}/LibraryAnalyzer.cpp
+    ${SOURCE_DIR}/AppPaths.cpp
 )
 
 set(HEADERS
@@ -133,6 +138,7 @@ set(HEADERS
     ${INCLUDE_DIR}/GlobeItem.h
     ${INCLUDE_DIR}/UpdateManager.h
     ${INCLUDE_DIR}/LibraryAnalyzer.h
+    ${INCLUDE_DIR}/AppPaths.h
     ${INCLUDE_DIR}/kader_core.h
 )
 
@@ -161,7 +167,6 @@ target_link_libraries(KaderLib PUBLIC
     Qt6::Positioning
     Qt6::Concurrent
     Qt6::Multimedia
-    Qt6::DBus
     Qt6::Network
     OpenSSL::Crypto
     PkgConfig::VIPS
@@ -172,6 +177,14 @@ target_link_libraries(KaderLib PUBLIC
     Threads::Threads
     ${CMAKE_DL_LIBS}
 )
+if(WIN32)
+    # Rust std (kader-core) and the shell APIs used by AppPaths.
+    target_link_libraries(KaderLib PUBLIC ws2_32 userenv ntdll dbghelp shell32 ole32)
+    # Don't let <windows.h> define min()/max() over std::min/std::max.
+    target_compile_definitions(KaderLib PUBLIC NOMINMAX WIN32_LEAN_AND_MEAN UNICODE _UNICODE)
+else()
+    target_link_libraries(KaderLib PUBLIC Qt6::DBus)
+endif()
 if(KADER_HAVE_LLAMA)
     target_include_directories(KaderLib PRIVATE ${LLAMA_INCLUDE_DIR} ${MTMD_INCLUDE_DIR})
     # mtmd first: static archives resolve left to right
@@ -186,6 +199,7 @@ qt_add_qml_module(KaderApp
     RESOURCE_PREFIX /
     QML_FILES
         qml/I18n.js
+        qml/Paths.js
         qml/main.qml
         qml/components/MediaGrid.qml
         qml/components/MediaInfoPanel.qml
@@ -261,7 +275,15 @@ qt_add_shaders(KaderApp "kader_shaders"
 )
 
 # ── Application ─────────────────────────────────────────────────────────────
-add_executable(kader ${SOURCE_DIR}/main.cpp)
+if(WIN32)
+    # Icon, manifest (UTF-8 code page, long paths, per-monitor DPI) and
+    # version information; WIN32 = GUI subsystem, no console window.
+    set(KADER_WIN_DIR ${CMAKE_CURRENT_SOURCE_DIR}/packaging/windows)
+    configure_file(packaging/windows/kader.rc.in ${CMAKE_CURRENT_BINARY_DIR}/kader.rc @ONLY)
+    add_executable(kader WIN32 ${SOURCE_DIR}/main.cpp ${CMAKE_CURRENT_BINARY_DIR}/kader.rc)
+else()
+    add_executable(kader ${SOURCE_DIR}/main.cpp)
+endif()
 
 # The vector world dataset (assets/geo/world.kgeo, ~6 MB) is a data file, not
 # a resource: memory-mapped at runtime instead of living in the binary. It is
@@ -275,16 +297,23 @@ if(MilfsConnect_FOUND)
     target_compile_definitions(kader PRIVATE KADER_HAVE_MILFS=1)
 endif()
 
-include(GNUInstallDirs)
-install(TARGETS kader RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-install(FILES assets/geo/world.kgeo DESTINATION ${CMAKE_INSTALL_DATADIR}/kader)
-install(FILES kader.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
-install(FILES "assets/Kader Logoicon.svg"
-        DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps RENAME kader.svg)
-foreach(size 48 128 256 512)
-    install(FILES assets/icons/kader-${size}.png
-            DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/${size}x${size}/apps RENAME kader.png)
-endforeach()
+if(WIN32)
+    # Flat layout: kader.exe and world.kgeo side by side; packaging/windows/
+    # deploy.sh adds Qt and the DLLs.
+    install(TARGETS kader RUNTIME DESTINATION .)
+    install(FILES assets/geo/world.kgeo DESTINATION .)
+else()
+    include(GNUInstallDirs)
+    install(TARGETS kader RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+    install(FILES assets/geo/world.kgeo DESTINATION ${CMAKE_INSTALL_DATADIR}/kader)
+    install(FILES kader.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
+    install(FILES "assets/Kader Logoicon.svg"
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps RENAME kader.svg)
+    foreach(size 48 128 256 512)
+        install(FILES assets/icons/kader-${size}.png
+                DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/${size}x${size}/apps RENAME kader.png)
+    endforeach()
+endif()
 
 message(STATUS "Kader ${PROJECT_VERSION}: AI search=${KADER_HAVE_LLAMA} milfs-connect=${MilfsConnect_FOUND} "
                "QtLocation=${Qt6Location_FOUND} update-channel='${KADER_UPDATE_CHANNEL}'")

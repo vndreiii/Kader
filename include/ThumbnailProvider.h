@@ -11,6 +11,8 @@ public:
 
     // Called by Qt Quick when an Image source is "image://thumbnails/<file_path>"
     QImage requestImage(const QString &id, QSize *size, const QSize &requestedSize) override;
+    // Absolute file path from an image://thumbnails id (see ThumbnailGenerator::thumbnailUrl).
+    static QString pathFromId(const QString &id);
 
 private:
     DatabaseManager *m_db;

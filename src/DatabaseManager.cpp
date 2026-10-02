@@ -1,4 +1,5 @@
 #include "DatabaseManager.h"
+#include "AppPaths.h"
 #include "MediaRepository.h"
 #include "AlbumRepository.h"
 #include "ThumbnailGenerator.h"
@@ -14,15 +15,11 @@
 #include <QCryptographicHash>
 #include <QUrl>
 #include <QDesktopServices>
-#include <QDBusConnection>
-#include <QDBusInterface>
-#include <QDBusReply>
 #include <cmath>
 #include <algorithm>
 
 DatabaseManager::DatabaseManager(QObject *parent) : QObject(parent) {
-    m_dbPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/gallery.db";
-    QDir().mkpath(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation));
+    m_dbPath = AppPaths::dataDir() + "/gallery.db";
     openDatabase();
     m_media = std::make_unique<MediaRepository>(this);
     m_album = std::make_unique<AlbumRepository>(this);
@@ -1070,24 +1067,7 @@ QString DatabaseManager::getRandomPhotoPath() {
 }
 
 void DatabaseManager::revealInFolder(const QString &filePath) {
-    if (filePath.isEmpty()) return;
-
-    const QString uri = QUrl::fromLocalFile(filePath).toString();
-
-    // Preferred: portable freedesktop file-manager interface — selects the file
-    // in whatever file manager is the session default (Dolphin on KDE, etc.).
-    QDBusInterface fm(QStringLiteral("org.freedesktop.FileManager1"),
-                      QStringLiteral("/org/freedesktop/FileManager1"),
-                      QStringLiteral("org.freedesktop.FileManager1"),
-                      QDBusConnection::sessionBus());
-    QDBusReply<void> reply = fm.call(QStringLiteral("ShowItems"),
-                                     QStringList{uri}, QString());
-    if (reply.isValid()) return;
-
-    // Fallback: no FileManager1 provider — just open the containing folder.
-    qWarning() << "revealInFolder: FileManager1 unavailable, opening parent dir."
-               << reply.error().message();
-    QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(filePath).absolutePath()));
+    AppPaths::revealInFileManager(filePath);
 }
 
 QString DatabaseManager::createVirtualAlbum(const QString &name, const QString &desc,

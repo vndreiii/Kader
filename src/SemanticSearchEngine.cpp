@@ -1,4 +1,5 @@
 #include "SemanticSearchEngine.h"
+#include "AppPaths.h"
 #include "DatabaseManager.h"
 #include "ThumbnailGenerator.h"
 
@@ -47,7 +48,7 @@ static QStringList chunkText(const QString &text, int chunkSize = 700, int overl
 static QString extractPdfText(const QString &path)
 {
     auto doc = std::unique_ptr<poppler::document>(
-        poppler::document::load_from_file(path.toStdString()));
+        poppler::document::load_from_file(QFile::encodeName(path).toStdString()));
     if (!doc || doc->is_locked()) return {};
     QString full;
     for (int i = 0; i < doc->pages(); ++i) {
@@ -100,7 +101,7 @@ void SemanticWorker::loadModel(const QString &modelPath, const QString &mmprojPa
     llama_model_params mparams = llama_model_default_params();
     mparams.n_gpu_layers = 0; // Vulkan backend (not ROCm HIP) locks up AMD GPU under load
 
-    auto *model = llama_model_load_from_file(modelPath.toLocal8Bit().constData(), mparams);
+    auto *model = llama_model_load_from_file(QFile::encodeName(modelPath).constData(), mparams);
     if (!model) {
         emit workerError("Failed to load model: " + modelPath);
         emit loaded(false);
@@ -129,7 +130,7 @@ void SemanticWorker::loadModel(const QString &modelPath, const QString &mmprojPa
     vparams.use_gpu       = true;
     vparams.print_timings = false;
 
-    auto *mctx = mtmd_init_from_file(mmprojPath.toLocal8Bit().constData(), model, vparams);
+    auto *mctx = mtmd_init_from_file(QFile::encodeName(mmprojPath).constData(), model, vparams);
     if (!mctx) {
         llama_free(ctx);
         llama_model_free(model);
@@ -460,8 +461,7 @@ void SemanticWorker::indexPendingDocs(QStringList rootDirs)
 
 QString SemanticSearchEngine::modelsDir()
 {
-    return QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)
-           + "/models";
+    return AppPaths::localDataDir() + "/models";
 }
 
 QString SemanticSearchEngine::modelPath()

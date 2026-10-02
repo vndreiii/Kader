@@ -1,4 +1,5 @@
 #include "UpdateManager.h"
+#include "AppPaths.h"
 #include "SettingsManager.h"
 
 #include <QCoreApplication>
@@ -21,7 +22,9 @@
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
+#ifndef Q_OS_WIN
 #include <sys/stat.h>
+#endif
 
 #ifndef KADER_UPDATE_REPO
 #define KADER_UPDATE_REPO "vndreiii/kader"
@@ -39,6 +42,15 @@ constexpr int kCheckIntervalMs = 6 * 60 * 60 * 1000; // every 6 h while running
 constexpr int kFirstCheckDelayMs = 12 * 1000;         // after the UI settled
 
 QString detectChannel() {
+#ifdef Q_OS_WIN
+    // Same build for both Windows packages: the portable .zip carries a
+    // portable.txt marker, the installer leaves its uninstaller next to us.
+    if (AppPaths::portable())
+        return QStringLiteral("windows-portable");
+    if (QFileInfo::exists(QCoreApplication::applicationDirPath() + QStringLiteral("/uninstall.exe")))
+        return QStringLiteral("windows");
+    return QStringLiteral("manual");
+#endif
     const QString appImage = qEnvironmentVariable("APPIMAGE");
     if (!appImage.isEmpty() && QFileInfo(appImage).isFile())
         return QStringLiteral("appimage");
@@ -219,7 +231,9 @@ void UpdateManager::onManifest(const QByteArray &manifest, const QByteArray &sig
     m_notes = m.value(QStringLiteral("notes")).toString();
     m_releaseUrl = QStringLiteral("https://github.com/%1/releases/tag/%2").arg(QStringLiteral(KADER_UPDATE_REPO), m_tag);
 
-    const QJsonObject asset = m.value(QStringLiteral("assets")).toObject().value(m_channel).toObject();
+    // Both Windows channels update through the release's setup program.
+    const QString assetKey = m_channel.startsWith(QLatin1String("windows")) ? QStringLiteral("windows") : m_channel;
+    const QJsonObject asset = m.value(QStringLiteral("assets")).toObject().value(assetKey).toObject();
     m_assetName = asset.value(QStringLiteral("name")).toString();
     m_assetSha256 = QByteArray::fromHex(asset.value(QStringLiteral("sha256")).toString().toLatin1());
     m_assetSize = qint64(asset.value(QStringLiteral("size")).toDouble());
@@ -249,7 +263,14 @@ void UpdateManager::install() {
             return;
         }
     } else {
-        dir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + QStringLiteral("/updates");
+        if (m_channel == QLatin1String("windows-portable")
+            && !QFileInfo(QCoreApplication::applicationDirPath()).isWritable()) {
+            setState(Failed, tr("Kader can't write to %1. Move the Kader folder somewhere you own, "
+                                "or download the update manually.")
+                                 .arg(AppPaths::displayPath(QCoreApplication::applicationDirPath())));
+            return;
+        }
+        dir = AppPaths::cacheDir() + QStringLiteral("/updates");
         QDir().mkpath(dir);
     }
     m_download.setFileName(dir + QStringLiteral("/.kader-update-") + m_latest + QStringLiteral(".part"));
@@ -299,15 +320,35 @@ void UpdateManager::finishDownload() {
     }
     if (m_channel == QLatin1String("appimage"))
         installAppImage();
+    else if (m_channel.startsWith(QLatin1String("windows")))
+        stageWindowsSetup();
     else
         installArch();
+}
+
+void UpdateManager::stageWindowsSetup() {
+    // The verified setup runs on restart (see restart()): it waits for Kader
+    // to exit, updates this folder in place and starts the new version.
+    const QString setup = QFileInfo(m_download.fileName()).absolutePath() + QLatin1Char('/') + m_assetName;
+    QFile::remove(setup);
+    if (!QFile::rename(m_download.fileName(), setup)) {
+        m_download.remove();
+        setState(Failed, tr("Could not stage the update."));
+        return;
+    }
+    m_pendingSetup = setup;
+    m_progress = 1;
+    emit progressChanged();
+    setState(Installed);
 }
 
 void UpdateManager::installAppImage() {
     const QString target = qEnvironmentVariable("APPIMAGE");
     const QByteArray from = QFile::encodeName(m_download.fileName());
     const QByteArray to = QFile::encodeName(target);
+#ifndef Q_OS_WIN
     ::chmod(from.constData(), 0755);
+#endif
     // rename(2) replaces the old file atomically; the running instance keeps
     // its already-mounted image, so nothing breaks until the restart.
     if (::rename(from.constData(), to.constData()) != 0) {
@@ -367,6 +408,25 @@ void UpdateManager::dismiss() {
 }
 
 void UpdateManager::restart() {
+    if (!m_pendingSetup.isEmpty()) {
+        // NSIS: /S silent, /D= target folder (must be last and unquoted).
+        QProcess setup;
+        setup.setProgram(m_pendingSetup);
+        QString args = QStringLiteral("/S /UPDATE");
+        if (m_channel == QLatin1String("windows-portable"))
+            args += QStringLiteral(" /PORTABLE");
+        args += QStringLiteral(" /D=") + QDir::toNativeSeparators(QCoreApplication::applicationDirPath());
+#ifdef Q_OS_WIN
+        setup.setNativeArguments(args);
+#else
+        setup.setArguments(args.split(QLatin1Char(' ')));
+#endif
+        if (setup.startDetached())
+            QCoreApplication::quit();
+        else
+            setState(Failed, tr("Could not start the update installer."));
+        return;
+    }
     const QString exe = !m_restartPath.isEmpty() ? m_restartPath : QCoreApplication::applicationFilePath();
     if (QProcess::startDetached(exe, QCoreApplication::arguments().mid(1)))
         QCoreApplication::quit();

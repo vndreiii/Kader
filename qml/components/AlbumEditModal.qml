@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import Qt.labs.platform as Platform
 import ".."
 import "../I18n.js" as I18n
+import "../Paths.js" as Paths
 
 Popup {
     id: root
@@ -29,7 +30,7 @@ Popup {
         title: "Select cover photo"
         nameFilters: ["Image files (*.jpg *.jpeg *.png *.webp *.heic *.gif *.bmp *.tiff)"]
         onAccepted: {
-            var path = file.toString().replace(/^file:\/\//, "")
+            var path = Paths.localPath(file)
             if (path !== "") root._selectedCover = path
         }
     }
@@ -129,7 +130,7 @@ Popup {
                     }
                     Image {
                         anchors.fill: parent
-                        source: root._selectedCover !== "" ? "file://" + root._selectedCover : ""
+                        source: root._selectedCover !== "" ? Paths.fileUrl(root._selectedCover) : ""
                         fillMode: Image.PreserveAspectCrop
                         asynchronous: true
                         visible: root._selectedCover !== ""

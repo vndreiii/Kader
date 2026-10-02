@@ -1,4 +1,5 @@
 #include "SettingsManager.h"
+#include "AppPaths.h"
 #include <QThread>
 #include <algorithm>
 #include <cmath>
@@ -13,14 +14,9 @@
 #include <QUrl>
 #include <QFileInfo>
 #include <QDesktopServices>
-#include <QDBusConnection>
-#include <QDBusMessage>
-#include <QDBusPendingCall>
 
 static QString settingsFilePath() {
-    QString dir = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + "/kader";
-    QDir().mkpath(dir);
-    return dir + "/settings.json";
+    return AppPaths::configDir() + "/settings.json";
 }
 
 SettingsManager::SettingsManager(QObject *parent)
@@ -232,22 +228,5 @@ QString SettingsManager::homePath() const {
 }
 
 void SettingsManager::revealInFolder(const QString &filePath) {
-    if (filePath.isEmpty()) return;
-
-    const QString uri = QUrl::fromLocalFile(filePath).toString();
-
-    // Preferred: ask the file manager to show (and select) the item.
-    QDBusMessage msg = QDBusMessage::createMethodCall(
-        QStringLiteral("org.freedesktop.FileManager1"),
-        QStringLiteral("/org/freedesktop/FileManager1"),
-        QStringLiteral("org.freedesktop.FileManager1"),
-        QStringLiteral("ShowItems"));
-    msg << QStringList{uri} << QString();
-
-    QDBusMessage reply = QDBusConnection::sessionBus().call(msg);
-    if (reply.type() == QDBusMessage::ErrorMessage) {
-        // Fallback: just open the containing directory.
-        QDesktopServices::openUrl(
-            QUrl::fromLocalFile(QFileInfo(filePath).absolutePath()));
-    }
+    AppPaths::revealInFileManager(filePath);
 }

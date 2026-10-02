@@ -1,17 +1,21 @@
 //! C ABI over the scanner (see `include/kader_core.h`).
 
-use std::ffi::{c_char, c_void, CStr, OsStr};
-use std::os::unix::ffi::OsStrExt;
-use std::path::Path;
+use std::ffi::{c_char, c_void, CStr};
+use std::path::PathBuf;
 use std::slice;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use crate::scan::paths::{from_bytes, to_bytes};
 use crate::scan::walk::{walk, Entry, Options};
 use crate::scan::{probe, Meta};
 
 pub struct KsScan {
     entries: Vec<Entry>,
     dirs: usize,
+    /// UTF-8, '/'-separated copies of the entry paths handed out by
+    /// [`ks_scan_entry`] (on Unix the OS bytes are borrowed directly).
+    #[cfg(not(unix))]
+    names: Vec<Vec<u8>>,
 }
 
 pub type KsProgressFn = Option<unsafe extern "C" fn(user: *mut c_void, found: usize)>;
@@ -125,7 +129,7 @@ pub unsafe extern "C" fn ks_scan_dir(
     if root.is_null() {
         return std::ptr::null_mut();
     }
-    let root = Path::new(OsStr::from_bytes(CStr::from_ptr(root).to_bytes()));
+    let root = from_bytes(CStr::from_ptr(root).to_bytes());
     let threads = if threads == 0 {
         std::thread::available_parallelism().map_or(4, |n| n.get())
     } else {
@@ -143,8 +147,14 @@ pub unsafe extern "C" fn ks_scan_dir(
             f(user as *mut c_void, n);
         }
     };
-    let r = walk(root, &opts, &cb);
+    let r = walk(&root, &opts, &cb);
     Box::into_raw(Box::new(KsScan {
+        #[cfg(not(unix))]
+        names: r
+            .entries
+            .iter()
+            .map(|e| to_bytes(e.path.as_os_str()).into_owned())
+            .collect(),
         entries: r.entries,
         dirs: r.dirs,
     }))
@@ -177,10 +187,16 @@ pub unsafe extern "C" fn ks_scan_entry(
     size: *mut u64,
     mtime: *mut i64,
 ) -> bool {
-    let Some(e) = scan.as_ref().and_then(|s| s.entries.get(i)) else {
+    let Some(s) = scan.as_ref() else {
         return false;
     };
-    let b = e.path.as_os_str().as_bytes();
+    let Some(e) = s.entries.get(i) else {
+        return false;
+    };
+    #[cfg(unix)]
+    let b: &[u8] = &to_bytes(e.path.as_os_str());
+    #[cfg(not(unix))]
+    let b: &[u8] = &s.names[i];
     if let Some(p) = path.as_mut() {
         *p = b.as_ptr();
     }
@@ -221,10 +237,10 @@ pub unsafe extern "C" fn ks_probe_batch(
     if n == 0 || paths.is_null() || lens.is_null() || out.is_null() {
         return;
     }
-    let paths: Vec<&Path> = slice::from_raw_parts(paths, n)
+    let paths: Vec<PathBuf> = slice::from_raw_parts(paths, n)
         .iter()
         .zip(slice::from_raw_parts(lens, n))
-        .map(|(&p, &l)| Path::new(OsStr::from_bytes(slice::from_raw_parts(p, l))))
+        .map(|(&p, &l)| from_bytes(slice::from_raw_parts(p, l)))
         .collect();
     let out = slice::from_raw_parts_mut(out, n);
     let threads = if threads == 0 {
@@ -247,7 +263,7 @@ pub unsafe extern "C" fn ks_probe_batch(
                         if i >= paths.len() {
                             break;
                         }
-                        local.push((i, KsMeta::from(&probe(paths[i]))));
+                        local.push((i, KsMeta::from(&probe(&paths[i]))));
                     }
                     local
                 })

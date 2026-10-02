@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "../components"
 import "../I18n.js" as I18n
+import "../Paths.js" as Paths
 
 // The Search tab: one box that searches people, places, colours, dates,
 // albums and file names instantly, plus visual (AI) matches; and, before
@@ -328,7 +329,7 @@ Item {
                             Layout.fillWidth: true
                             text: modelData.name
                             icon.name: "text-x-generic"
-                            onClicked: Qt.openUrlExternally("file://" + modelData.file_path)
+                            onClicked: Qt.openUrlExternally(Paths.fileUrl(modelData.file_path))
                         }
                     }
                     Label {

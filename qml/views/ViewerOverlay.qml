@@ -5,6 +5,7 @@ import QtQuick.Window
 import QtMultimedia
 import "../components"
 import "../I18n.js" as I18n
+import "../Paths.js" as Paths
 
 Rectangle {
     id: root
@@ -376,7 +377,7 @@ Rectangle {
             anchors.centerIn: parent
             width:  Math.min(imgArea.width,  implicitWidth  > 0 ? implicitWidth  : imgArea.width)
             height: Math.min(imgArea.height, implicitHeight > 0 ? implicitHeight : imgArea.height)
-            source: (!root._isVideo && !root._isGif && root.mediaData) ? "file://" + root.mediaData.file_path : ""
+            source: (!root._isVideo && !root._isGif && root.mediaData) ? Paths.fileUrl(root.mediaData.file_path) : ""
             visible: !root._isVideo && !root._isGif
             fillMode: Image.PreserveAspectFit
             autoTransform: true
@@ -401,7 +402,7 @@ Rectangle {
             anchors.centerIn: parent
             width:  Math.min(imgArea.width,  implicitWidth  > 0 ? implicitWidth  : imgArea.width)
             height: Math.min(imgArea.height, implicitHeight > 0 ? implicitHeight : imgArea.height)
-            source: root._isGif && root.mediaData ? "file://" + root.mediaData.file_path : ""
+            source: root._isGif && root.mediaData ? Paths.fileUrl(root.mediaData.file_path) : ""
             visible: root._isGif
             fillMode: Image.PreserveAspectFit
             playing: root._isGif
@@ -429,7 +430,7 @@ Rectangle {
                     id: mp
                     videoOutput: vo
                     audioOutput: ao
-                    source: root._isVideo && root.mediaData ? "file://" + root.mediaData.file_path : ""
+                    source: root._isVideo && root.mediaData ? Paths.fileUrl(root.mediaData.file_path) : ""
                     loops: videoLoopBtn.looping ? MediaPlayer.Infinite : 1
                     property bool hasError: false
                     onErrorOccurred: (error, errorString) => { console.error("Video error:", errorString); hasError = true }
@@ -480,7 +481,7 @@ Rectangle {
                     text: "Open externally"
                     color: Qt.alpha("white", 0.65); font.pixelSize: ThemeManager.fontLabelM
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                        onClicked: if (root.mediaData) Qt.openUrlExternally("file://" + root.mediaData.file_path) }
+                        onClicked: if (root.mediaData) Qt.openUrlExternally(Paths.fileUrl(root.mediaData.file_path)) }
                 }
             }
         }
@@ -858,7 +859,7 @@ Rectangle {
             target: VideoEditor
             function onFinished(outputPath) {
                 root._editMode = false
-                root._toast = I18n.t(Settings.language, "editor_saved") + outputPath.split("/").pop()
+                root._toast = I18n.t(Settings.language, "editor_saved") + Paths.fileName(outputPath)
                 toastTimer.restart()
             }
             function onFailed(err) {
@@ -991,7 +992,7 @@ Rectangle {
         Behavior on opacity { NumberAnimation { duration: 200 } }
         Label {
             width: parent.width
-            text: root.mediaData ? root.mediaData.file_path.split('/').pop() : "Untitled"
+            text: root.mediaData ? Paths.fileName(root.mediaData.file_path) : "Untitled"
             color: "white"; font.family: "Roboto Flex"; font.pixelSize: 18; font.weight: Font.Medium
             elide: Text.ElideRight
         }

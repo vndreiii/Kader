@@ -3,13 +3,11 @@
 #include "MediaRepository.h"
 #include "ThumbnailGenerator.h"
 #include <exiv2/exiv2.hpp>
-#include <unistd.h>
-#include <sys/syscall.h>
-#include <sys/stat.h>
-#include <sys/resource.h>
+#include "AppPaths.h"
 #include <algorithm>
 #include <thread>
 #include <QtConcurrent>
+#include <QFile>
 #include <QFileInfo>
 #include <QSqlQuery>
 #include <QDir>
@@ -50,7 +48,7 @@ inline long long exivInt(const Exiv2::Value &v) {
 QSize probeImageDimensions(const QString &path) {
     try {
         vips::VImage img = vips::VImage::new_from_file(
-            path.toLocal8Bit().constData(),
+            QFile::encodeName(path).constData(),
             vips::VImage::option()->set("access", VIPS_ACCESS_SEQUENTIAL));
         return QSize(img.width(), img.height());
     } catch (...) {
@@ -63,7 +61,9 @@ QSize probeImageDimensions(const QString &path) {
 // scan already executes on a worker thread.
 bool probeVideo(const QString &path, int &w, int &h, double &durationSec) {
     QProcess p;
-    p.start("ffprobe", {
+    const QString ffprobe = AppPaths::tool(QStringLiteral("ffprobe"));
+    if (ffprobe.isEmpty()) return false;
+    p.start(ffprobe, {
         "-v", "error",
         "-select_streams", "v:0",
         "-show_entries", "stream=width,height:format=duration",
@@ -86,15 +86,6 @@ bool probeVideo(const QString &path, int &w, int &h, double &durationSec) {
         else if (key == u"duration") durationSec = val.toDouble();
     }
     return got;
-}
-
-// Drop the calling thread to a background scheduling priority. The scan is
-// entirely background work — directory walking, EXIF parsing, ffprobe — and it
-// runs a worker per core, so at equal priority it competes with the GUI and Qt
-// render threads and the window stops responding while a scan is in flight.
-// Nice values are per-thread on Linux, so this only affects the scan workers.
-void deprioritiseCurrentThread() {
-    setpriority(PRIO_PROCESS, static_cast<id_t>(syscall(SYS_gettid)), 10);
 }
 
 } // namespace
@@ -218,7 +209,7 @@ bool exivGps(const Exiv2::ExifData &exif, double &lat, double &lon) {
 void fillWithFallbacks(MediaEntry &entry) {
     if (entry.mimeType.startsWith(QLatin1String("image/"))) {
         try {
-            auto image = Exiv2::ImageFactory::open(entry.filePath.toStdString());
+            auto image = Exiv2::ImageFactory::open(QFile::encodeName(entry.filePath).toStdString());
             image->readMetadata();
             const Exiv2::ExifData &exif = image->exifData();
             if (!entry.creationDate.isValid() || entry.creationDate == entry.modifiedDate) {
@@ -264,12 +255,12 @@ void FileScanner::runScan(const std::string &rootPath, const std::vector<std::st
     // This body also runs the metadata pass. It runs on a shared QtConcurrent
     // pool thread, so restore the original priority on the way out rather
     // than leaving the thread niced for whatever task the pool hands it next.
-    const int callerPriority = getpriority(PRIO_PROCESS, static_cast<id_t>(syscall(SYS_gettid)));
-    deprioritiseCurrentThread();
+    // The scan is entirely background work and runs a worker per core, so at
+    // normal priority it competes with the GUI and render threads.
+    AppPaths::lowerThreadPriority();
     struct PriorityRestore {
-        int priority;
-        ~PriorityRestore() { setpriority(PRIO_PROCESS, static_cast<id_t>(syscall(SYS_gettid)), priority); }
-    } restorePriority{callerPriority};
+        ~PriorityRestore() { AppPaths::restoreThreadPriority(); }
+    } restorePriority;
 
     const int threads = std::max(1, m_maxThreads.load() > 0 ? m_maxThreads.load()
                                                           : int(std::thread::hardware_concurrency()));
@@ -433,7 +424,7 @@ void FileScanner::stripMetadata(bool locationOnly) {
         QStringList cleared;
         for (const QString &p : std::as_const(paths)) {
             try {
-                auto image = Exiv2::ImageFactory::open(p.toStdString());
+                auto image = Exiv2::ImageFactory::open(QFile::encodeName(p).toStdString());
                 image->readMetadata();
                 bool dirty = false;
                 if (locationOnly) {

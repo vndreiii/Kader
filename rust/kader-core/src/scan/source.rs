@@ -3,7 +3,10 @@
 //! can produce "not found" but never an out-of-bounds read.
 
 use std::fs::File;
+#[cfg(unix)]
 use std::os::unix::fs::FileExt;
+#[cfg(windows)]
+use std::os::windows::fs::FileExt;
 
 pub trait Source {
     fn len(&self) -> u64;
@@ -49,7 +52,7 @@ impl Source for FileSource {
         let mut buf = vec![0u8; len];
         let mut done = 0;
         while done < len {
-            match self.file.read_at(&mut buf[done..], off + done as u64) {
+            match read_file_at(&self.file, &mut buf[done..], off + done as u64) {
                 Ok(0) => break,
                 Ok(n) => done += n,
                 Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
@@ -59,6 +62,16 @@ impl Source for FileSource {
         buf.truncate(done);
         Some(buf)
     }
+}
+
+/// Positional read (pread on Unix, an overlapped ReadFile on Windows).
+#[cfg(unix)]
+fn read_file_at(f: &File, buf: &mut [u8], off: u64) -> std::io::Result<usize> {
+    f.read_at(buf, off)
+}
+#[cfg(windows)]
+fn read_file_at(f: &File, buf: &mut [u8], off: u64) -> std::io::Result<usize> {
+    f.seek_read(buf, off)
 }
 
 /// An in-memory buffer (embedded EXIF blocks, tests).

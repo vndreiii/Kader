@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Effects
 import ".."
+import "../Paths.js" as Paths
 
 // Square-thumbnail grid for search results and groups. `items` is a list of
 // media maps ({ id, file_path, thumb, mime_type, … }).
@@ -47,7 +48,7 @@ GridView {
             Image {
                 id: thumb
                 anchors.fill: parent
-                source: cell.media ? (cell.media.thumb || ("file://" + cell.media.file_path)) : ""
+                source: cell.media ? (cell.media.thumb || Paths.fileUrl(cell.media.file_path)) : ""
                 sourceSize: Qt.size(320, 320)
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true

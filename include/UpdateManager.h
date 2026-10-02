@@ -26,6 +26,9 @@ class SettingsManager;
 //   appimage — the running AppImage ($APPIMAGE) is atomically replaced.
 //   arch     — the release's pacman package is installed with
 //              `pkexec pacman -U` (builds made by the PKGBUILD).
+//   windows / windows-portable — the release's NSIS setup is downloaded,
+//              verified, and run silently on restart to update the
+//              installed (or portable) folder in place.
 //   manual   — anything else: the user is pointed at the release page.
 class UpdateManager : public QObject {
     Q_OBJECT
@@ -105,6 +108,7 @@ private:
     void finishDownload();
     void installAppImage();
     void installArch();
+    void stageWindowsSetup();
 
     SettingsManager *m_settings;
     QNetworkAccessManager *m_nam;
@@ -124,4 +128,5 @@ private:
     QCryptographicHash m_hash{QCryptographicHash::Sha256};
     QPointer<QProcess> m_installer;
     QString m_restartPath;
+    QString m_pendingSetup;
 };

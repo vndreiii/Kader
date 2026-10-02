@@ -5,6 +5,7 @@ import Qt.labs.platform as Platform
 import "components"
 import "views"
 import "I18n.js" as I18n
+import "Paths.js" as Paths
 
 ApplicationWindow {
     id: window
@@ -304,7 +305,7 @@ ApplicationWindow {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: Qt.openUrlExternally("file://" + modelData.file_path)
+                        onClicked: Qt.openUrlExternally(Paths.fileUrl(modelData.file_path))
                     }
                 }
             }
@@ -344,7 +345,7 @@ ApplicationWindow {
         id: mainFolderPicker
         title: "Choose a directory to scan"
         onAccepted: {
-            var path = folder.toString().replace(/^file:\/\//, "")
+            var path = Paths.localPath(folder)
             DB.addIndexedDirectory(path)
             FileScanner.startScan(path)
         }
