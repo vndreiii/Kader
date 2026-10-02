@@ -8,6 +8,14 @@ name: Release
 on:
   push:
     tags: ['v*.*.*']
+  # Re-publish the files of an existing tag (e.g. when a run failed after the
+  # tag was pushed). Builds the branch it runs on, which must carry the same
+  # version as the tag.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to publish (vX.Y.Z)
+        required: true
 
 permissions:
   contents: write
@@ -23,11 +31,14 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check tag matches the project version
         id: ver
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           version="$(sed -n 's/^project(Kader VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)"
-          tag="${GITHUB_REF_NAME}"
+          tag="$TAG"
           [ "v$version" = "$tag" ] || { echo "::error::tag $tag != CMakeLists version $version"; exit 1; }
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v4
         with:
           path: dist
@@ -53,6 +64,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/* \
-            --title "Kader ${{ steps.ver.outputs.version }}" \
-            --notes-file notes.md --verify-tag
+          # A release made by hand on GitHub for this tag keeps its title and
+          # notes; it just gets the files.
+          if gh release view "${{ steps.ver.outputs.tag }}" >/dev/null 2>&1; then
+            gh release upload "${{ steps.ver.outputs.tag }}" dist/* --clobber
+          else
+            gh release create "${{ steps.ver.outputs.tag }}" dist/* \
+              --title "Kader ${{ steps.ver.outputs.version }}" \
+              --notes-file notes.md --verify-tag
+          fi
