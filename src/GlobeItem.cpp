@@ -1,6 +1,9 @@
 #include "GlobeItem.h"
 
+#include <QCoreApplication>
+#include <QDebug>
 #include <QFile>
+#include <QStandardPaths>
 #include <QFutureWatcher>
 #include <QQuickWindow>
 #include <QSGGeometryNode>
@@ -31,17 +34,35 @@ QFuture<KgWorld *> worldFuture() {
     WorldHolder &h = worldHolder();
     std::call_once(h.once, [&h] {
         h.future = QtConcurrent::run([]() -> KgWorld * {
-            QFile f(QStringLiteral(":/Kader/assets/geo/world.kgeo"));
-            if (!f.open(QIODevice::ReadOnly)) {
-                qWarning("GlobeItem: world dataset missing from resources");
-                return nullptr;
+            // Installed: <prefix>/share/kader; build tree / AppImage: next to
+            // or around the binary; KADER_DATA_DIR overrides.
+            const QString app = QCoreApplication::applicationDirPath();
+            QStringList candidates;
+            if (qEnvironmentVariableIsSet("KADER_DATA_DIR"))
+                candidates << qEnvironmentVariable("KADER_DATA_DIR") + QStringLiteral("/world.kgeo");
+            candidates << app + QStringLiteral("/../share/kader/world.kgeo")
+                       << app + QStringLiteral("/world.kgeo");
+            const QString located = QStandardPaths::locate(QStandardPaths::GenericDataLocation,
+                                                           QStringLiteral("kader/world.kgeo"));
+            if (!located.isEmpty())
+                candidates << located;
+            for (const QString &path : candidates) {
+                QFile f(path);
+                if (!f.open(QIODevice::ReadOnly))
+                    continue;
+                // mmap: the decoder reads the file once; nothing is kept around
+                const qint64 size = f.size();
+                uchar *data = f.map(0, size);
+                if (!data)
+                    continue;
+                KgWorld *w = kg_world_new(data, size_t(size));
+                f.unmap(data);
+                if (w)
+                    return w;
+                qWarning() << "GlobeItem: failed to decode" << path;
             }
-            const QByteArray data = f.readAll();
-            KgWorld *w = kg_world_new(reinterpret_cast<const uint8_t *>(data.constData()),
-                                      size_t(data.size()));
-            if (!w)
-                qWarning("GlobeItem: world dataset failed to decode");
-            return w;
+            qWarning() << "GlobeItem: world dataset not found (looked in" << candidates << ")";
+            return nullptr;
         });
     });
     return h.future;
