@@ -3,6 +3,49 @@
 Kader follows [semantic versioning](https://semver.org): MAJOR.MINOR.FIX.
 Release notes for each version are taken from this file.
 
+## [2.2.0]
+
+### New
+- **Grid and List views.** The gallery's View menu (next to Sort) now offers
+  Mosaic, Grid and List, plus four sizes. List shows each file's name, date,
+  type, size and dimensions. Your choice is remembered.
+- **Esc goes back, everywhere.** Each press closes or undoes one thing: a
+  menu, the viewer's panels, a selection, a place card, a search, an open
+  album, then returns to the Gallery.
+- **Search suggestions.** Typing in the search bar suggests people, places,
+  albums, colours, months and years.
+- **AI search in the gallery.** The ✦ button in the search bar searches by
+  what's in your photos and shows the matches right in the gallery.
+- **Swipe to teach face grouping.** Calibrate is now a deck of cards: drag
+  right for "same person", left for "not them". Kader learns from your
+  answers and gets better each round.
+- **Remove a person** entirely from People: right-click (or hold) their face.
+  Rename and hide are in the same menu, and you can click "Add a name" to
+  type it in place.
+- **Fix a person's photos:** hold to select photos on a person's page, then
+  "Not this person" or "Not a face".
+- **Trim handles:** in trim mode, drag the start and end bars on the seek bar.
+- **Place cards** swipe through all of a place's photos, and Open opens the
+  one you're looking at.
+- **Hold and drag** on photos or albums to select everything you pass over.
+- Menus have icons, and tooltips, progress bars and switches follow
+  Material 3.
+
+### Fixed
+- Going back to the Gallery from Search, Map or Settings didn't work.
+- "Not this person" did nothing while faces were still being analysed.
+- The 2D map needed an API key; it now uses OpenStreetMap, with the same
+  pins as the globe.
+- Opening This PC froze the window for a moment; its checkboxes couldn't
+  be clicked.
+- Dragging the gallery to scroll could snap back.
+- Unselected photos showed a checkmark in selection mode.
+- Hovering the volume button didn't show the slider.
+- Window buttons showed in the viewer on tiling compositors (Hyprland…).
+- File types read "VND.AVI" instead of "AVI".
+- Profile pictures in People were clipped at the top.
+- The sidebar highlight lagged when collapsing the sidebar.
+
 ## [2.1.0]
 
 ### Windows
