@@ -161,6 +161,12 @@ bool DatabaseManager::createTables() {
     migrate("media",  "modified_date", "INTEGER DEFAULT 0");
     migrate("media",  "last_viewed",   "INTEGER DEFAULT 0");
     migrate("media",  "duration",      "REAL DEFAULT 0");
+    migrate("media",  "trashed_at",    "INTEGER");
+    // items trashed before trashed_at existed start their retention clock now
+    {
+        QSqlQuery tq(m_db);
+        tq.exec("UPDATE media SET trashed_at = strftime('%s','now') WHERE is_trashed = 1 AND trashed_at IS NULL");
+    }
 
     query.exec(
         "CREATE TABLE IF NOT EXISTS scan_exclusions ("
@@ -643,7 +649,8 @@ bool DatabaseManager::toggleFavorite(int mediaId) {
 bool DatabaseManager::setTrashed(int mediaId, bool trashed) {
     checkConnection();
     QSqlQuery q(m_db);
-    q.prepare("UPDATE media SET is_trashed = :v WHERE id = :id");
+    q.prepare("UPDATE media SET is_trashed = :v, trashed_at = CASE WHEN :v2 THEN strftime('%s','now') END WHERE id = :id");
+    q.bindValue(":v2", trashed ? 1 : 0);
     q.bindValue(":v", trashed ? 1 : 0);
     q.bindValue(":id", mediaId);
     return q.exec();
@@ -658,7 +665,7 @@ bool DatabaseManager::trashMedia(const QString &filePath) {
                                     ? QUrl(filePath).toLocalFile()
                                     : filePath;
     QSqlQuery q(m_db);
-    q.prepare("UPDATE media SET is_trashed = 1 WHERE file_path = :path");
+    q.prepare("UPDATE media SET is_trashed = 1, trashed_at = strftime('%s','now') WHERE file_path = :path");
     q.bindValue(":path", normalized);
     return q.exec();
 }
@@ -725,7 +732,7 @@ bool DatabaseManager::pinAlbum(const QString &folderPath, bool pinned) {
 bool DatabaseManager::trashAlbum(const QString &folderPath) {
     checkConnection();
     QSqlQuery q(m_db);
-    q.prepare("UPDATE media SET is_trashed = 1 WHERE folder_path = :path");
+    q.prepare("UPDATE media SET is_trashed = 1, trashed_at = strftime('%s','now') WHERE folder_path = :path");
     q.bindValue(":path", folderPath);
     return q.exec();
 }
@@ -877,9 +884,17 @@ QVariantMap DatabaseManager::getSortPref(const QString &view) {
 }
 
 int DatabaseManager::emptyTrash() {
+    return purgeTrash(0);
+}
+
+int DatabaseManager::purgeTrash(int days) {
     checkConnection();
     QSqlQuery sel(m_db);
-    sel.exec("SELECT id, file_path FROM media WHERE is_trashed = 1");
+    sel.prepare("SELECT id, file_path FROM media WHERE is_trashed = 1 "
+                "AND (? = 0 OR COALESCE(trashed_at, 0) < strftime('%s','now') - ? * 86400)");
+    sel.addBindValue(days);
+    sel.addBindValue(days);
+    sel.exec();
 
     QList<QPair<int, QString>> trashed;
     while (sel.next())

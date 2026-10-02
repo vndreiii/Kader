@@ -11,6 +11,7 @@
 #include <thread>
 #include <QtConcurrent>
 #include <QFileInfo>
+#include <QSqlQuery>
 #include <QDir>
 #include <QUrl>
 #include <QCollator>
@@ -406,4 +407,88 @@ void FileScanner::runScan(const std::string &rootPath, const std::vector<std::st
             }
         });
     }
+}
+
+// ── metadata removal ────────────────────────────────────────────────────────
+
+void FileScanner::stripMetadata(bool locationOnly) {
+    if (m_stripping || !m_db)
+        return;
+    m_stripping = true;
+    emit strippingChanged();
+    QtConcurrent::run([this, locationOnly]() {
+        static const QStringList exts = {QStringLiteral("jpg"), QStringLiteral("jpeg"), QStringLiteral("png"),
+                                         QStringLiteral("webp"), QStringLiteral("tif"), QStringLiteral("tiff")};
+        QStringList paths;
+        {
+            QSqlQuery q(m_db->threadDb());
+            q.exec(QStringLiteral("SELECT file_path FROM media WHERE is_trashed = 0"));
+            while (q.next()) {
+                const QString p = q.value(0).toString();
+                if (exts.contains(QFileInfo(p).suffix().toLower()))
+                    paths << p;
+            }
+        }
+        int done = 0, changed = 0, failed = 0;
+        QStringList cleared;
+        for (const QString &p : std::as_const(paths)) {
+            try {
+                auto image = Exiv2::ImageFactory::open(p.toStdString());
+                image->readMetadata();
+                bool dirty = false;
+                if (locationOnly) {
+                    Exiv2::ExifData &exif = image->exifData();
+                    for (auto it = exif.begin(); it != exif.end();) {
+                        if (it->groupName() == "GPSInfo") {
+                            it = exif.erase(it);
+                            dirty = true;
+                        } else {
+                            ++it;
+                        }
+                    }
+                    Exiv2::XmpData &xmp = image->xmpData();
+                    for (auto it = xmp.begin(); it != xmp.end();) {
+                        if (it->key().find("GPS") != std::string::npos || it->key().find("Location") != std::string::npos) {
+                            it = xmp.erase(it);
+                            dirty = true;
+                        } else {
+                            ++it;
+                        }
+                    }
+                } else if (!image->exifData().empty() || !image->iptcData().empty() || !image->xmpData().empty()) {
+                    image->clearMetadata();
+                    dirty = true;
+                }
+                if (dirty) {
+                    image->writeMetadata();
+                    ++changed;
+                    cleared << p;
+                }
+            } catch (const std::exception &e) {
+                ++failed;
+                qWarning() << "stripMetadata:" << p << e.what();
+            }
+            if (++done % 25 == 0 || done == paths.size())
+                emit stripProgress(done, int(paths.size()));
+        }
+        // the index mirrors the files: forget the removed locations now
+        if (!cleared.isEmpty()) {
+            QSqlDatabase db = m_db->threadDb();
+            db.transaction();
+            QSqlQuery u(db);
+            u.prepare(QStringLiteral("UPDATE media SET latitude = NULL, longitude = NULL WHERE file_path = ?"));
+            for (const QString &p : std::as_const(cleared)) {
+                u.addBindValue(p);
+                u.exec();
+            }
+            db.commit();
+        }
+        QMetaObject::invokeMethod(this, [this, changed, failed]() {
+            m_stripping = false;
+            emit strippingChanged();
+            emit stripFinished(changed, failed);
+            if (changed > 0)
+                emit libraryChanged(QString());
+        }, Qt::QueuedConnection);
+    });
 }

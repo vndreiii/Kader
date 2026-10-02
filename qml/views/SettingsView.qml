@@ -508,15 +508,41 @@ Item {
                     SettingsRow {
                         label: I18n.t(Settings.language, "auto_scan")
                         sub: I18n.t(Settings.language, "auto_scan_sub")
-                        action: M3Switch { checked: true }
+                        action: M3Switch {
+                            checked: Settings.autoScan
+                            onCheckedChanged: Settings.autoScan = checked
+                        }
                     }
                     SettingsRow {
                         label: I18n.t(Settings.language, "trash_retention")
                         sub: I18n.t(Settings.language, "trash_retention_sub")
-                        action: ComboBox {
-                            model: ["7 days", "30 days", "90 days", "Never"]
-                            currentIndex: 1
-                            width: 120
+                        action: Row {
+                            spacing: 4
+                            Repeater {
+                                model: [[I18n.t(Settings.language, "days_n").arg(7), 7],
+                                        [I18n.t(Settings.language, "days_n").arg(30), 30],
+                                        [I18n.t(Settings.language, "days_n").arg(90), 90],
+                                        [I18n.t(Settings.language, "never"), 0]]
+                            delegate: Button {
+                                required property var modelData
+                                text: modelData[0]
+                                checkable: true
+                                checked: Settings.trashRetentionDays === modelData[1]
+                                onClicked: Settings.trashRetentionDays = modelData[1]
+                                implicitWidth: 72; implicitHeight: 34
+                                background: Rectangle {
+                                    radius: 17
+                                    color: parent.checked ? ThemeManager.secondaryContainer : ThemeManager.surfaceContainerHighest
+                                    border.color: ThemeManager.outline; border.width: 1
+                                }
+                                contentItem: Label {
+                                    text: parent.text; font.pixelSize: 12
+                                    color: parent.checked ? ThemeManager.onSecondaryContainer : ThemeManager.onSurface
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+                            }
+                            }
                         }
                         last: true
                     }
@@ -728,9 +754,11 @@ Item {
                     label: I18n.t(Settings.language, "strip_exif")
                     sub: I18n.t(Settings.language, "strip_exif_sub")
                     last: true
-                    action: Button {
+                    action: M3Button {
+                        kind: "tonal"
                         text: I18n.t(Settings.language, "strip_metadata_btn")
-                        onClicked: console.log("Strip EXIF")
+                        enabled: !FileScanner.stripping
+                        onClicked: stripDialog.open()
                     }
                 }
             }
@@ -752,6 +780,15 @@ Item {
                 title: I18n.t(Settings.language, "section_ai")
 
                 // Model status + download
+                SettingsRow {
+                    label: I18n.t(Settings.language, "faces_setting")
+                    sub: Analyzer.downloading ? I18n.t(Settings.language, "people_downloading").arg(Math.round(Analyzer.downloadProgress * 100))
+                                              : I18n.t(Settings.language, "faces_setting_sub")
+                    action: M3Switch {
+                        checked: Analyzer.facesEnabled
+                        onToggled: (on) => on ? Analyzer.enableFaces() : Analyzer.disableFaces()
+                    }
+                }
                 SettingsRow {
                     label: I18n.t(Settings.language, "ai_semantic_search")
                     sub: AI.modelsPresent
@@ -1022,7 +1059,8 @@ Item {
                                 function onUpToDate() { settingsUpToDate.visible = true; upToDateTimer.restart() }
                             }
                         }
-                        Button {
+                        M3Button {
+                            kind: Updater.available ? "filled" : "tonal"
                             text: Updater.available ? I18n.t(Settings.language, "update_show")
                                                     : I18n.t(Settings.language, "update_check_now")
                             enabled: Updater.state !== 1
@@ -1031,6 +1069,201 @@ Item {
                     }
                 }
             }
+
+            // About
+            SettingsSection {
+                title: I18n.t(Settings.language, "section_about")
+                Item {
+                    width: parent.width
+                    height: 112
+                    Row {
+                        anchors { left: parent.left; leftMargin: 20; verticalCenter: parent.verticalCenter }
+                        spacing: 18
+                        Image {
+                            width: 64; height: 64
+                            source: "qrc:/Kader/assets/icons/kader-128.png"
+                            sourceSize: Qt.size(128, 128)
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                        Column {
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 4
+                            Label { text: "Kader"; font.pixelSize: 24; font.weight: Font.Medium; color: ThemeManager.onSurface }
+                            Label { text: I18n.t(Settings.language, "about_version").arg(Qt.application.version); color: ThemeManager.onSurfaceVariant; font.pixelSize: 13 }
+                            Label { text: I18n.t(Settings.language, "about_tagline"); color: ThemeManager.onSurfaceVariant; font.pixelSize: 13 }
+                        }
+                    }
+                }
+                SettingsRow {
+                    label: I18n.t(Settings.language, "about_support")
+                    sub: I18n.t(Settings.language, "about_support_sub")
+                    action: M3Button {
+                        kind: "filled"
+                        text: I18n.t(Settings.language, "donate_kofi")
+                        onClicked: Qt.openUrlExternally("https://ko-fi.com/vndreiii")
+                    }
+                }
+                SettingsRow {
+                    label: I18n.t(Settings.language, "about_source")
+                    sub: "github.com/vndreiii/kader"
+                    action: Row {
+                        spacing: 4
+                        M3Button { text: I18n.t(Settings.language, "about_github"); onClicked: Qt.openUrlExternally("https://github.com/vndreiii/kader") }
+                        M3Button { text: I18n.t(Settings.language, "about_issue"); onClicked: Qt.openUrlExternally("https://github.com/vndreiii/kader/issues/new") }
+                    }
+                }
+                SettingsRow {
+                    last: true
+                    label: I18n.t(Settings.language, "about_licenses")
+                    sub: I18n.t(Settings.language, "about_licenses_sub")
+                    action: M3Button {
+                        kind: "tonal"
+                        text: I18n.t(Settings.language, "about_view")
+                        onClicked: licensesDialog.open()
+                    }
+                }
+            }
+        }
+    }
+
+    // ── remove metadata ─────────────────────────────────────────────────────
+    Popup {
+        id: stripDialog
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: Math.min(520, parent.width - 48)
+        modal: true
+        padding: 28
+        property bool locationOnly: true
+        property string result: ""
+        onOpened: result = ""
+        background: Rectangle { radius: 28; color: ThemeManager.surfaceContainerHigh }
+        Connections {
+            target: FileScanner
+            function onStripProgress(done, total) { stripBar.to = Math.max(1, total); stripBar.value = done }
+            function onStripFinished(changed, failed) {
+                stripDialog.result = I18n.t(Settings.language, "strip_done").arg(changed)
+                    + (failed > 0 ? " " + I18n.t(Settings.language, "strip_failed").arg(failed) : "")
+            }
+        }
+        contentItem: Column {
+            spacing: 16
+            Label { text: I18n.t(Settings.language, "strip_exif"); font.pixelSize: 24; color: ThemeManager.onSurface }
+            Label {
+                width: parent.width
+                text: I18n.t(Settings.language, "strip_body")
+                wrapMode: Text.WordWrap
+                color: ThemeManager.onSurfaceVariant
+            }
+            Repeater {
+                model: [[I18n.t(Settings.language, "strip_location_only"), true], [I18n.t(Settings.language, "strip_all"), false]]
+                delegate: RadioButton {
+                    required property var modelData
+                    text: modelData[0]
+                    checked: stripDialog.locationOnly === modelData[1]
+                    enabled: !FileScanner.stripping
+                    onClicked: stripDialog.locationOnly = modelData[1]
+                }
+            }
+            Rectangle {
+                width: parent.width
+                height: warn.implicitHeight + 24
+                radius: 12
+                color: ThemeManager.errorContainer
+                Label {
+                    id: warn
+                    anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: 14 }
+                    text: I18n.t(Settings.language, "strip_warning")
+                    wrapMode: Text.WordWrap
+                    color: ThemeManager.onErrorContainer
+                    font.pixelSize: 13
+                }
+            }
+            ProgressBar { id: stripBar; width: parent.width; visible: FileScanner.stripping; from: 0; to: 1 }
+            Label { visible: stripDialog.result.length > 0; text: stripDialog.result; color: ThemeManager.primary }
+            Row {
+                anchors.right: parent.right
+                spacing: 8
+                M3Button { text: I18n.t(Settings.language, stripDialog.result.length > 0 ? "done" : "cancel"); onClicked: stripDialog.close() }
+                M3Button {
+                    visible: stripDialog.result.length === 0
+                    kind: "filled"
+                    enabled: !FileScanner.stripping
+                    text: I18n.t(Settings.language, "strip_confirm")
+                    onClicked: FileScanner.stripMetadata(stripDialog.locationOnly)
+                }
+            }
+        }
+    }
+
+    // ── open-source licences ────────────────────────────────────────────────
+    Popup {
+        id: licensesDialog
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: Math.min(640, parent.width - 48)
+        height: Math.min(700, parent.height - 48)
+        modal: true
+        padding: 28
+        background: Rectangle { radius: 28; color: ThemeManager.surfaceContainerHigh }
+        readonly property var items: [
+            ["Kader", "MIT", "https://github.com/vndreiii/kader"],
+            ["milfs-connect", "MIT", "https://github.com/vndreiii/milfs-connect"],
+            ["Qt 6", "LGPL-3.0", "https://www.qt.io/licensing/open-source-lgpl-obligations"],
+            ["libvips", "LGPL-2.1-or-later", "https://github.com/libvips/libvips/blob/master/LICENSE"],
+            ["Exiv2", "GPL-2.0-or-later", "https://github.com/Exiv2/exiv2/blob/main/COPYING"],
+            ["LibRaw", "LGPL-2.1 / CDDL-1.0", "https://github.com/LibRaw/LibRaw/blob/master/LICENSE.LGPL"],
+            ["Poppler", "GPL-2.0-or-later", "https://gitlab.freedesktop.org/poppler/poppler/-/blob/master/COPYING"],
+            ["OpenSSL", "Apache-2.0", "https://www.openssl.org/source/license.html"],
+            ["SQLite", "Public domain", "https://www.sqlite.org/copyright.html"],
+            ["FFmpeg (runtime tool)", "LGPL-2.1-or-later", "https://ffmpeg.org/legal.html"],
+            ["llama.cpp / ggml", "MIT", "https://github.com/ggml-org/llama.cpp/blob/master/LICENSE"],
+            ["Qwen3-VL-Embedding (model)", "Apache-2.0", "https://huggingface.co/Qwen/Qwen3-VL-Embedding-2B"],
+            ["YuNet face detection (model)", "MIT", "https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet"],
+            ["SFace face recognition (model)", "Apache-2.0", "https://github.com/opencv/opencv_zoo/tree/main/models/face_recognition_sface"],
+            ["Natural Earth", "Public domain", "https://www.naturalearthdata.com/about/terms-of-use/"],
+            ["GeoNames", "CC BY 4.0", "https://www.geonames.org/about.html"],
+            ["OpenStreetMap / CARTO tiles (2D map)", "ODbL / CC BY 3.0", "https://www.openstreetmap.org/copyright"],
+            ["Material Symbols", "Apache-2.0", "https://github.com/google/material-design-icons/blob/master/LICENSE"],
+            ["Rust standard library", "MIT / Apache-2.0", "https://github.com/rust-lang/rust/blob/master/COPYRIGHT"]
+        ]
+        contentItem: ColumnLayout {
+            spacing: 14
+            Label { text: I18n.t(Settings.language, "about_licenses"); font.pixelSize: 24; color: ThemeManager.onSurface }
+            Label {
+                Layout.fillWidth: true
+                text: I18n.t(Settings.language, "about_licenses_body")
+                wrapMode: Text.WordWrap
+                color: ThemeManager.onSurfaceVariant
+            }
+            ListView {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                model: licensesDialog.items
+                spacing: 2
+                ScrollBar.vertical: ScrollBar {}
+                delegate: ItemDelegate {
+                    required property var modelData
+                    width: ListView.view.width
+                    height: 56
+                    background: Rectangle { radius: 12; color: parent.hovered ? Qt.alpha(ThemeManager.onSurface, 0.06) : "transparent" }
+                    contentItem: RowLayout {
+                        spacing: 12
+                        Label { Layout.fillWidth: true; text: modelData[0]; color: ThemeManager.onSurface; font.pixelSize: 15; elide: Text.ElideRight }
+                        Rectangle {
+                            Layout.preferredHeight: 26
+                            Layout.preferredWidth: licLbl.implicitWidth + 18
+                            radius: 13
+                            color: ThemeManager.secondaryContainer
+                            Label { id: licLbl; anchors.centerIn: parent; text: modelData[1]; font.pixelSize: 12; color: ThemeManager.onSecondaryContainer }
+                        }
+                        MaterialSymbol { name: "open_in_new"; size: 18; color: ThemeManager.onSurfaceVariant }
+                    }
+                    onClicked: Qt.openUrlExternally(modelData[2])
+                }
+            }
+            M3Button { Layout.alignment: Qt.AlignRight; text: I18n.t(Settings.language, "close"); onClicked: licensesDialog.close() }
         }
     }
 }

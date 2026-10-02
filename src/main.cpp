@@ -8,6 +8,8 @@
 #include <QFileInfo>
 #include <QtConcurrent>
 #include <QTimer>
+#include <QFileSystemWatcher>
+#include <QDir>
 #include <QElapsedTimer>
 #include <cstdio>
 #include <algorithm>
@@ -221,15 +223,82 @@ int main(int argc, char *argv[]) {
             });
         }
 
-        // Auto-scan indexed directories on startup (delayed so UI loads first).
-        QTimer::singleShot(800, &app, [&]() {
-            QVariantList dirs = dbManager.getIndexedDirectories();
-            for (const QVariant &dir : dirs) {
-                QString path = dir.toMap().value("path").toString();
+        // Auto-scan (Settings → Library): scan the indexed folders at startup,
+        // when a watched folder changes, and every 10 minutes (no-op rescans
+        // take milliseconds and don't refresh anything).
+        auto scanAll = [&]() {
+            for (const QVariant &dir : dbManager.getIndexedDirectories()) {
+                const QString path = dir.toMap().value("path").toString();
                 if (!path.isEmpty())
                     fileScanner.startScan(path);
             }
+        };
+        auto *folderWatcher = new QFileSystemWatcher(&app);
+        auto *watchDebounce = new QTimer(&app);
+        watchDebounce->setSingleShot(true);
+        watchDebounce->setInterval(3000);
+        QObject::connect(watchDebounce, &QTimer::timeout, &app, [&, scanAll]() {
+            if (settingsManager.autoScan())
+                scanAll();
         });
+        QObject::connect(folderWatcher, &QFileSystemWatcher::directoryChanged, watchDebounce,
+                         qOverload<>(&QTimer::start));
+        // Indexed roots and their direct subfolders (album folders); inotify
+        // watches are a shared resource, so this stays bounded.
+        auto rewatch = [&dbManager, folderWatcher]() {
+            if (!folderWatcher->directories().isEmpty())
+                folderWatcher->removePaths(folderWatcher->directories());
+            QStringList paths;
+            for (const QVariant &dir : dbManager.getIndexedDirectories()) {
+                const QString root = dir.toMap().value("path").toString();
+                if (root.isEmpty())
+                    continue;
+                paths << root;
+                const QStringList subs = QDir(root).entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+                for (const QString &sub : subs) {
+                    if (paths.size() >= 512)
+                        break;
+                    paths << root + QLatin1Char('/') + sub;
+                }
+            }
+            if (!paths.isEmpty())
+                folderWatcher->addPaths(paths);
+        };
+        QTimer::singleShot(800, &app, [&, scanAll, rewatch]() {
+            if (settingsManager.autoScan()) {
+                scanAll();
+                rewatch();
+            }
+        });
+        auto *rescanTimer = new QTimer(&app);
+        rescanTimer->setInterval(10 * 60 * 1000);
+        QObject::connect(rescanTimer, &QTimer::timeout, &app, [&, scanAll]() {
+            if (settingsManager.autoScan())
+                scanAll();
+        });
+        rescanTimer->start();
+        QObject::connect(&settingsManager, &SettingsManager::autoScanChanged, &app, [&, scanAll, rewatch, folderWatcher]() {
+            if (settingsManager.autoScan()) {
+                scanAll();
+                rewatch();
+            } else if (!folderWatcher->directories().isEmpty()) {
+                folderWatcher->removePaths(folderWatcher->directories());
+            }
+        });
+
+        // Trash retention: purge items older than the chosen period at
+        // startup, daily, and when the period is shortened.
+        auto purgeTrash = [&]() {
+            const int days = settingsManager.trashRetentionDays();
+            if (days > 0 && dbManager.purgeTrash(days) > 0)
+                refreshTimer->start();
+        };
+        QTimer::singleShot(10000, &app, purgeTrash);
+        auto *purgeTimer = new QTimer(&app);
+        purgeTimer->setInterval(24 * 60 * 60 * 1000);
+        QObject::connect(purgeTimer, &QTimer::timeout, &app, purgeTrash);
+        purgeTimer->start();
+        QObject::connect(&settingsManager, &SettingsManager::trashRetentionDaysChanged, &app, purgeTrash);
 
         // Colour (and, when enabled, face) analysis of new media, in the
         // background once the UI has settled and the startup scan is done.

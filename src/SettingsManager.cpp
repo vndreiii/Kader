@@ -135,6 +135,29 @@ void SettingsManager::setAutoUpdate(bool on) {
     }
 }
 
+bool SettingsManager::autoScan() const {
+    return m_data.value("autoScan").toBool(true);
+}
+void SettingsManager::setAutoScan(bool on) {
+    if (autoScan() != on) {
+        m_data["autoScan"] = on;
+        save();
+        emit autoScanChanged();
+    }
+}
+
+int SettingsManager::trashRetentionDays() const {
+    return m_data.value("trashRetentionDays").toInt(30);
+}
+void SettingsManager::setTrashRetentionDays(int days) {
+    days = std::max(0, days);
+    if (trashRetentionDays() != days) {
+        m_data["trashRetentionDays"] = days;
+        save();
+        emit trashRetentionDaysChanged();
+    }
+}
+
 QString SettingsManager::skippedVersion() const {
     return m_data.value("skippedVersion").toString();
 }

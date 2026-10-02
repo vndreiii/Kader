@@ -131,6 +131,8 @@ public:
 
     // Permanently delete all trashed files from disk and DB. Returns count deleted.
     Q_INVOKABLE int emptyTrash();
+    // Permanently deletes items that have been in the trash longer than `days`.
+    int purgeTrash(int days);
 
     // Remove media rows for files that no longer exist on disk. Returns count pruned.
     Q_INVOKABLE int pruneOrphanedMedia();

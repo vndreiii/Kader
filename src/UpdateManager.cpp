@@ -175,7 +175,7 @@ void UpdateManager::check(bool userInitiated) {
             return;
         manifest->deleteLater();
         sig->deleteLater();
-        m_lastChecked = QLocale().toString(QDateTime::currentDateTime(), QLocale::ShortFormat);
+        m_lastChecked = QLocale().toString(QDateTime::currentDateTime(), QStringLiteral("d MMM yyyy, HH:mm"));
         if (manifest->error() != QNetworkReply::NoError || sig->error() != QNetworkReply::NoError) {
             const int code = manifest->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
             // 404: no release published yet — that's "up to date", not an error.
