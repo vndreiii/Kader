@@ -7,6 +7,23 @@
 
 ---
 
+## Screenshots
+
+Demo library of freely licensed stock photos (see `tools/screenshots/`).
+
+| | |
+|---|---|
+| ![Gallery](screenshots/gallery.jpg) | ![Search](screenshots/search.jpg) |
+| Gallery: justified mosaic by month | Search: people, memories, places, colours |
+| ![Globe](screenshots/globe-world.jpg) | ![Globe, Europe](screenshots/globe-region.jpg) |
+| Places globe with photo pins | Zoomed in: borders, countries, cities |
+| ![Globe, city level](screenshots/globe-city.jpg) | ![Viewer](screenshots/viewer.jpg) |
+| Down to towns and suburbs | Viewer: the whole window is the photo |
+| ![Search results](screenshots/search-results.jpg) | ![Person](screenshots/person.jpg) |
+| One search box for places, people, colours, dates | People: faces grouped on-device |
+| ![Colours](screenshots/search-colours.jpg) | ![Albums](screenshots/albums.jpg) |
+| Memories and colour groups | Albums |
+
 ## Features
 
 - **Timeline** — mosaic grid with automatic monthly separators and variable density
