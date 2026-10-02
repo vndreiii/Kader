@@ -434,7 +434,7 @@ void GlobeItem::pushStyle() {
     s.label_density = float(m_labelDensity);
     s.pin_width = float(m_pinSize.width());
     s.pin_height = float(m_pinSize.height());
-    s.pin_merge = float(std::max(m_pinSize.width(), m_pinSize.height()) * 0.8);
+    s.pin_merge = float(std::max(m_pinSize.width(), m_pinSize.height()) * 1.05);
     kg_globe_set_style(m_globe, &s);
 }
 

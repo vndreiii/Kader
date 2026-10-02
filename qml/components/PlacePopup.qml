@@ -91,8 +91,8 @@ Item {
         implicitHeight: col.implicitHeight + 24
         height: implicitHeight
         radius: 18
-        color: Qt.rgba(0.06, 0.07, 0.10, 0.94)
-        border.color: Qt.rgba(1, 1, 1, 0.10)
+        color: Qt.rgba(0.075, 0.085, 0.115, 1)
+        border.color: Qt.rgba(1, 1, 1, 0.14)
         border.width: 1
         x: Math.max(10, Math.min(root.width - width - 10, root.anchorX - width / 2))
         y: root.below ? Math.min(root.height - height - 10, root.anchorY + 14)
@@ -172,7 +172,7 @@ Item {
                     width: parent.width
                     visible: text !== ""
                     text: root.address
-                    color: Qt.rgba(1, 1, 1, 0.66)
+                    color: Qt.rgba(1, 1, 1, 0.78)
                     font.pixelSize: 12
                     wrapMode: Text.WordWrap
                     maximumLineCount: 2
@@ -186,8 +186,9 @@ Item {
                 Label {
                     anchors.verticalCenter: parent.verticalCenter
                     width: parent.width - openBtn.width - 8
-                    color: Qt.rgba(1, 1, 1, 0.66)
+                    color: Qt.rgba(1, 1, 1, 0.80)
                     font.pixelSize: 12
+                    font.weight: Font.Medium
                     elide: Text.ElideRight
                     text: {
                         if (!root.place) return ""

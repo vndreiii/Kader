@@ -557,7 +557,7 @@ impl Globe {
         let level = (b.r * s0 / target).log2();
         let k = (level.floor() as i32).clamp(0, kmax);
         let f = if k == kmax || level < 0.0 { 0.0 } else { level - f64::from(k) };
-        let t = if k < kmax { smoothstep(0.55, 1.0, f) } else { 0.0 };
+        let t = if k < kmax { smoothstep(0.78, 1.0, f) } else { 0.0 };
         if t < 0.999 {
             self.dot_level(world, b, rho, s0 / f64::from(1u32 << k), 1.0 - t);
         }
@@ -570,7 +570,13 @@ impl Globe {
         let rows = (PI / s).round().max(2.0) as i64;
         let dlat = PI / rows as f64;
         let spacing_px = s * b.r;
-        let radius = (spacing_px * f64::from(self.style.dot_size) * self.dot_shrink).clamp(0.55, 5.0);
+        // Spacing doubles across each zoom octave; capping the radius keeps the
+        // halftone fine instead of turning into big blobs late in the octave.
+        let target = f64::from(self.style.dot_spacing).max(2.0);
+        let radius = (spacing_px * f64::from(self.style.dot_size))
+            .min(target * f64::from(self.style.dot_size) * 1.3)
+            .clamp(0.55, 5.0)
+            * self.dot_shrink;
         let (sl0, cl0) = self.cam.lat.sin_cos();
         let cos_rho = (rho + 0.6 * s).min(PI).cos();
         let margin = radius + 2.0;
