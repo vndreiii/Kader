@@ -14,7 +14,9 @@ Button {
     implicitHeight: 40
     hoverEnabled: true
     background: Rectangle {
-        radius: 20
+        // pressed buttons square off a little (M3 Expressive shape morph)
+        radius: root.down ? 12 : 20
+        Behavior on radius { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
         color: !root.enabled ? (root.kind === "text" ? "transparent" : Qt.alpha(ThemeManager.onSurface, 0.12))
              : root.kind === "filled" ? ThemeManager.primary
              : root.kind === "tonal" ? ThemeManager.secondaryContainer

@@ -31,6 +31,7 @@ Item {
 
     // ── selection (one grid at a time) ─────────────────────────────────
     property var selGrid: null
+    readonly property int subDepth: stack.depth   // sub-pages open (people, a person, a group)
     function _gridSel(g) {
         if (g.selecting) {
             if (selGrid && selGrid !== g) selGrid.clearSelection()
