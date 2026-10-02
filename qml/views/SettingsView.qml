@@ -54,7 +54,7 @@ Item {
         scanExclusions = DB.getScanExclusions()
     }
 
-    Component.onCompleted: { refreshDirs(); refreshIgnored(); refreshExclusions() }
+    Component.onCompleted: { refreshDirs(); refreshIgnored(); refreshExclusions(); Qt.callLater(applyPages) }
 
     Connections {
         target: FileScanner
@@ -300,15 +300,128 @@ Item {
         }
     }
 
+    // ── categories (M3 Expressive: colour-coded icon tiles) ────────────────
+    property string current: "library"
+    property string settingsQuery: ""
+    readonly property bool compactNav: width < 900
+    readonly property var categories: [
+        { key: "library",     icon: "photo_library",  hue: 0.58, t: "section_library" },
+        { key: "appearance",  icon: "palette",        hue: 0.83, t: "section_appearance" },
+        { key: "playback",    icon: "play_circle",    hue: 0.95, t: "section_playback" },
+        { key: "raw",         icon: "raw_on",         hue: 0.08, t: "section_raw" },
+        { key: "privacy",     icon: "shield",         hue: 0.36, t: "section_privacy" },
+        { key: "places",      icon: "public",         hue: 0.50, t: "section_map" },
+        { key: "ai",          icon: "auto_awesome",   hue: 0.72, t: "section_ai" },
+        { key: "performance", icon: "speed",          hue: 0.13, t: "section_performance" },
+        { key: "updates",     icon: "system_update",  hue: 0.62, t: "section_updates" },
+        { key: "about",       icon: "info",           hue: 0.0,  t: "section_about" }
+    ]
+    function tileBg(h) { return h === 0.0 ? ThemeManager.surfaceContainerHighest
+                                           : Qt.hsla(h, ThemeManager.isDark ? 0.35 : 0.70, ThemeManager.isDark ? 0.28 : 0.86, 1) }
+    function tileFg(h) { return h === 0.0 ? ThemeManager.onSurfaceVariant
+                                           : Qt.hsla(h, ThemeManager.isDark ? 0.70 : 0.65, ThemeManager.isDark ? 0.82 : 0.28, 1) }
+    function applyPages() {
+        var q = settingsQuery.trim()
+        for (var i = 0; i < settingsColumn.children.length; i++) {
+            var c = settingsColumn.children[i]
+            if (c.key === undefined || c.key === "") continue
+            c.searching = q.length > 0
+            if (q.length > 0) c.updateHit()
+            c.visible = q.length > 0 ? c.searchHit : c.key === current
+        }
+        flick.contentY = 0
+    }
+    onCurrentChanged: applyPages()
+    onSettingsQueryChanged: Qt.callLater(applyPages)
+
+    Rectangle {
+        id: navPane
+        anchors { left: parent.left; top: parent.top; bottom: parent.bottom; topMargin: root.topPadding + 8; bottomMargin: 16; leftMargin: 16 }
+        width: root.compactNav ? 76 : 300
+        radius: 28
+        color: ThemeManager.surfaceContainerLow
+        Behavior on width { NumberAnimation { duration: ThemeManager.durMed; easing.type: Easing.OutCubic } }
+
+        Column {
+            anchors { fill: parent; margins: 12 }
+            spacing: 4
+
+            // search
+            Rectangle {
+                visible: !root.compactNav
+                width: parent.width
+                height: 52
+                radius: 26
+                color: ThemeManager.surfaceContainerHigh
+                border.width: setSearch.activeFocus ? 2 : 0
+                border.color: ThemeManager.primary
+                MaterialSymbol { id: sIcon; anchors { left: parent.left; leftMargin: 16; verticalCenter: parent.verticalCenter } name: "search"; size: 22; color: ThemeManager.onSurfaceVariant }
+                TextField {
+                    id: setSearch
+                    anchors { left: sIcon.right; leftMargin: 8; right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
+                    background: null
+                    font.pixelSize: 15
+                    color: ThemeManager.onSurface
+                    placeholderText: I18n.t(Settings.language, "settings_search")
+                    placeholderTextColor: ThemeManager.onSurfaceVariant
+                    onTextChanged: root.settingsQuery = text
+                }
+            }
+            Item { width: 1; height: 8; visible: !root.compactNav }
+
+            Repeater {
+                model: root.categories
+                delegate: Rectangle {
+                    required property var modelData
+                    readonly property bool sel: root.settingsQuery.length === 0 && root.current === modelData.key
+                    width: parent.width
+                    height: 56
+                    radius: 28
+                    color: sel ? ThemeManager.secondaryContainer
+                         : catMa.containsMouse ? Qt.alpha(ThemeManager.onSurface, 0.06) : "transparent"
+                    Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
+                    Row {
+                        anchors { left: parent.left; leftMargin: root.compactNav ? (parent.width - 40) / 2 : 10; verticalCenter: parent.verticalCenter }
+                        spacing: 14
+                        Rectangle {
+                            width: 40; height: 40
+                            radius: sel ? 14 : 20   // circle → squircle when selected (shape morph)
+                            Behavior on radius { NumberAnimation { duration: 260; easing.type: Easing.OutBack } }
+                            color: root.tileBg(modelData.hue)
+                            MaterialSymbol { anchors.centerIn: parent; name: modelData.icon; size: 22; color: root.tileFg(modelData.hue); fill: sel ? 1 : 0 }
+                        }
+                        Label {
+                            visible: !root.compactNav
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: I18n.t(Settings.language, modelData.t)
+                            font.pixelSize: 15
+                            font.weight: sel ? Font.DemiBold : Font.Medium
+                            color: sel ? ThemeManager.onSecondaryContainer : ThemeManager.onSurface
+                        }
+                    }
+                    MouseArea {
+                        id: catMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: { setSearch.text = ""; root.current = modelData.key }
+                    }
+                    ToolTip.visible: root.compactNav && catMa.containsMouse
+                    ToolTip.text: I18n.t(Settings.language, modelData.t)
+                }
+            }
+        }
+    }
+
     Flickable {
         id: flick
-        anchors.fill: parent
+        anchors { left: navPane.right; leftMargin: 8; right: parent.right; top: parent.top; bottom: parent.bottom }
         contentHeight: settingsColumn.height + 64
         clip: true
         
         Column {
             id: settingsColumn
-            width: Math.min(720, flick.width - 48)
+            width: Math.min(760, flick.width - 64)
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: 0
             
@@ -317,11 +430,14 @@ Item {
             // Library Section
             SettingsSection {
                 title: I18n.t(Settings.language, "section_library")
-                
+                key: "library"
+
                 Column {
                     width: parent.width
-                    spacing: 0
+                    spacing: 2
 
+                    SettingsTile {
+                        keywords: I18n.t(Settings.language, "indexed_dirs") + " folders directories scan add ignored"
                     Label {
                         text: I18n.t(Settings.language, "indexed_dirs")
                         font.pixelSize: ThemeManager.fontLabelL
@@ -417,8 +533,11 @@ Item {
                         }
                         onClicked: { root.refreshIgnored(); ignoredModal.open = true }
                     }
+                    }
 
                     // Scan exclusion patterns
+                    SettingsTile {
+                        keywords: I18n.t(Settings.language, "scan_exclusions") + " exclude folders"
                     Label {
                         text: I18n.t(Settings.language, "scan_exclusions")
                         font.pixelSize: ThemeManager.fontLabelL
@@ -504,6 +623,7 @@ Item {
                             if (p.length > 0) { DB.addScanExclusion(p); root.refreshExclusions(); exclusionInput.text = "" }
                         }
                     }
+                    }
 
                     SettingsRow {
                         label: I18n.t(Settings.language, "auto_scan")
@@ -551,6 +671,7 @@ Item {
 
             SettingsSection {
                 title: I18n.t(Settings.language, "section_appearance")
+                key: "appearance"
                 SettingsRow {
                     label: I18n.t(Settings.language, "theme")
                     sub: [I18n.t(Settings.language, "theme_system"), I18n.t(Settings.language, "theme_light"), I18n.t(Settings.language, "theme_dark")][ThemeManager.themeMode]
@@ -599,12 +720,12 @@ Item {
                                      I18n.t(Settings.language, "density_spacious")]
                         return names[Math.max(0, Math.min(Math.round(densitySlider.value) - 1, 3))]
                     }
-                    action: Slider {
+                    action: M3Slider {
                         id: densitySlider
                         from: 1; to: 4; stepSize: 1
                         snapMode: Slider.SnapAlways
                         value: Settings.mosaicDensity
-                        width: 140
+                        width: 180
                         onMoved: {
                             var d = Math.round(value)
                             Settings.mosaicDensity = d
@@ -647,7 +768,7 @@ Item {
                             var l = Settings.language
                             for (var i = 0; i < langs.length; i++)
                                 if (langs[i].code === l) return i
-                            return 0
+                            return 3   // unsupported system language: the UI falls back to English
                         }
                         onActivated: Settings.language = langs[currentIndex].code
                         background: Rectangle {
@@ -682,6 +803,7 @@ Item {
 
             SettingsSection {
                 title: I18n.t(Settings.language, "section_playback")
+                key: "playback"
                 SettingsRow {
                     label: I18n.t(Settings.language, "use_pulse_audio")
                     sub: I18n.t(Settings.language, "use_pulse_audio_sub")
@@ -695,10 +817,11 @@ Item {
 
             SettingsSection {
                 title: I18n.t(Settings.language, "section_raw")
+                key: "raw"
 
                 Column {
                     width: parent.width
-                    spacing: 0
+                    spacing: 2
 
                     SettingsRow {
                         label: I18n.t(Settings.language, "show_raw")
@@ -750,6 +873,7 @@ Item {
 
             SettingsSection {
                 title: I18n.t(Settings.language, "section_privacy")
+                key: "privacy"
                 SettingsRow {
                     label: I18n.t(Settings.language, "strip_exif")
                     sub: I18n.t(Settings.language, "strip_exif_sub")
@@ -765,6 +889,7 @@ Item {
 
             SettingsSection {
                 title: I18n.t(Settings.language, "section_map")
+                key: "places"
                 SettingsRow {
                     label: I18n.t(Settings.language, "use_3d_globe")
                     sub: I18n.t(Settings.language, "use_3d_globe_sub")
@@ -778,6 +903,7 @@ Item {
 
             SettingsSection {
                 title: I18n.t(Settings.language, "section_ai")
+                key: "ai"
 
                 // Model status + download
                 SettingsRow {
@@ -976,6 +1102,7 @@ Item {
 
             SettingsSection {
                 title: I18n.t(Settings.language, "section_performance")
+                key: "performance"
                 SettingsRow {
                     label: I18n.t(Settings.language, "resource_usage")
                     sub: I18n.t(Settings.language, "resource_usage_sub")
@@ -1020,6 +1147,7 @@ Item {
 
             SettingsSection {
                 title: I18n.t(Settings.language, "section_updates")
+                key: "updates"
                 visible: typeof Updater !== "undefined"
                 SettingsRow {
                     label: I18n.t(Settings.language, "update_auto")
@@ -1073,7 +1201,10 @@ Item {
             // About
             SettingsSection {
                 title: I18n.t(Settings.language, "section_about")
-                Item {
+                key: "about"
+                SettingsTile {
+                    keywords: "kader version about"
+                    Item {
                     width: parent.width
                     height: 112
                     Row {
@@ -1093,6 +1224,7 @@ Item {
                             Label { text: I18n.t(Settings.language, "about_tagline"); color: ThemeManager.onSurfaceVariant; font.pixelSize: 13 }
                         }
                     }
+                }
                 }
                 SettingsRow {
                     label: I18n.t(Settings.language, "about_support")

@@ -223,6 +223,9 @@ qt_add_qml_module(KaderApp
         qml/components/CalibratePopup.qml
         qml/components/M3Button.qml
         qml/components/M3TextField.qml
+        qml/components/SegmentBg.qml
+        qml/components/SettingsTile.qml
+        qml/components/M3Slider.qml
         qml/views/SearchView.qml
         qml/views/PersonPage.qml
         qml/views/PeoplePage.qml

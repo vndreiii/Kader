@@ -395,6 +395,7 @@ var _s = {
         "about_licenses_body": "Kader stands on the work of these projects. Select one to read its licence.",
         "about_view": "View",
         "faces_setting": "Group faces into people", "faces_setting_sub": "Find and recognise faces on this computer (downloads 38 MB of models once)",
+        "settings_search": "Search settings",
         // Search tab
         "search": "Search", "search_matches": "Matches", "search_files": "File and folder names",
         "search_visual": "Visual matches", "search_nothing": "Nothing found",
