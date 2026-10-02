@@ -1,0 +1,58 @@
+# Push a tag vX.Y.Z (matching project(VERSION) in CMakeLists.txt) to build,
+# sign and publish a release. The in-app updater reads kader-update.json from
+# the latest release, so the signing secret must be configured:
+#   Settings → Secrets → Actions → KADER_SIGNING_KEY  (Ed25519 PEM, see
+#   packaging/README.md)
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check tag matches the project version
+        id: ver
+        run: |
+          version="$(sed -n 's/^project(Kader VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)"
+          tag="${GITHUB_REF_NAME}"
+          [ "v$version" = "$tag" ] || { echo "::error::tag $tag != CMakeLists version $version"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Release notes
+        run: python3 packaging/release/changelog_section.py "${{ steps.ver.outputs.version }}" > notes.md
+      - name: Sign update manifest
+        env:
+          KADER_SIGNING_KEY: ${{ secrets.KADER_SIGNING_KEY }}
+        run: |
+          [ -n "$KADER_SIGNING_KEY" ] || { echo "::error::KADER_SIGNING_KEY secret is not set"; exit 1; }
+          umask 077
+          printf '%s\n' "$KADER_SIGNING_KEY" > "$RUNNER_TEMP/key.pem"
+          python3 packaging/release/make_manifest.py \
+            --version "${{ steps.ver.outputs.version }}" --notes notes.md \
+            --appimage dist/Kader-*-x86_64.AppImage \
+            --arch dist/kader-*-x86_64.pkg.tar.zst \
+            --key "$RUNNER_TEMP/key.pem" --out dist
+          rm -f "$RUNNER_TEMP/key.pem"
+          (cd dist && sha256sum * > SHA256SUMS)
+          ls -la dist
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "Kader ${{ steps.ver.outputs.version }}" \
+            --notes-file notes.md --verify-tag
