@@ -104,10 +104,7 @@ pub fn push_f32s(field: Field<'_>, out: &mut Vec<f32>) -> Option<()> {
             if b.len() % 4 != 0 {
                 return None;
             }
-            out.extend(
-                b.chunks_exact(4)
-                    .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]])),
-            );
+            out.extend(b.as_chunks::<4>().0.iter().map(|c| f32::from_le_bytes(*c)));
         }
         other => out.push(other.as_f32()?),
     }

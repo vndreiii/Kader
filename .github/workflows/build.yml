@@ -99,6 +99,9 @@ jobs:
             python3 -m aqt install-qt linux desktop 6.8.3 linux_gcc_64 -O /opt/qt \
               -m qtmultimedia qtpositioning qtlocation qtshadertools qtimageformats qtwaylandcompositor
           fi
+          # Kader only uses SQLite; the other SQL drivers link client libraries
+          # that aren't installed, which linuxdeploy-plugin-qt treats as fatal
+          find /opt/qt/6.8.3/gcc_64/plugins/sqldrivers -name 'libqsql*.so' ! -name 'libqsqlite.so' -delete
           echo "QT_ROOT_DIR=/opt/qt/6.8.3/gcc_64" >> "$GITHUB_ENV"
           echo "/opt/qt/6.8.3/gcc_64/bin" >> "$GITHUB_PATH"
       - name: Checkout milfs-connect (sibling-app event bus)
