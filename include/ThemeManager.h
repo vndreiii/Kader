@@ -72,6 +72,7 @@ class ThemeManager : public QObject {
 
 public:
     explicit ThemeManager(QObject *parent = nullptr);
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
     bool isDark() const;
     Q_INVOKABLE bool isColorDark(const QColor &color) const;
@@ -148,6 +149,8 @@ signals:
 private:
     void parseScss();
     void loadHardcoded(int mode);
+    void applyAccent(const QColor &accent, bool dark);
+    static bool systemIsLight();
     QString getScssPath() const;
 
     QVariantMap m_colors;

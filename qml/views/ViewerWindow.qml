@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Window
 import "../components"
+import "../Paths.js" as Paths
 
 // Minimal standalone-viewer window. Used when Kader is launched with a file
 // (e.g. from a file manager). It hosts only the ViewerOverlay and pulls in the
@@ -32,7 +33,7 @@ Window {
         autoTransform: true
         asynchronous: false
         cache: false
-        source: viewerWindow._mime === "image/jpeg" && viewerWindow._file !== "" ? "file://" + viewerWindow._file : ""
+        source: viewerWindow._mime === "image/jpeg" && viewerWindow._file !== "" ? Paths.fileUrl(viewerWindow._file) : ""
         sourceSize: Qt.size(Math.ceil(Screen.width * Screen.devicePixelRatio),
                             Math.ceil(Screen.height * Screen.devicePixelRatio))
     }

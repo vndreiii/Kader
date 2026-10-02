@@ -1,4 +1,6 @@
 #include "ThumbnailGenerator.h"
+#include "AppPaths.h"
+#include <QUrl>
 #include <QStandardPaths>
 #include <QDir>
 #include <QFile>
@@ -34,24 +36,16 @@ bool ThumbnailGenerator::isRawFile(const QString &filePath) {
 
 static constexpr int AES_IV_SIZE = 16;
 
-// Resolve an external tool once via PATH (works for AppImages and distros that
-// don't install to /usr/bin); empty when missing.
-static const QString &tool(const char *name) {
-    static QHash<QString, QString> cache;
-    static QMutex mutex;
-    QMutexLocker lock(&mutex);
-    const QString key = QString::fromLatin1(name);
-    auto it = cache.find(key);
-    if (it == cache.end())
-        it = cache.insert(key, QStandardPaths::findExecutable(key));
-    return it.value();
+// External tool: bundled next to the executable, else PATH; empty when missing.
+static QString tool(const char *name) {
+    return AppPaths::tool(QString::fromLatin1(name));
 }
 
 ThumbnailGenerator::ThumbnailGenerator(QObject *parent) : QObject(parent) {
     if (vips_init("Kader")) {
         qCritical() << "Unable to initialize libvips";
     }
-    m_cacheDir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/thumbnails";
+    m_cacheDir = AppPaths::cacheDir() + "/thumbnails";
     QDir().mkpath(m_cacheDir);
 }
 
@@ -60,10 +54,13 @@ QString ThumbnailGenerator::generateHash(const QString &filePath) {
 }
 
 QString ThumbnailGenerator::thumbnailUrl(const QString &filePath) {
-    // filePath is absolute (starts with /). Qt Quick strips one leading / from the
-    // URL path when passing id to requestImage, so do NOT add an extra slash here.
-    // requestImage restores the leading / to reconstruct the absolute path.
-    return "image://thumbnails" + filePath;
+    // image://thumbnails/<path without its leading '/'>, percent-encoded so
+    // '#', '?' and '%' in file names survive. Works for "/home/…" and
+    // "C:/Users/…" alike; ThumbnailProvider::pathFromId() reverses it.
+    const QStringView rel = filePath.startsWith(QLatin1Char('/')) ? QStringView(filePath).mid(1)
+                                                                  : QStringView(filePath);
+    return QStringLiteral("image://thumbnails/")
+         + QString::fromLatin1(QUrl::toPercentEncoding(rel.toString(), QByteArrayLiteral("/:")));
 }
 
 void ThumbnailGenerator::setParallelMode(bool enabled) {
@@ -150,8 +147,8 @@ QString ThumbnailGenerator::getOrCreateThumbnail(const QString &filePath, int si
         }
 
         try {
-            vips::VImage thumb = vips::VImage::thumbnail(filePath.toLocal8Bit().constData(), size);
-            thumb.write_to_file(thumbPath.toLocal8Bit().constData());
+            vips::VImage thumb = vips::VImage::thumbnail(QFile::encodeName(filePath).constData(), size);
+            thumb.write_to_file(QFile::encodeName(thumbPath).constData());
             return thumbPath;
         } catch (vips::VError &e) {
             qWarning() << "libvips error for" << filePath << ":" << e.what();
@@ -213,7 +210,7 @@ QByteArray ThumbnailGenerator::generateRawThumbnailBytes(const QString &filePath
     LibRaw raw;
     raw.set_progress_handler(nullptr, nullptr);
 
-    if (raw.open_file(filePath.toLocal8Bit().constData()) != LIBRAW_SUCCESS) {
+    if (raw.open_file(QFile::encodeName(filePath).constData()) != LIBRAW_SUCCESS) {
         qWarning() << "LibRaw: cannot open" << filePath;
         return {};
     }
@@ -307,7 +304,7 @@ QByteArray ThumbnailGenerator::generateThumbnailBytes(const QString &filePath, i
         // LibRaw failed — fall through to libvips native RAW loader
     }
     try {
-        vips::VImage thumb = vips::VImage::thumbnail(filePath.toLocal8Bit().constData(), size);
+        vips::VImage thumb = vips::VImage::thumbnail(QFile::encodeName(filePath).constData(), size);
         void *buf = nullptr;
         size_t len = 0;
         thumb.write_to_buffer(".jpg", &buf, &len);

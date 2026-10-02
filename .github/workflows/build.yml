@@ -24,6 +24,11 @@ jobs:
         run: cargo clippy --manifest-path rust/kader-core/Cargo.toml --release --all-targets --locked -- -D warnings
       - name: test
         run: cargo test --manifest-path rust/kader-core/Cargo.toml --release --locked
+      - name: clippy (Windows target)
+        run: |
+          rustup target add x86_64-pc-windows-gnu
+          cargo clippy --manifest-path rust/kader-core/Cargo.toml --release --all-targets --locked \
+            --target x86_64-pc-windows-gnu -- -D warnings
 
   arch:
     name: Arch Linux package
@@ -153,4 +158,55 @@ jobs:
           path: |
             dist/*.AppImage
             dist/*.zsync
+          if-no-files-found: error
+
+  windows:
+    name: Windows (portable + installer)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          cache: true
+          install: git unzip
+          pacboy: >-
+            toolchain:p cmake:p ninja:p pkgconf:p rust:p python:p nsis:p
+            qt6-base:p qt6-declarative:p qt6-shadertools:p qt6-multimedia:p
+            qt6-positioning:p qt6-svg:p qt6-imageformats:p qt6-tools:p
+            libvips:p exiv2:p libraw:p poppler:p libheif:p openssl:p ffmpeg:p
+      - name: Cache llama.cpp
+        uses: actions/cache@v4
+        with:
+          path: llama-prefix
+          key: llama-${{ env.LLAMA_TAG }}-ucrt64-static-1
+      - name: Build llama.cpp (static)
+        run: test -f llama-prefix/lib/libllama.a || packaging/build-llama.sh llama-prefix
+      - name: Build Kader
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$PWD/llama-prefix"
+          cmake --build build
+      - name: Smoke test
+        run: |
+          # starts, loads every QML file and the world data, then quits
+          KADER_SMOKE_TEST=1 timeout 120 build/kader.exe
+      - name: Package
+        run: packaging/windows/deploy.sh build dist
+      - name: Packaged smoke test
+        run: |
+          mkdir -p smoke && unzip -q dist/*-portable.zip -d smoke
+          # a clean PATH: only what ships in the folder may be used
+          PATH=/c/Windows/system32:/c/Windows KADER_SMOKE_TEST=1 \
+            /usr/bin/timeout 120 smoke/Kader/kader.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: |
+            dist/*.zip
+            dist/*-setup.exe
           if-no-files-found: error

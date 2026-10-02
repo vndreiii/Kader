@@ -6,6 +6,7 @@
 pub mod bmff;
 pub mod exif;
 pub mod formats;
+pub mod paths;
 pub mod source;
 pub mod walk;
 

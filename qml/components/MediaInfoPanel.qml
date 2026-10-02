@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import ".."
 import "../I18n.js" as I18n
+import "../Paths.js" as Paths
 
 Rectangle {
     id: root
@@ -81,7 +82,7 @@ Rectangle {
                     var d = root.mediaData
                     var isVideo = (d.mime_type || "").indexOf("video/") === 0
                     var rows = [
-                        { label: I18n.t(Settings.language, "info_file"),        value: d.file_path ? d.file_path.split('/').pop() : "—", mono: true },
+                        { label: I18n.t(Settings.language, "info_file"),        value: d.file_path ? Paths.fileName(d.file_path) : "—", mono: true },
                         { label: I18n.t(Settings.language, "k_dimensions"),  value: (d.width && d.height) ? d.width + " × " + d.height + " px" : "—", mono: false },
                         { label: I18n.t(Settings.language, "info_megapixels"),  value: root.formatMegapixels(d.width, d.height), mono: false },
                         { label: I18n.t(Settings.language, "k_orientation"), value: root.formatOrientation(d.width, d.height), mono: false }

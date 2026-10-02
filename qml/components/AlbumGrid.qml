@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import QtQuick.Effects
 import ".."
 import "../I18n.js" as I18n
+import "../Paths.js" as Paths
 
 Item {
     id: root
@@ -102,9 +103,7 @@ Item {
                             id: coverImg
                             anchors.fill: parent
                             source: {
-                                var p = model.cover || ""
-                                if (p && p.indexOf("://") === -1) return "file://" + p
-                                return p
+                                return Paths.fileUrl(model.cover)
                             }
                             // covers are ~220px cells; never decode a full photo
                             sourceSize: Qt.size(512, 512)

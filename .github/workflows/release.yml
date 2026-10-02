@@ -56,6 +56,7 @@ jobs:
             --version "${{ steps.ver.outputs.version }}" --notes notes.md \
             --appimage dist/Kader-*-x86_64.AppImage \
             --arch dist/kader-*-x86_64.pkg.tar.zst \
+            --windows dist/Kader-*-windows-x64-setup.exe \
             --key "$RUNNER_TEMP/key.pem" --out dist
           rm -f "$RUNNER_TEMP/key.pem"
           (cd dist && sha256sum * > SHA256SUMS)

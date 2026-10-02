@@ -1,10 +1,15 @@
 #include "ThemeManager.h"
 #include <QFile>
+#include <algorithm>
 #include <QTextStream>
 #include <QDir>
 #include <QStandardPaths>
 #include <QSettings>
 #include <QDebug>
+#include <QEvent>
+#include <QGuiApplication>
+#include <QPalette>
+#include <QStyleHints>
 
 ThemeManager::ThemeManager(QObject *parent) : QObject(parent) {
     m_watcher = new QFileSystemWatcher(this);
@@ -16,7 +21,67 @@ ThemeManager::ThemeManager(QObject *parent) : QObject(parent) {
     QSettings s;
     m_themeMode = s.value("themeMode", 0).toInt();
     m_dynamicColor = s.value("dynamicColor", true).toBool();
+    // "System" follows the OS light/dark setting; on Windows dynamic colour
+    // follows the accent colour too.
+    if (auto *hints = QGuiApplication::styleHints())
+        connect(hints, &QStyleHints::colorSchemeChanged, this, &ThemeManager::refreshTheme);
+    if (qApp)
+        qApp->installEventFilter(this);
     refreshTheme();
+}
+
+bool ThemeManager::eventFilter(QObject *watched, QEvent *event) {
+    if (watched == qApp && event->type() == QEvent::ApplicationPaletteChange)
+        QMetaObject::invokeMethod(this, &ThemeManager::refreshTheme, Qt::QueuedConnection);
+    return QObject::eventFilter(watched, event);
+}
+
+bool ThemeManager::systemIsLight() {
+    const auto *hints = QGuiApplication::styleHints();
+    return hints && hints->colorScheme() == Qt::ColorScheme::Light;
+}
+
+// Windows accent colour → Material roles. A light-weight stand-in for the
+// full HCT scheme generator: keep the accent's hue, map M3 tones onto HSL
+// lightness, and tint the neutrals faintly with the same hue.
+void ThemeManager::applyAccent(const QColor &accent, bool dark) {
+    const float hue = accent.hslHueF() < 0 ? 0.7f : accent.hslHueF();
+    const float sat = std::clamp(accent.hslSaturationF(), 0.35f, 0.85f);
+    auto tone = [hue](float s, int t) { return QColor::fromHslF(hue, s, t / 100.0f).name(); };
+    const float ns = 0.06f;  // neutral chroma
+    const float vs = 0.12f;  // neutral-variant chroma
+    auto &c = m_colors;
+    if (dark) {
+        c["primary"] = tone(sat, 80);            c["onPrimary"] = tone(sat, 20);
+        c["primaryContainer"] = tone(sat, 30);   c["onPrimaryContainer"] = tone(sat, 90);
+        c["inversePrimary"] = tone(sat, 40);
+        c["secondary"] = tone(sat * 0.35f, 80);  c["onSecondary"] = tone(sat * 0.35f, 20);
+        c["secondaryContainer"] = tone(sat * 0.35f, 30);
+        c["onSecondaryContainer"] = tone(sat * 0.35f, 90);
+        c["surface"] = tone(ns, 6);              c["surfaceDim"] = tone(ns, 6);
+        c["surfaceBright"] = tone(ns, 24);       c["surfaceContainerLowest"] = tone(ns, 4);
+        c["surfaceContainerLow"] = tone(ns, 10); c["surfaceContainer"] = tone(ns, 12);
+        c["surfaceContainerHigh"] = tone(ns, 17);
+        c["surfaceContainerHighest"] = tone(ns, 22);
+        c["onSurface"] = tone(ns, 90);           c["onSurfaceVariant"] = tone(vs, 80);
+        c["outline"] = tone(vs, 60);             c["outlineVariant"] = tone(vs, 30);
+        c["inverseSurface"] = tone(ns, 90);      c["inverseOnSurface"] = tone(ns, 20);
+    } else {
+        c["primary"] = tone(sat, 40);            c["onPrimary"] = tone(sat, 100);
+        c["primaryContainer"] = tone(sat, 90);   c["onPrimaryContainer"] = tone(sat, 10);
+        c["inversePrimary"] = tone(sat, 80);
+        c["secondary"] = tone(sat * 0.35f, 40);  c["onSecondary"] = tone(sat * 0.35f, 100);
+        c["secondaryContainer"] = tone(sat * 0.35f, 90);
+        c["onSecondaryContainer"] = tone(sat * 0.35f, 10);
+        c["surface"] = tone(ns, 98);             c["surfaceDim"] = tone(ns, 87);
+        c["surfaceBright"] = tone(ns, 98);       c["surfaceContainerLowest"] = tone(ns, 100);
+        c["surfaceContainerLow"] = tone(ns, 96); c["surfaceContainer"] = tone(ns, 94);
+        c["surfaceContainerHigh"] = tone(ns, 92);
+        c["surfaceContainerHighest"] = tone(ns, 90);
+        c["onSurface"] = tone(ns, 10);           c["onSurfaceVariant"] = tone(vs, 30);
+        c["outline"] = tone(vs, 50);             c["outlineVariant"] = tone(vs, 80);
+        c["inverseSurface"] = tone(ns, 20);      c["inverseOnSurface"] = tone(ns, 95);
+    }
 }
 
 void ThemeManager::setThemeMode(int mode) {
@@ -57,6 +122,12 @@ void ThemeManager::refreshTheme() {
     
     if (!parsed) {
         loadHardcoded(m_themeMode);
+#if defined(Q_OS_WIN) && QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
+        if (m_dynamicColor) {
+            const bool dark = m_themeMode == 2 || (m_themeMode == 0 && !systemIsLight());
+            applyAccent(QGuiApplication::palette().color(QPalette::Accent), dark);
+        }
+#endif
     }
     
     emit themeChanged();
@@ -94,7 +165,7 @@ void ThemeManager::loadHardcoded(int mode) {
         m_colors["inversePrimary"]          = "#D0BCFF";
         return;
     }
-    if (m_themeMode == 2) { // Dark
+    if (mode == 2) { // Dark
         m_colors.clear();
         m_colors["primary"]                 = "#D0BCFF";
         m_colors["onPrimary"]               = "#381E72";
@@ -125,10 +196,9 @@ void ThemeManager::loadHardcoded(int mode) {
         m_colors["inversePrimary"]          = "#6750A4";
         return;
     }
-    // System (mode 0) fallback if not using dynamic colors
-    if (mode == 0) {
-        loadHardcoded(2); // Fallback to Dark
-    }
+    // System (mode 0): follow the OS light/dark setting, dark when unknown.
+    if (mode == 0)
+        loadHardcoded(systemIsLight() ? 1 : 2);
 }
 
 void ThemeManager::parseScss() {

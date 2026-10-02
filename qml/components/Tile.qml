@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Effects
 import ".."
 import "../I18n.js" as I18n
+import "../Paths.js" as Paths
 
 Item {
     id: root
@@ -55,7 +56,7 @@ Item {
                 var p = root._d.thumb || ""           // "image://thumbnails/<path>"
                 if (p) return p
                 var fp = root._d.file_path || ""
-                return fp ? (fp.indexOf("://") === -1 ? "file://" + fp : fp) : ""
+                return Paths.fileUrl(fp)
             }
             // Cap decode resolution so even the file:// fallback can't upload a
             // giant texture. 768 matches the cached thumbnail's longest edge.
@@ -74,7 +75,7 @@ Item {
             id: gifImg
             anchors.fill: parent
             visible: root._isGif
-            source: root._isGif ? ("file://" + (root._d.file_path || "")) : ""
+            source: root._isGif ? Paths.fileUrl(root._d.file_path) : ""
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
             playing: root._isGif

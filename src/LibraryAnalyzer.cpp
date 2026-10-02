@@ -1,4 +1,5 @@
 #include "LibraryAnalyzer.h"
+#include "AppPaths.h"
 
 #include "DatabaseManager.h"
 #include "GlobeItem.h"
@@ -97,7 +98,7 @@ struct LibraryAnalyzer::Result {
 };
 
 QString LibraryAnalyzer::modelsDir() {
-    return QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) + QStringLiteral("/models");
+    return AppPaths::localDataDir() + QStringLiteral("/models");
 }
 
 LibraryAnalyzer::LibraryAnalyzer(DatabaseManager *db, ThumbnailGenerator *thumbs, QObject *parent)

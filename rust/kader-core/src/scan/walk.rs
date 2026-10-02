@@ -1,8 +1,7 @@
 //! Parallel directory walk collecting media files with their size and mtime.
 
 use std::collections::VecDeque;
-use std::os::unix::ffi::OsStrExt;
-use std::os::unix::fs::MetadataExt;
+use std::fs::Metadata;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Condvar, Mutex};
@@ -21,7 +20,7 @@ pub struct Options {
     /// Directories whose path contains any of these substrings are skipped.
     pub exclusions: Vec<Vec<u8>>,
     pub threads: usize,
-    /// Run workers at background priority (nice 10).
+    /// Run workers at background priority (nice 10; background mode on Windows).
     pub background: bool,
 }
 
@@ -30,15 +29,52 @@ pub struct Result {
     pub dirs: usize,
 }
 
-extern "C" {
-    fn setpriority(which: i32, who: u32, prio: i32) -> i32;
-    fn gettid() -> i32;
-}
+use super::paths::to_bytes;
 
+#[cfg(target_os = "linux")]
 fn deprioritise() {
+    extern "C" {
+        fn setpriority(which: i32, who: u32, prio: i32) -> i32;
+        fn gettid() -> i32;
+    }
     // PRIO_PROCESS with a thread id is per-thread on Linux.
     unsafe {
         setpriority(0, gettid() as u32, 10);
+    }
+}
+
+#[cfg(windows)]
+fn deprioritise() {
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GetCurrentThread() -> *mut core::ffi::c_void;
+        fn SetThreadPriority(thread: *mut core::ffi::c_void, priority: i32) -> i32;
+    }
+    // Background mode lowers CPU and I/O priority; the worker exits after.
+    const THREAD_MODE_BACKGROUND_BEGIN: i32 = 0x0001_0000;
+    unsafe {
+        SetThreadPriority(GetCurrentThread(), THREAD_MODE_BACKGROUND_BEGIN);
+    }
+}
+
+#[cfg(not(any(target_os = "linux", windows)))]
+fn deprioritise() {}
+
+/// Modification time in Unix seconds.
+fn mtime(md: &Metadata) -> i64 {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        md.mtime()
+    }
+    #[cfg(not(unix))]
+    {
+        use std::time::UNIX_EPOCH;
+        match md.modified().map(|t| t.duration_since(UNIX_EPOCH)) {
+            Ok(Ok(d)) => d.as_secs() as i64,
+            Ok(Err(before)) => -(before.duration().as_secs() as i64),
+            Err(_) => 0,
+        }
     }
 }
 
@@ -106,17 +142,17 @@ pub fn walk(root: &Path, opts: &Options, progress: &(dyn Fn(usize) + Sync)) -> R
                                 let Ok(ft) = e.file_type() else { continue };
                                 if ft.is_dir() {
                                     let p = e.path();
-                                    if !excluded(p.as_os_str().as_bytes(), &opts.exclusions) {
+                                    if !excluded(&to_bytes(p.as_os_str()), &opts.exclusions) {
                                         subdirs.push(p);
                                     }
                                 } else if ft.is_file()
-                                    && has_ext(e.file_name().as_bytes(), &opts.extensions)
+                                    && has_ext(&to_bytes(&e.file_name()), &opts.extensions)
                                 {
                                     if let Ok(md) = e.metadata() {
                                         out.push(Entry {
                                             path: e.path(),
-                                            size: md.size(),
-                                            mtime: md.mtime(),
+                                            size: md.len(),
+                                            mtime: mtime(&md),
                                         });
                                         let n = found.fetch_add(1, Ordering::Relaxed) + 1;
                                         if n.is_multiple_of(256) {
@@ -191,7 +227,7 @@ mod tests {
                     .strip_prefix(&root)
                     .unwrap()
                     .to_string_lossy()
-                    .into_owned()
+                    .replace('\\', "/")
             })
             .collect();
         assert_eq!(names, ["a/1.JPG", "a/b/2.png", "a/b/c/3.heic", "d/5.mp4"]);

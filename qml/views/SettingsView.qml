@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "../components"
 import "../I18n.js" as I18n
+import "../Paths.js" as Paths
 
 Item {
     id: root
@@ -199,7 +200,7 @@ Item {
                                 spacing: 2
                                 Label {
                                     width: parent.width
-                                    text: ignRow.modelData.name || ignRow.modelData.path.split("/").filter(Boolean).pop()
+                                    text: ignRow.modelData.name || Paths.fileName(ignRow.modelData.path)
                                     font.pixelSize: 14
                                     font.weight: Font.Medium
                                     color: ThemeManager.onSurface

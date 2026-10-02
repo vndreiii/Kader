@@ -5,6 +5,7 @@ import QtQuick.Effects
 
 import "../components"
 import "../I18n.js" as I18n
+import "../Paths.js" as Paths
 
 // Storage dashboard: where the space goes (disk overview, folders, years,
 // file types) and where to win it back (largest files, likely duplicates,
@@ -492,7 +493,7 @@ Item {
                 spacing: 2
                 Label {
                     Layout.fillWidth: true
-                    text: fr.item ? String(fr.item.file_path).split("/").pop() : ""
+                    text: fr.item ? Paths.fileName(fr.item.file_path) : ""
                     elide: Text.ElideMiddle
                     color: ThemeManager.onSurface
                     font.pixelSize: 14

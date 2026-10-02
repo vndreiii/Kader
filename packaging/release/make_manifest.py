@@ -4,6 +4,7 @@
     make_manifest.py --version 1.2.0 --notes notes.md \
         --appimage dist/Kader-1.2.0-x86_64.AppImage \
         --arch dist/kader-1:1.2.0-1-x86_64.pkg.tar.zst \
+        --windows dist/Kader-1.2.0-windows-x64-setup.exe \
         --key signing-key.pem --out dist/
 
 Writes `kader-update.json` and `kader-update.json.sig` (base64 Ed25519
@@ -66,12 +67,14 @@ def main() -> None:
     ap.add_argument("--notes", help="markdown file with the release notes")
     ap.add_argument("--appimage")
     ap.add_argument("--arch")
+    ap.add_argument("--windows", help="NSIS setup; also updates portable installs")
     ap.add_argument("--key", required=True, help="Ed25519 private key (PEM)")
     ap.add_argument("--pubkey", default=str(Path(__file__).resolve().parents[1] / "release-signing.pub"))
     ap.add_argument("--out", default=".")
     a = ap.parse_args()
 
-    assets = {k: v for k, v in (("appimage", asset(a.appimage)), ("arch", asset(a.arch))) if v}
+    assets = {k: v for k, v in (("appimage", asset(a.appimage)), ("arch", asset(a.arch)),
+                                             ("windows", asset(a.windows))) if v}
     manifest = {
         "version": a.version.lstrip("v"),
         "tag": a.tag or "v" + a.version.lstrip("v"),
