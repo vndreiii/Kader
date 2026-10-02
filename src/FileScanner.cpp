@@ -20,6 +20,7 @@
 #include <QProcess>
 #include <QSize>
 #include <QDebug>
+#include <QSet>
 #include <QElapsedTimer>
 #include <QTimeZone>
 #include "kader_core.h"
@@ -288,15 +289,34 @@ void FileScanner::runScan(const std::string &rootPath, const std::vector<std::st
     struct Pending { QByteArray path; qint64 size; qint64 mtime; };
     std::vector<Pending> pending;
     pending.reserve(found / 8 + 16);
+    QSet<QString> present;
+    present.reserve(qsizetype(found));
     for (size_t i = 0; i < found; ++i) {
         const uint8_t *p = nullptr; size_t len = 0; uint64_t size = 0; int64_t mtime = 0;
         if (!ks_scan_entry(scan, i, &p, &len, &size, &mtime)) continue;
         const QByteArray path(reinterpret_cast<const char *>(p), qsizetype(len));
-        const auto it = known.constFind(QFile::decodeName(path));
+        const QString qpath = QFile::decodeName(path);
+        present.insert(qpath);
+        const auto it = known.constFind(qpath);
         if (it != known.cend() && it.value() == qint64(size)) continue; // unchanged and complete
         pending.push_back({path, qint64(size), mtime});
     }
     ks_scan_free(scan);
+
+    // Files indexed under this root that the walk no longer sees were deleted
+    // or moved: prune them now (the periodic sweep used to stat every file).
+    // Skipped when the walk found nothing at all, e.g. an unmounted drive.
+    int pruned = 0;
+    if (found > 0) {
+        QStringList gone;
+        for (auto it = known.cbegin(); it != known.cend(); ++it)
+            if (!present.contains(it.key()))
+                gone << it.key();
+        if (!gone.isEmpty()) {
+            pruned = m_db->removeMediaPaths(gone);
+            qDebug() << "Scan pruned" << pruned << "missing files";
+        }
+    }
 
     // 3. Metadata for new/changed files: Rust probes in parallel batches,
     //    falling back to Exiv2/libvips/ffprobe only where needed.
@@ -358,7 +378,10 @@ void FileScanner::runScan(const std::string &rootPath, const std::vector<std::st
     qDebug() << "Scan of" << root << ":" << newEntries.size() << "new/changed," << fallbacks
              << "needed fallbacks," << clock.elapsed() << "ms total";
 
-    // Emit first so the UI refreshes immediately with the new items.
+    // Emit first so the UI refreshes immediately with the new items. A rescan
+    // that changed nothing doesn't make every model re-query the library.
+    if (!newEntries.isEmpty() || pruned > 0)
+        emit libraryChanged(root);
     emit scanFinished(int(found), int(dirs), clock.elapsed() / 1000.0, root);
 
     // Pre-generate thumbnails after the UI has already updated.

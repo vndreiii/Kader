@@ -5,7 +5,7 @@
 
 AlbumModel::AlbumModel(DatabaseManager *db, ThumbnailGenerator *thumb, QObject *parent)
     : QAbstractListModel(parent), m_db(db), m_thumb(thumb) {
-    refresh();
+    // Populated by main.cpp; the standalone viewer never needs albums.
 }
 
 int AlbumModel::rowCount(const QModelIndex &parent) const {

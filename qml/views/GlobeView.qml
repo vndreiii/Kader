@@ -30,7 +30,7 @@ Item {
     Component.onCompleted: if (visible) _reload()
     Connections {
         target: FileScanner
-        function onScanFinished() { if (root._loaded) root._reload() }
+        function onLibraryChanged() { if (root._loaded) root._reload() }
     }
 
     function _t(key) { return I18n.t(Settings.language, key) }

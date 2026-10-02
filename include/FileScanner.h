@@ -46,6 +46,8 @@ signals:
     // every entry into a JS string on the GUI thread — a whole-library
     // allocation once per scanned directory.
     void scanFinished(int fileCount, int dirsScanned, double duration, const QString &rootPath);
+    // Emitted before scanFinished when the scan added, updated or pruned rows.
+    void libraryChanged(const QString &rootPath);
     void scanProgress(int filesFound);
 
 private:

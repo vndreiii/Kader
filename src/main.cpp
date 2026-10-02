@@ -83,7 +83,14 @@ int main(int argc, char *argv[]) {
     app.setOrganizationDomain("kader.app");
     app.setApplicationName("Kader");
     app.setApplicationVersion(QStringLiteral(KADER_VERSION));
-    app.setWindowIcon(QIcon(":/Kader/assets/KaderPNGicon.png"));
+    // Pre-sized icons, registered with their sizes so Qt decodes only the one
+    // the platform asks for (the 2183px master took ~40% of QML load time).
+    {
+        QIcon icon;
+        for (int px : {48, 128, 256})
+            icon.addFile(QStringLiteral(":/Kader/assets/icons/kader-%1.png").arg(px), QSize(px, px));
+        app.setWindowIcon(icon);
+    }
     app.setDesktopFileName(QStringLiteral("kader"));
 
     qmlRegisterType<GlobeItem>("Kader.Globe", 1, 0, "Globe");
@@ -180,8 +187,15 @@ int main(int argc, char *argv[]) {
         });
     };
 
+    // The flat MediaModel only backs the dashboard; leave it empty until that
+    // has loaded it once.
+    auto refreshMediaModel = [&]() {
+        if (mediaModel.rowCount() > 0)
+            mediaModel.refresh(settingsManager.hideIgnoredInTimeline());
+    };
+
     QObject::connect(refreshTimer, &QTimer::timeout, &app, [&]() {
-        mediaModel.refresh(settingsManager.hideIgnoredInTimeline());
+        refreshMediaModel();
         timelineModel.refresh(settingsManager.hideIgnoredInTimeline());
         albumModel.refresh(true);
         storageManager.refresh();
@@ -219,33 +233,35 @@ int main(int argc, char *argv[]) {
         // Runs after a short delay so the UI renders first.
         QTimer::singleShot(1500, &app, rebuildThumbnailCache);
 
-        // Run once at startup, then every 3 minutes to catch external file deletions.
+        // Run once at startup, then every 30 minutes to catch external file deletions.
         runPrune();
         QTimer *pruneTimer = new QTimer(&app);
-        pruneTimer->setInterval(3 * 60 * 1000);
+        pruneTimer->setInterval(30 * 60 * 1000);  // scans prune their own roots; this catches the rest
         QObject::connect(pruneTimer, &QTimer::timeout, &app, runPrune);
         pruneTimer->start();
 
-        // Initial refresh with settings
-        mediaModel.refresh(settingsManager.hideIgnoredInTimeline());
-        timelineModel.refresh(settingsManager.hideIgnoredInTimeline());
-        albumModel.refresh(true);
     }
 
-    // Apply saved mosaic density
+    // Saved RAW filter and mosaic density go in before the first refresh, so
+    // the timeline is queried and laid out once instead of three times.
+    dbManager.setRawFilter(settingsManager.rawFilter());
     {
         int d = settingsManager.mosaicDensity();
         timelineModel.setNumColumns(7 - std::max(1, std::min(d, 4)));  // 1→6 … 4→3 columns
     }
 
-    // Apply saved RAW filter
-    dbManager.setRawFilter(settingsManager.rawFilter());
+    // Initial refresh. The flat MediaModel only backs the dashboard, which
+    // loads it when first opened, so it isn't queried here.
+    if (!viewerOnly) {
+        timelineModel.refresh(settingsManager.hideIgnoredInTimeline());
+        albumModel.refresh(true);
+    }
 
     // Context object (&app) ensures the lambda runs on the main thread via a queued connection.
     // Restarting the timer coalesces the scans of several indexed directories
     // into one refresh (which also re-runs the cache builder for the new files).
-    QObject::connect(&fileScanner, &FileScanner::scanFinished, &app,
-                     [refreshTimer](int, int, double, const QString &) {
+    QObject::connect(&fileScanner, &FileScanner::libraryChanged, &app,
+                     [refreshTimer](const QString &) {
         refreshTimer->start();
     });
 
@@ -270,7 +286,7 @@ int main(int argc, char *argv[]) {
 
     // Handle settings changes
     QObject::connect(&settingsManager, &SettingsManager::hideIgnoredInTimelineChanged, [&]() {
-        mediaModel.refresh(settingsManager.hideIgnoredInTimeline());
+        refreshMediaModel();
         timelineModel.refresh(settingsManager.hideIgnoredInTimeline());
     });
     QObject::connect(&settingsManager, &SettingsManager::mosaicDensityChanged, &app, [&]() {
@@ -279,11 +295,13 @@ int main(int argc, char *argv[]) {
     });
     QObject::connect(&settingsManager, &SettingsManager::rawFilterChanged, &app, [&]() {
         dbManager.setRawFilter(settingsManager.rawFilter());
-        mediaModel.refresh(settingsManager.hideIgnoredInTimeline());
+        refreshMediaModel();
         timelineModel.refresh(settingsManager.hideIgnoredInTimeline());
     });
 
+    trace("gallery backend");
     QQmlApplicationEngine engine;
+    traceFirstFrame(engine);
 
     // Register the encrypted thumbnail image provider.
     engine.addImageProvider("thumbnails", new ThumbnailProvider(&dbManager, &thumbGenerator));

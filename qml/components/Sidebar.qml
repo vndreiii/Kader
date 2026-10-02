@@ -72,9 +72,10 @@ Rectangle {
                 anchors.leftMargin: 28
                 width: 32; height: 32
                 source: "qrc:/Kader/assets/Kader Logoicon.svg"
+                // rasterise at display size (2x for HiDPI), not the SVG's 727px
+                sourceSize: Qt.size(64, 64)
                 fillMode: Image.PreserveAspectFit
                 smooth: true
-                mipmap: true
             }
 
             Column {

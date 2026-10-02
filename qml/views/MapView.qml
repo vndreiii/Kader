@@ -44,7 +44,7 @@ Item {
 
     Connections {
         target: FileScanner
-        function onScanFinished() { if (root._loaded) root.locations = DB.getGeotaggedLocations() }
+        function onLibraryChanged() { if (root._loaded) root.locations = DB.getGeotaggedLocations() }
     }
 
     // Keep popup anchored to the pin as the map pans/zooms
