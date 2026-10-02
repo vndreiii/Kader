@@ -262,6 +262,7 @@ qt_add_qml_module(KaderApp
         qml/components/PhotoPin.qml
         qml/components/PersonMenu.qml
         qml/components/MediaMenu.qml
+        qml/components/M3IconButton.qml
         qml/components/M3CircularProgress.qml
         qml/components/WindowControls.qml
         qml/views/SearchView.qml
@@ -295,6 +296,8 @@ qt_add_qml_module(KaderStyle
     NO_PLUGIN
     QML_FILES
         qml/style/ToolTip.qml
+        qml/style/ComboBox.qml
+        qml/style/TextField.qml
     IMPORTS
         QtQuick.Controls.Fusion
 )

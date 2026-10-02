@@ -498,12 +498,10 @@ Item {
                                     }
                                 }
 
-                                Button {
+                                M3IconButton {
                                     Layout.alignment: Qt.AlignVCenter
-                                    Layout.preferredWidth: 36
-                                    Layout.preferredHeight: 36
-                                    background: Rectangle { radius: 18; color: parent.hovered ? Qt.alpha(ThemeManager.error, 0.08) : "transparent" }
-                                    contentItem: M3Icon { name: "delete"; size: 18; color: ThemeManager.error; anchors.centerIn: parent }
+                                    icon: "delete"
+                                    color: ThemeManager.error
                                     onClicked: {
                                         DB.removeIndexedDirectory(modelData.path)
                                         root.refreshDirs()
@@ -589,10 +587,10 @@ Item {
                                     color: ThemeManager.onSurface
                                     elide: Text.ElideRight
                                 }
-                                Button {
-                                    Layout.preferredWidth: 32; Layout.preferredHeight: 32
-                                    background: Rectangle { radius: 16; color: parent.hovered ? Qt.alpha(ThemeManager.error, 0.08) : "transparent" }
-                                    contentItem: M3Icon { name: "delete"; size: 16; color: ThemeManager.error; anchors.centerIn: parent }
+                                M3IconButton {
+                                    icon: "delete"
+                                    iconSize: 18
+                                    color: ThemeManager.error
                                     onClicked: { DB.removeScanExclusion(modelData); root.refreshExclusions() }
                                 }
                             }
@@ -601,6 +599,7 @@ Item {
 
                     // Add new exclusion pattern row
                     RowLayout {
+                        id: exclRow
                         height: 56
                         anchors.left: parent.left
                         anchors.right: parent.right
@@ -611,20 +610,18 @@ Item {
                         TextField {
                             id: exclusionInput
                             Layout.fillWidth: true
-                            placeholderText: "e.g.  /src/  or  node_modules"
-                            font.family: "JetBrains Mono"
-                            font.pixelSize: ThemeManager.fontLabelL
-                            background: Rectangle { radius: 8; color: ThemeManager.surfaceContainerHighest; border.color: ThemeManager.outline; border.width: 1 }
-                            color: ThemeManager.onSurface
-                            leftPadding: 12; rightPadding: 12
-                            Keys.onReturnPressed: addExclusion()
+                            placeholderText: "e.g. /src/ or node_modules"
+                            Keys.onReturnPressed: exclRow.addExclusion()
+                            Keys.onEnterPressed: exclRow.addExclusion()
                         }
                         Item { width: 8 }
-                        Button {
-                            Layout.preferredWidth: 32; Layout.preferredHeight: 32
-                            background: Rectangle { radius: 16; color: parent.hovered ? Qt.alpha(ThemeManager.primary, 0.12) : Qt.alpha(ThemeManager.primary, 0.06) }
-                            contentItem: M3Icon { name: "add"; size: 18; color: ThemeManager.primary; anchors.centerIn: parent }
-                            onClicked: addExclusion()
+                        M3IconButton {
+                            icon: "add"
+                            iconSize: 22
+                            color: ThemeManager.primary
+                            enabled: exclusionInput.text.trim().length > 0
+                            opacity: enabled ? 1 : 0.38
+                            onClicked: exclRow.addExclusion()
                         }
 
                         function addExclusion() {
@@ -802,7 +799,6 @@ Item {
                         ]
                         model: langs.map(function(l) { return l.name })
                         implicitWidth: 200
-                        implicitHeight: 44
                         currentIndex: {
                             var l = Settings.language
                             for (var i = 0; i < langs.length; i++)
@@ -810,32 +806,6 @@ Item {
                             return 3   // unsupported system language: the UI falls back to English
                         }
                         onActivated: Settings.language = langs[currentIndex].code
-                        background: Rectangle {
-                            radius: 12
-                            color: langCombo.pressed
-                                   ? Qt.alpha(ThemeManager.primary, 0.12)
-                                   : (langCombo.hovered ? Qt.alpha(ThemeManager.onSurface, 0.06) : ThemeManager.surfaceContainerHighest)
-                            border.color: langCombo.pressed ? ThemeManager.primary : ThemeManager.outline
-                            border.width: 1
-                            Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
-                        }
-                        contentItem: Label {
-                            leftPadding: 14; rightPadding: 36
-                            text: langCombo.displayText
-                            font.pixelSize: 14
-                            font.weight: Font.Medium
-                            color: ThemeManager.onSurface
-                            verticalAlignment: Text.AlignVCenter
-                            elide: Text.ElideRight
-                        }
-                        indicator: M3Icon {
-                            name: langCombo.popup.visible ? "expand_less" : "expand_more"
-                            size: 20
-                            color: ThemeManager.onSurfaceVariant
-                            anchors.right: parent.right
-                            anchors.rightMargin: 10
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
                     }
                 }
             }
