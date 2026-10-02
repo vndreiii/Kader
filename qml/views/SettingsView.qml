@@ -980,6 +980,57 @@ Item {
                     }
                 }
             }
+
+            SettingsSection {
+                title: I18n.t(Settings.language, "section_updates")
+                visible: typeof Updater !== "undefined"
+                SettingsRow {
+                    label: I18n.t(Settings.language, "update_auto")
+                    sub: I18n.t(Settings.language, "update_auto_sub")
+                    action: M3Switch {
+                        checked: Settings.autoUpdate
+                        onToggled: Settings.autoUpdate = checked
+                    }
+                }
+                SettingsRow {
+                    last: true
+                    label: "Kader " + Qt.application.version
+                    sub: {
+                        if (typeof Updater === "undefined") return ""
+                        switch (Updater.state) {
+                        case 1: return I18n.t(Settings.language, "update_checking")
+                        case 2: case 3: case 4: return I18n.t(Settings.language, "update_available_short").arg(Updater.latestVersion)
+                        case 5: return I18n.t(Settings.language, "update_ready_title")
+                        case 6: return Updater.error
+                        }
+                        return settingsUpToDate.visible || Updater.lastChecked === ""
+                            ? I18n.t(Settings.language, "update_channel_" + Updater.channel)
+                            : I18n.t(Settings.language, "update_last_checked").arg(Updater.lastChecked)
+                    }
+                    action: Row {
+                        spacing: 8
+                        Label {
+                            id: settingsUpToDate
+                            visible: false
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: I18n.t(Settings.language, "update_up_to_date")
+                            color: ThemeManager.primary
+                            font.pixelSize: 12
+                            Timer { id: upToDateTimer; interval: 4000; onTriggered: settingsUpToDate.visible = false }
+                            Connections {
+                                target: typeof Updater !== "undefined" ? Updater : null
+                                function onUpToDate() { settingsUpToDate.visible = true; upToDateTimer.restart() }
+                            }
+                        }
+                        Button {
+                            text: Updater.available ? I18n.t(Settings.language, "update_show")
+                                                    : I18n.t(Settings.language, "update_check_now")
+                            enabled: Updater.state !== 1
+                            onClicked: Updater.available ? Updater.updateOffered() : Updater.check(true)
+                        }
+                    }
+                }
+            }
         }
     }
 }

@@ -1314,4 +1314,10 @@ ApplicationWindow {
         anchors.fill: parent
         viewerOnlyMode: window.viewerOnlyMode
     }
+
+    // Self-update prompt (GitHub releases, signed manifests)
+    UpdateDialog {
+        id: updateDialog
+        parent: Overlay.overlay
+    }
 }

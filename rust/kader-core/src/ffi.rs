@@ -86,8 +86,15 @@ pub unsafe extern "C" fn kg_world_free(world: *mut KgWorld) {
 /// # Safety
 /// `world` must be valid or null; `len` must be a valid pointer or null.
 #[no_mangle]
-pub unsafe extern "C" fn kg_world_label_name(world: *const KgWorld, id: u32, len: *mut usize) -> *const u8 {
-    let name = world.as_ref().and_then(|w| w.0.label_name(id as usize)).unwrap_or("");
+pub unsafe extern "C" fn kg_world_label_name(
+    world: *const KgWorld,
+    id: u32,
+    len: *mut usize,
+) -> *const u8 {
+    let name = world
+        .as_ref()
+        .and_then(|w| w.0.label_name(id as usize))
+        .unwrap_or("");
     if let Some(l) = len.as_mut() {
         *l = name.len();
     }
@@ -112,7 +119,9 @@ pub unsafe extern "C" fn kg_world_place_name(
     distance_km: *mut f64,
 ) -> usize {
     let Some(w) = world.as_ref() else { return 0 };
-    let Some(p) = w.0.place_name(lat, lon, max_km) else { return 0 };
+    let Some(p) = w.0.place_name(lat, lon, max_km) else {
+        return 0;
+    };
     let text = match p.country {
         Some(c) if c != p.city => format!("{}, {}", p.city, c),
         _ => p.city.to_string(),
@@ -147,6 +156,12 @@ pub unsafe extern "C" fn kg_globe_free(g: *mut KgGlobe) {
 }
 
 macro_rules! globe {
+    ($g:expr) => {
+        match $g.as_mut() {
+            Some(g) => &mut g.0,
+            None => return,
+        }
+    };
     ($g:expr, $default:expr) => {
         match $g.as_mut() {
             Some(g) => &mut g.0,
@@ -159,7 +174,7 @@ macro_rules! globe {
 /// `g` must be valid or null.
 #[no_mangle]
 pub unsafe extern "C" fn kg_globe_set_viewport(g: *mut KgGlobe, width: f64, height: f64, dpr: f64) {
-    globe!(g, ()).set_viewport(width, height, dpr);
+    globe!(g).set_viewport(width, height, dpr);
 }
 
 /// # Safety
@@ -167,7 +182,7 @@ pub unsafe extern "C" fn kg_globe_set_viewport(g: *mut KgGlobe, width: f64, heig
 #[no_mangle]
 pub unsafe extern "C" fn kg_globe_set_style(g: *mut KgGlobe, style: *const Style) {
     if let Some(s) = style.as_ref() {
-        globe!(g, ()).style = *s;
+        globe!(g).style = *s;
     }
 }
 
@@ -175,7 +190,7 @@ pub unsafe extern "C" fn kg_globe_set_style(g: *mut KgGlobe, style: *const Style
 /// `g` must be valid or null; `pins` must point to `count` items (or be null).
 #[no_mangle]
 pub unsafe extern "C" fn kg_globe_set_pins(g: *mut KgGlobe, pins: *const KgPinIn, count: usize) {
-    let g = globe!(g, ());
+    let g = globe!(g);
     let input = if pins.is_null() || count == 0 {
         Vec::new()
     } else {
@@ -193,8 +208,15 @@ pub unsafe extern "C" fn kg_globe_set_pins(g: *mut KgGlobe, pins: *const KgPinIn
 /// # Safety
 /// `g` must be valid or null; `count` must be a valid pointer or null.
 #[no_mangle]
-pub unsafe extern "C" fn kg_globe_pin_members(g: *mut KgGlobe, cluster: u32, count: *mut usize) -> *const u32 {
-    let members: &[u32] = match g.as_ref().and_then(|g| g.0.pins.clusters.get(cluster as usize)) {
+pub unsafe extern "C" fn kg_globe_pin_members(
+    g: *mut KgGlobe,
+    cluster: u32,
+    count: *mut usize,
+) -> *const u32 {
+    let members: &[u32] = match g
+        .as_ref()
+        .and_then(|g| g.0.pins.clusters.get(cluster as usize))
+    {
         Some(c) => &c.members,
         None => &[],
     };
@@ -227,7 +249,9 @@ pub unsafe extern "C" fn kg_globe_cluster_info(
     lead: *mut u32,
 ) -> bool {
     let g = globe!(g, false);
-    let Some(c) = g.pins.clusters.get(cluster as usize) else { return false };
+    let Some(c) = g.pins.clusters.get(cluster as usize) else {
+        return false;
+    };
     let (la, lo) = crate::geo::math::to_lat_lon(c.pos);
     if let Some(p) = lat.as_mut() {
         *p = la.to_degrees();
@@ -255,29 +279,35 @@ pub unsafe extern "C" fn kg_globe_pin_at(g: *mut KgGlobe, x: f64, y: f64) -> i64
 /// `g` must be valid or null.
 #[no_mangle]
 pub unsafe extern "C" fn kg_globe_drag_begin(g: *mut KgGlobe) {
-    globe!(g, ()).drag_begin();
+    globe!(g).drag_begin();
 }
 
 /// # Safety
 /// `g` must be valid or null.
 #[no_mangle]
 pub unsafe extern "C" fn kg_globe_drag(g: *mut KgGlobe, dx: f64, dy: f64) {
-    globe!(g, ()).drag(dx, dy);
+    globe!(g).drag(dx, dy);
 }
 
 /// # Safety
 /// `g` must be valid or null.
 #[no_mangle]
 pub unsafe extern "C" fn kg_globe_drag_end(g: *mut KgGlobe, vx: f64, vy: f64) {
-    globe!(g, ()).drag_end(vx, vy);
+    globe!(g).drag_end(vx, vy);
 }
 
 /// # Safety
 /// `g` must be valid or null.
 #[no_mangle]
-pub unsafe extern "C" fn kg_globe_zoom_by(g: *mut KgGlobe, factor: f64, x: f64, y: f64, animate: bool) {
+pub unsafe extern "C" fn kg_globe_zoom_by(
+    g: *mut KgGlobe,
+    factor: f64,
+    x: f64,
+    y: f64,
+    animate: bool,
+) {
     if factor.is_finite() && factor > 0.0 {
-        globe!(g, ()).zoom_by(factor, x, y, animate);
+        globe!(g).zoom_by(factor, x, y, animate);
     }
 }
 
@@ -288,7 +318,7 @@ pub unsafe extern "C" fn kg_globe_zoom_by(g: *mut KgGlobe, factor: f64, x: f64, 
 #[no_mangle]
 pub unsafe extern "C" fn kg_globe_fly_to(g: *mut KgGlobe, lat: f64, lon: f64, radius: f64) {
     if lat.is_finite() && lon.is_finite() {
-        globe!(g, ()).fly_to(lat, lon, radius);
+        globe!(g).fly_to(lat, lon, radius);
     }
 }
 
@@ -305,14 +335,14 @@ pub unsafe extern "C" fn kg_globe_radius_for_km(g: *mut KgGlobe, km: f64) -> f64
 /// `g` must be valid or null.
 #[no_mangle]
 pub unsafe extern "C" fn kg_globe_reset(g: *mut KgGlobe) {
-    globe!(g, ()).reset();
+    globe!(g).reset();
 }
 
 /// # Safety
 /// `g` must be valid or null.
 #[no_mangle]
 pub unsafe extern "C" fn kg_globe_set_auto_rotate(g: *mut KgGlobe, on: bool) {
-    globe!(g, ()).auto_rotate = on;
+    globe!(g).auto_rotate = on;
 }
 
 /// Advance animations; returns true while the camera is moving.
@@ -328,7 +358,7 @@ pub unsafe extern "C" fn kg_globe_tick(g: *mut KgGlobe, dt: f64) -> bool {
 /// `g` must be valid or null; `out` must be valid or null.
 #[no_mangle]
 pub unsafe extern "C" fn kg_globe_camera(g: *mut KgGlobe, out: *mut KgCamera) {
-    let g = globe!(g, ());
+    let g = globe!(g);
     if let Some(o) = out.as_mut() {
         *o = KgCamera {
             lat: g.cam.lat.to_degrees(),
@@ -346,7 +376,13 @@ pub unsafe extern "C" fn kg_globe_camera(g: *mut KgGlobe, out: *mut KgCamera) {
 /// # Safety
 /// `g` must be valid or null; `x`/`y` valid pointers or null.
 #[no_mangle]
-pub unsafe extern "C" fn kg_globe_project(g: *mut KgGlobe, lat: f64, lon: f64, x: *mut f64, y: *mut f64) -> f64 {
+pub unsafe extern "C" fn kg_globe_project(
+    g: *mut KgGlobe,
+    lat: f64,
+    lon: f64,
+    x: *mut f64,
+    y: *mut f64,
+) -> f64 {
     let (px, py, d) = globe!(g, -1.0).project_deg(lat, lon);
     if let Some(x) = x.as_mut() {
         *x = px;
@@ -362,7 +398,13 @@ pub unsafe extern "C" fn kg_globe_project(g: *mut KgGlobe, lat: f64, lon: f64, x
 /// # Safety
 /// `g` must be valid or null; `lat`/`lon` valid pointers or null.
 #[no_mangle]
-pub unsafe extern "C" fn kg_globe_unproject(g: *mut KgGlobe, x: f64, y: f64, lat: *mut f64, lon: *mut f64) -> bool {
+pub unsafe extern "C" fn kg_globe_unproject(
+    g: *mut KgGlobe,
+    x: f64,
+    y: f64,
+    lat: *mut f64,
+    lon: *mut f64,
+) -> bool {
     match globe!(g, false).unproject_deg(x, y) {
         Some((la, lo)) => {
             if let Some(p) = lat.as_mut() {
@@ -383,7 +425,12 @@ pub unsafe extern "C" fn kg_globe_unproject(g: *mut KgGlobe, x: f64, y: f64, lat
 /// # Safety
 /// `g` and `world` must be valid or null; `out` must be valid or null.
 #[no_mangle]
-pub unsafe extern "C" fn kg_globe_build(g: *mut KgGlobe, world: *const KgWorld, dt: f64, out: *mut KgFrame) -> bool {
+pub unsafe extern "C" fn kg_globe_build(
+    g: *mut KgGlobe,
+    world: *const KgWorld,
+    dt: f64,
+    out: *mut KgFrame,
+) -> bool {
     let g = globe!(g, false);
     let fading = match world.as_ref() {
         Some(w) => g.build(&w.0, dt),

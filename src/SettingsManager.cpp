@@ -124,6 +124,28 @@ void SettingsManager::setResourceMode(int m) {
     }
 }
 
+bool SettingsManager::autoUpdate() const {
+    return m_data.value("autoUpdate").toBool(true);
+}
+void SettingsManager::setAutoUpdate(bool on) {
+    if (autoUpdate() != on) {
+        m_data["autoUpdate"] = on;
+        save();
+        emit autoUpdateChanged();
+    }
+}
+
+QString SettingsManager::skippedVersion() const {
+    return m_data.value("skippedVersion").toString();
+}
+void SettingsManager::setSkippedVersion(const QString &v) {
+    if (skippedVersion() != v) {
+        m_data["skippedVersion"] = v;
+        save();
+        emit skippedVersionChanged();
+    }
+}
+
 bool SettingsManager::use3DGlobe() const {
     return m_data.value("use3DGlobe").toBool(true);
 }

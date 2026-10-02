@@ -22,6 +22,7 @@
 #include "StorageManager.h"
 #include "SemanticSearchEngine.h"
 #include "GlobeItem.h"
+#include "UpdateManager.h"
 #if KADER_HAVE_MILFS
 #include <MilfsConnect/Connect.h>
 #endif
@@ -123,6 +124,9 @@ int main(int argc, char *argv[]) {
         fileScanner.startScan(dir);
     });
 #endif
+    UpdateManager updater(&settingsManager);
+    updater.start();
+
     MediaModel mediaModel(&dbManager, &thumbGenerator);
     TimelineModel timelineModel(&dbManager);
     AlbumModel albumModel(&dbManager, &thumbGenerator);
@@ -274,6 +278,7 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("ThumbGen", &thumbGenerator);
     engine.rootContext()->setContextProperty("STARTUP_FILE", startupFile);
     engine.rootContext()->setContextProperty("AI", &semanticSearch);
+    engine.rootContext()->setContextProperty("Updater", &updater);
 
     const QUrl url(QStringLiteral("qrc:/Kader/qml/main.qml"));
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,

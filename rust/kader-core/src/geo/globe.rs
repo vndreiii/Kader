@@ -157,7 +157,11 @@ struct Basis {
 impl Basis {
     #[inline]
     fn project(&self, p: V3) -> (f64, f64, f64) {
-        (self.cx + self.r * dot(p, self.e), self.cy - self.r * dot(p, self.n), dot(p, self.c))
+        (
+            self.cx + self.r * dot(p, self.e),
+            self.cy - self.r * dot(p, self.n),
+            dot(p, self.c),
+        )
     }
 }
 
@@ -212,7 +216,11 @@ impl Default for Globe {
 impl Globe {
     pub fn new() -> Self {
         Self {
-            cam: Camera { lat: 22f64.to_radians(), lon: 10f64.to_radians(), r: 0.0 },
+            cam: Camera {
+                lat: 22f64.to_radians(),
+                lon: 10f64.to_radians(),
+                r: 0.0,
+            },
             width: 0.0,
             height: 0.0,
             dpr: 1.0,
@@ -260,7 +268,11 @@ impl Globe {
         self.width = w.max(1.0);
         self.height = h.max(1.0);
         self.dpr = dpr.clamp(0.5, 8.0);
-        self.cam.r = if first { self.fit_radius() } else { self.clamp_r(self.cam.r) };
+        self.cam.r = if first {
+            self.fit_radius()
+        } else {
+            self.clamp_r(self.cam.r)
+        };
     }
 
     fn basis(&self) -> Basis {
@@ -279,7 +291,8 @@ impl Globe {
     /// Screen position and depth (cos of angular distance from the view
     /// centre; < 0 means the far side) of a lat/lon in degrees.
     pub fn project_deg(&self, lat: f64, lon: f64) -> (f64, f64, f64) {
-        self.basis().project(from_lat_lon(lat.to_radians(), lon.to_radians()))
+        self.basis()
+            .project(from_lat_lon(lat.to_radians(), lon.to_radians()))
     }
 
     pub fn unproject(&self, x: f64, y: f64) -> Option<V3> {
@@ -375,7 +388,9 @@ impl Globe {
         self.zoom_target = None;
         let r = if r > 0.0 { self.clamp_r(r) } else { self.cam.r };
         self.fly = Some(Camera {
-            lat: lat_deg.to_radians().clamp(-FRAC_PI_2 + 0.02, FRAC_PI_2 - 0.02),
+            lat: lat_deg
+                .to_radians()
+                .clamp(-FRAC_PI_2 + 0.02, FRAC_PI_2 - 0.02),
             lon: lon_deg.to_radians(),
             r,
         });
@@ -389,7 +404,11 @@ impl Globe {
 
     pub fn reset(&mut self) {
         let fit = self.fit_radius();
-        self.fly = Some(Camera { lat: self.cam.lat.clamp(-0.6, 0.6), lon: self.cam.lon, r: fit });
+        self.fly = Some(Camera {
+            lat: self.cam.lat.clamp(-0.6, 0.6),
+            lon: self.cam.lon,
+            r: fit,
+        });
     }
 
     /// Advance animations by `dt` seconds; returns whether anything moves.
@@ -410,7 +429,10 @@ impl Globe {
             self.cam.lon = wrap_pi(self.cam.lon + dlon * k);
             let lr = self.cam.r.ln();
             self.cam.r = (lr + (f.r.ln() - lr) * k).exp();
-            if (f.lat - self.cam.lat).abs() < 1e-5 && dlon.abs() < 1e-5 && (f.r / self.cam.r).ln().abs() < 1e-3 {
+            if (f.lat - self.cam.lat).abs() < 1e-5
+                && dlon.abs() < 1e-5
+                && (f.r / self.cam.r).ln().abs() < 1e-3
+            {
                 self.cam = f;
                 self.fly = None;
             }
@@ -442,7 +464,11 @@ impl Globe {
             active = true;
         }
 
-        if self.auto_rotate && !self.dragging && self.idle > 2.5 && self.cam.r < 1.7 * self.fit_radius() {
+        if self.auto_rotate
+            && !self.dragging
+            && self.idle > 2.5
+            && self.cam.r < 1.7 * self.fit_radius()
+        {
             // Eastward spin, like the real Earth seen with north up.
             let ease = smoothstep(2.5, 4.0, self.idle);
             self.cam.lon = wrap_pi(self.cam.lon - dt * 0.07 * ease);
@@ -470,7 +496,11 @@ impl Globe {
         let b = self.basis();
         // Angular radius of the view: the visible cap never exceeds a hemisphere.
         let half_diag = 0.5 * (self.width * self.width + self.height * self.height).sqrt() + 24.0;
-        let rho = if half_diag >= b.r { FRAC_PI_2 } else { (half_diag / b.r).asin() };
+        let rho = if half_diag >= b.r {
+            FRAC_PI_2
+        } else {
+            (half_diag / b.r).asin()
+        };
 
         self.build_dots(world, &b, rho);
         self.build_lines(world, &b, rho);
@@ -479,15 +509,28 @@ impl Globe {
     }
 
     pub fn frame(&self) -> Frame<'_> {
-        Frame { vertices: &self.verts, indices: &self.idx, labels: &self.labels, pins: &self.pin_out }
+        Frame {
+            vertices: &self.verts,
+            indices: &self.idx,
+            labels: &self.labels,
+            pins: &self.pin_out,
+        }
     }
 
     #[inline]
     fn push_quad(&mut self, corners: [(f64, f64); 4], uvs: [(f32, f32); 4], w: f32, rgba: [u8; 4]) {
         let base = self.verts.len() as u32;
-        let v = |i: usize| Vertex { x: corners[i].0 as f32, y: corners[i].1 as f32, u: uvs[i].0, v: uvs[i].1, w, rgba };
+        let v = |i: usize| Vertex {
+            x: corners[i].0 as f32,
+            y: corners[i].1 as f32,
+            u: uvs[i].0,
+            v: uvs[i].1,
+            w,
+            rgba,
+        };
         self.verts.extend_from_slice(&[v(0), v(1), v(2), v(3)]);
-        self.idx.extend_from_slice(&[base, base + 1, base + 2, base + 2, base + 1, base + 3]);
+        self.idx
+            .extend_from_slice(&[base, base + 1, base + 2, base + 2, base + 1, base + 3]);
     }
 
     /// Antialiased ellipse: `ra` along the radial (foreshortened) axis `dir`,
@@ -536,7 +579,12 @@ impl Globe {
         let b = (b.0 + tx * ext, b.1 + ty * ext);
         let w = (he * self.dpr) as f32;
         self.push_quad(
-            [(a.0 - nx, a.1 - ny), (b.0 - nx, b.1 - ny), (a.0 + nx, a.1 + ny), (b.0 + nx, b.1 + ny)],
+            [
+                (a.0 - nx, a.1 - ny),
+                (b.0 - nx, b.1 - ny),
+                (a.0 + nx, a.1 + ny),
+                (b.0 + nx, b.1 + ny),
+            ],
             [(0.0, -1.0), (0.0, -1.0), (0.0, 1.0), (0.0, 1.0)],
             w,
             rgba,
@@ -556,8 +604,16 @@ impl Globe {
         let kmax = ((s0 / texel).log2().floor() as i32).max(0);
         let level = (b.r * s0 / target).log2();
         let k = (level.floor() as i32).clamp(0, kmax);
-        let f = if k == kmax || level < 0.0 { 0.0 } else { level - f64::from(k) };
-        let t = if k < kmax { smoothstep(0.78, 1.0, f) } else { 0.0 };
+        let f = if k == kmax || level < 0.0 {
+            0.0
+        } else {
+            level - f64::from(k)
+        };
+        let t = if k < kmax {
+            smoothstep(0.78, 1.0, f)
+        } else {
+            0.0
+        };
         if t < 0.999 {
             self.dot_level(world, b, rho, s0 / f64::from(1u32 << k), 1.0 - t);
         }
@@ -597,7 +653,11 @@ impl Globe {
             // longitude window of the visible cap on this row
             let denom = cl * cl0;
             let (j0, j1) = if denom.abs() < 1e-12 {
-                if sl * sl0 >= cos_rho { (0, n - 1) } else { continue }
+                if sl * sl0 >= cos_rho {
+                    (0, n - 1)
+                } else {
+                    continue;
+                }
             } else {
                 let rhs = (cos_rho - sl * sl0) / denom;
                 if rhs > 1.0 {
@@ -609,7 +669,11 @@ impl Globe {
                     let half = rhs.acos() + dlon;
                     let a = ((self.cam.lon - half + PI) / dlon - 0.5).floor() as i64;
                     let z = ((self.cam.lon + half + PI) / dlon - 0.5).ceil() as i64;
-                    if z - a + 1 >= n { (0, n - 1) } else { (a, z) }
+                    if z - a + 1 >= n {
+                        (0, n - 1)
+                    } else {
+                        (a, z)
+                    }
                 }
             };
 
@@ -623,7 +687,11 @@ impl Globe {
             } else {
                 let a = j0.rem_euclid(n);
                 let z = a + (j1 - j0);
-                if z < n { [(a, z), (1, 0)] } else { [(a, n - 1), (0, z - n)] }
+                if z < n {
+                    [(a, z), (1, 0)]
+                } else {
+                    [(a, n - 1), (0, z - n)]
+                }
             };
             for (ra, rb) in ranges {
                 if ra > rb {
@@ -638,7 +706,11 @@ impl Globe {
                 }
                 while k < row.len() {
                     let xs = f64::from(row[k]);
-                    let xe = if k + 1 < row.len() { f64::from(row[k + 1]) } else { wmask };
+                    let xe = if k + 1 < row.len() {
+                        f64::from(row[k + 1])
+                    } else {
+                        wmask
+                    };
                     let ja = ((xs * nf / wmask - 0.5).ceil() as i64).max(ra);
                     let jb = ((xe * nf / wmask - 0.5).ceil() as i64 - 1).min(rb);
                     if ja > rb {
@@ -649,14 +721,26 @@ impl Globe {
                         let (so, co) = lon.sin_cos();
                         let p = [cl * co, cl * so, sl];
                         let (x, y, d) = b.project(p);
-                        if d <= 0.0 || x < -margin || y < -margin || x > w + margin || y > h + margin {
+                        if d <= 0.0
+                            || x < -margin
+                            || y < -margin
+                            || x > w + margin
+                            || y > h + margin
+                        {
                             continue;
                         }
                         let (rx, ry) = (x - b.cx, y - b.cy);
                         let rl = (rx * rx + ry * ry).sqrt();
-                        let dir = if rl > 1e-3 { (rx / rl, ry / rl) } else { (1.0, 0.0) };
+                        let dir = if rl > 1e-3 {
+                            (rx / rl, ry / rl)
+                        } else {
+                            (1.0, 0.0)
+                        };
                         // gentle limb darkening sells the sphere
-                        let shade = alpha * self.dot_dim * (0.38 + 0.62 * d.sqrt()) * smoothstep(0.0, 0.08, d);
+                        let shade = alpha
+                            * self.dot_dim
+                            * (0.38 + 0.62 * d.sqrt())
+                            * smoothstep(0.0, 0.08, d);
                         let rgba = premul(base, shade as f32);
                         self.push_ellipse(x, y, dir, radius * d.max(0.06), radius, rgba);
                     }
@@ -668,16 +752,43 @@ impl Globe {
 
     fn build_lines(&mut self, world: &World, b: &Basis, rho: f64) {
         let r = b.r;
-        let lod = if r < 700.0 { 0 } else if r < 3500.0 { 1 } else { 2 };
+        let lod = if r < 700.0 {
+            0
+        } else if r < 3500.0 {
+            1
+        } else {
+            2
+        };
         let st = self.style;
         let fade_states = smoothstep(950.0, 1700.0, r);
         // Borders gain weight as they become the main structure of the map.
         let zoom_w = 1.0 + 0.45 * smoothstep(900.0, 6000.0, r);
         let border_alpha = 0.75 + 0.25 * smoothstep(400.0, 900.0, r);
         let jobs: [(LineKind, u8, [u8; 4], f64, f64, bool); 3] = [
-            (LineKind::State, lod.max(1), st.state, f64::from(st.state_width), fade_states, false),
-            (LineKind::Coast, lod, st.coast, f64::from(st.coast_width) * zoom_w, 1.0, true),
-            (LineKind::Country, lod, st.border, f64::from(st.border_width) * zoom_w, border_alpha, true),
+            (
+                LineKind::State,
+                lod.max(1),
+                st.state,
+                f64::from(st.state_width),
+                fade_states,
+                false,
+            ),
+            (
+                LineKind::Coast,
+                lod,
+                st.coast,
+                f64::from(st.coast_width) * zoom_w,
+                1.0,
+                true,
+            ),
+            (
+                LineKind::Country,
+                lod,
+                st.border,
+                f64::from(st.border_width) * zoom_w,
+                border_alpha,
+                true,
+            ),
         ];
         // Pass 1: dark casings under coast and borders, so lines stay legible
         // over the dot field. Pass 2: the lines themselves.
@@ -698,12 +809,22 @@ impl Globe {
         }
     }
 
-    fn stroke_layer(&mut self, layer: &super::world::LineLayer, b: &Basis, rho: f64, hw: f64, rgba: [u8; 4]) {
+    fn stroke_layer(
+        &mut self,
+        layer: &super::world::LineLayer,
+        b: &Basis,
+        rho: f64,
+        hw: f64,
+        rgba: [u8; 4],
+    ) {
         const MIN_SEG2: f64 = 1.8 * 1.8;
         let (w, h) = (self.width, self.height);
         let m = 4.0;
         let outside = |a: (f64, f64), c: (f64, f64)| {
-            (a.0 < -m && c.0 < -m) || (a.1 < -m && c.1 < -m) || (a.0 > w + m && c.0 > w + m) || (a.1 > h + m && c.1 > h + m)
+            (a.0 < -m && c.0 < -m)
+                || (a.1 < -m && c.1 < -m)
+                || (a.0 > w + m && c.0 > w + m)
+                || (a.1 > h + m && c.1 > h + m)
         };
         // A chunk is visible iff angle(centre, view) <= rho + radius, i.e.
         // cos(angle) >= cos(rho + radius) = cos ρ·cos r − sin ρ·sin r.
@@ -788,7 +909,10 @@ impl Globe {
 
     /// Front-most pin cluster whose bubble contains (x, y).
     pub fn pin_at(&self, x: f64, y: f64) -> Option<u32> {
-        let (pw, ph) = (f64::from(self.style.pin_width), f64::from(self.style.pin_height));
+        let (pw, ph) = (
+            f64::from(self.style.pin_width),
+            f64::from(self.style.pin_height),
+        );
         self.pin_out
             .iter()
             .find(|p| {
@@ -819,7 +943,10 @@ impl Globe {
 
     fn grid_dims(&self) -> (usize, usize) {
         const CELL: f64 = 48.0;
-        (((self.width / CELL).ceil() as usize).max(1), ((self.height / CELL).ceil() as usize).max(1))
+        (
+            ((self.width / CELL).ceil() as usize).max(1),
+            ((self.height / CELL).ceil() as usize).max(1),
+        )
     }
 
     fn rect_cells(&self, r: [f64; 4]) -> (usize, usize, usize, usize) {
@@ -837,7 +964,11 @@ impl Globe {
             for gx in x0..=x1 {
                 for &o in &self.grid[gy * gw + gx] {
                     let q = self.rects[o as usize];
-                    if r[0] < q[2] + PAD && r[2] + PAD > q[0] && r[1] < q[3] + PAD && r[3] + PAD > q[1] {
+                    if r[0] < q[2] + PAD
+                        && r[2] + PAD > q[0]
+                        && r[1] < q[3] + PAD
+                        && r[3] + PAD > q[1]
+                    {
                         return false;
                     }
                 }
@@ -870,7 +1001,10 @@ impl Globe {
         self.rects.clear();
 
         // Photo pins are obstacles: labels never hide under them.
-        let (pw, ph) = (f64::from(self.style.pin_width), f64::from(self.style.pin_height));
+        let (pw, ph) = (
+            f64::from(self.style.pin_width),
+            f64::from(self.style.pin_height),
+        );
         for i in 0..self.pin_out.len() {
             let p = self.pin_out[i];
             if p.alpha > 0.3 {
@@ -918,14 +1052,18 @@ impl Globe {
             let placed_anchor = if cls >= class::CITY_MAJOR {
                 let right = [x - 4.0, y - th * 0.5, x + 7.0 + tw, y + th * 0.5];
                 let left = [x - 7.0 - tw, y - th * 0.5, x + 4.0, y + th * 0.5];
-                let inside = |r: [f64; 4]| r[0] >= 2.0 && r[2] <= w - 2.0 && r[1] >= 2.0 && r[3] <= h - 2.0;
+                let inside =
+                    |r: [f64; 4]| r[0] >= 2.0 && r[2] <= w - 2.0 && r[1] >= 2.0 && r[3] <= h - 2.0;
                 // keep a label on the side it already sits on to avoid flicker
                 let order = if prev_anchor == Some(anchor::LEFT) {
                     [(left, anchor::LEFT), (right, anchor::RIGHT)]
                 } else {
                     [(right, anchor::RIGHT), (left, anchor::LEFT)]
                 };
-                order.into_iter().find(|&(r, _)| inside(r) && self.try_place(r)).map(|(_, a)| a)
+                order
+                    .into_iter()
+                    .find(|&(r, _)| inside(r) && self.try_place(r))
+                    .map(|(_, a)| a)
             } else {
                 let r = [x - tw * 0.5, y - th * 0.5, x + tw * 0.5, y + th * 0.5];
                 let inside = r[0] >= 2.0 && r[2] <= w - 2.0 && r[1] >= 2.0 && r[3] <= h - 2.0;
@@ -933,7 +1071,11 @@ impl Globe {
             };
             if let Some(a) = placed_anchor {
                 placed += 1;
-                let st = self.label_state.entry(id).or_insert(LabelState { alpha: 0.0, placed: true, anchor: a });
+                let st = self.label_state.entry(id).or_insert(LabelState {
+                    alpha: 0.0,
+                    placed: true,
+                    anchor: a,
+                });
                 st.placed = true;
                 st.anchor = a;
             }
@@ -968,7 +1110,13 @@ impl Globe {
             let cls = Self::label_class(l);
             let alpha = st.alpha * smoothstep(0.12, 0.3, d) as f32;
             if cls >= class::CITY_MAJOR {
-                let rad = if l.capital { 3.0 } else if cls == class::TOWN { 2.0 } else { 2.5 };
+                let rad = if l.capital {
+                    3.0
+                } else if cls == class::TOWN {
+                    2.0
+                } else {
+                    2.5
+                };
                 let halo = premul(self.style.city_halo, alpha);
                 let dotc = premul(self.style.city, alpha);
                 self.push_circle(x, y, rad + 1.6, halo);
@@ -1016,7 +1164,10 @@ fn premul_scale(c: [u8; 4], s: f32) -> [u8; 4] {
 
 /// Convert pin inputs in degrees.
 pub fn pin_input(lat: f64, lon: f64, weight: u32) -> PinInput {
-    PinInput { pos: from_lat_lon(lat.to_radians(), lon.to_radians()), weight }
+    PinInput {
+        pos: from_lat_lon(lat.to_radians(), lon.to_radians()),
+        weight,
+    }
 }
 
 #[cfg(test)]
@@ -1053,7 +1204,10 @@ mod tests {
         let before = g.unproject_deg(650.0, 330.0).unwrap();
         g.zoom_by(8.0, 650.0, 330.0, false);
         let (x, y, _) = g.project_deg(before.0, before.1);
-        assert!((x - 650.0).abs() < 0.5 && (y - 330.0).abs() < 0.5, "{x},{y}");
+        assert!(
+            (x - 650.0).abs() < 0.5 && (y - 330.0).abs() < 0.5,
+            "{x},{y}"
+        );
     }
 
     #[test]
@@ -1064,7 +1218,10 @@ mod tests {
         g.drag_begin();
         g.drag(40.0, -25.0);
         let (x, y, _) = g.project_deg(p.0, p.1);
-        assert!((x - 540.0).abs() < 1.5 && (y - 375.0).abs() < 1.5, "{x},{y}");
+        assert!(
+            (x - 540.0).abs() < 1.5 && (y - 375.0).abs() < 1.5,
+            "{x},{y}"
+        );
     }
 
     #[test]
@@ -1085,7 +1242,8 @@ mod tests {
         let mut g = globe(1400.0, 900.0);
         g.cam.lat = 48f64.to_radians();
         g.cam.lon = 8f64.to_radians();
-        g.pins.set(vec![pin_input(48.85, 2.35, 12), pin_input(52.52, 13.40, 4)]);
+        g.pins
+            .set(vec![pin_input(48.85, 2.35, 12), pin_input(52.52, 13.40, 4)]);
         let mut r = g.fit_radius();
         while r < MAX_RADIUS {
             g.cam.r = r;
@@ -1094,7 +1252,9 @@ mod tests {
                 g.build(&world, 1.0 / 60.0);
             }
             let f = g.frame();
-            assert!(f.vertices.len() % 4 == 0 && f.indices.len() == f.vertices.len() / 4 * 6);
+            assert!(
+                f.vertices.len().is_multiple_of(4) && f.indices.len() == f.vertices.len() / 4 * 6
+            );
             assert!(!f.vertices.is_empty(), "nothing drawn at r={r}");
             assert!(f.labels.len() <= 240 + 64);
             for v in f.vertices {
@@ -1123,13 +1283,21 @@ mod tests {
             for _ in 0..30 {
                 g.build(&world, 0.05);
             }
-            g.frame().labels.iter().filter(|l| l.alpha > 0.5).map(|l| l.class).collect::<Vec<_>>()
+            g.frame()
+                .labels
+                .iter()
+                .filter(|l| l.alpha > 0.5)
+                .map(|l| l.class)
+                .collect::<Vec<_>>()
         };
         let far = classes_at(&mut g, 420.0);
         assert!(far.contains(&class::COUNTRY), "{far:?}");
         assert!(!far.contains(&class::TOWN));
         let near = classes_at(&mut g, 40_000.0);
-        assert!(near.contains(&class::TOWN) || near.contains(&class::CITY), "{near:?}");
+        assert!(
+            near.contains(&class::TOWN) || near.contains(&class::CITY),
+            "{near:?}"
+        );
         assert!(!near.contains(&class::COUNTRY));
     }
 
@@ -1163,20 +1331,39 @@ mod phase_bench {
             g.cam.r = r;
             let b = g.basis();
             let half_diag = 0.5 * (1400f64.powi(2) + 900f64.powi(2)).sqrt() + 24.0;
-            let rho = if half_diag >= r { FRAC_PI_2 } else { (half_diag / r).asin() };
+            let rho = if half_diag >= r {
+                FRAC_PI_2
+            } else {
+                (half_diag / r).asin()
+            };
             let n = 20;
             let t = std::time::Instant::now();
-            for _ in 0..n { g.verts.clear(); g.idx.clear(); g.build_dots(&world, &b, rho); }
+            for _ in 0..n {
+                g.verts.clear();
+                g.idx.clear();
+                g.build_dots(&world, &b, rho);
+            }
             let dots = t.elapsed().as_secs_f64() * 1e3 / n as f64;
             let nd = g.verts.len();
             let t = std::time::Instant::now();
-            for _ in 0..n { g.verts.clear(); g.idx.clear(); g.build_lines(&world, &b, rho); }
+            for _ in 0..n {
+                g.verts.clear();
+                g.idx.clear();
+                g.build_lines(&world, &b, rho);
+            }
             let lines = t.elapsed().as_secs_f64() * 1e3 / n as f64;
             let nl = g.verts.len();
             let t = std::time::Instant::now();
-            for _ in 0..n { g.verts.clear(); g.idx.clear(); g.labels.clear(); g.build_labels(&world, &b, 0.016); }
+            for _ in 0..n {
+                g.verts.clear();
+                g.idx.clear();
+                g.labels.clear();
+                g.build_labels(&world, &b, 0.016);
+            }
             let labels = t.elapsed().as_secs_f64() * 1e3 / n as f64;
-            eprintln!("r={r}: dots {dots:.2}ms ({nd}) lines {lines:.2}ms ({nl}) labels {labels:.2}ms");
+            eprintln!(
+                "r={r}: dots {dots:.2}ms ({nd}) lines {lines:.2}ms ({nl}) labels {labels:.2}ms"
+            );
         }
     }
 }

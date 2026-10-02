@@ -150,7 +150,8 @@ std::vector<float> SemanticWorker::embedImage(const QString &imagePath)
 
     // mtmd API change: this now takes a `placeholder` bool and returns a wrapper
     // struct (with .bitmap / .video_ctx) instead of a raw mtmd_bitmap*.
-    auto wrap = mtmd_helper_bitmap_init_from_file(mctx, imagePath.toLocal8Bit().constData(), false);
+    auto wrap = mtmd_helper_bitmap_init_from_file(mctx, imagePath.toLocal8Bit().constData(), false,
+                                                  mtmd_helper_init_opt_default());
     auto *bmp = wrap.bitmap;
     if (!bmp) return {};
 

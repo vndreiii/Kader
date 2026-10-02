@@ -6,6 +6,7 @@
 #include <QUrl>
 #include <QStringList>
 #include <QDebug>
+#include <QStandardPaths>
 
 VideoEditor::VideoEditor(QObject *parent) : QObject(parent) {}
 
@@ -73,7 +74,7 @@ void VideoEditor::trim(const QString &inputUrl, qint64 startMs, qint64 endMs,
     args << output;
 
     m_proc = new QProcess(this);
-    m_proc->setProgram("/usr/bin/ffmpeg");
+    m_proc->setProgram(QStandardPaths::findExecutable(QStringLiteral("ffmpeg")));
     m_proc->setArguments(args);
 
     connect(m_proc, &QProcess::finished, this,

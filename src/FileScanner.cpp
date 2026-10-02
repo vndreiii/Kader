@@ -31,6 +31,16 @@
 
 namespace {
 
+// Exiv2 0.28 renamed Value::toLong() to toInt64(); support both (Ubuntu LTS
+// still ships 0.27, which the AppImage is built against).
+inline long long exivInt(const Exiv2::Value &v) {
+#if EXIV2_TEST_VERSION(0, 28, 0)
+    return v.toInt64();
+#else
+    return v.toLong();
+#endif
+}
+
 // Read true pixel dimensions from an image header (no full decode). Handles the
 // formats libvips supports (JPEG/PNG/WebP/TIFF/HEIF/RAW via the native loaders),
 // covering the many files that carry no EXIF PixelXDimension tag.
@@ -133,6 +143,9 @@ public:
 };
 
 FileScanner::FileScanner(DatabaseManager *db, QObject *parent) : QObject(parent), m_db(db) {
+    // Exiv2 prints a warning to stderr for every slightly non-standard file
+    // (thousands per library); only real errors are worth surfacing.
+    Exiv2::LogMsg::setLevel(Exiv2::LogMsg::error);
     m_mediaExtensions = {
         // Standard images
         ".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tiff", ".tif", ".heic", ".heif",
@@ -380,8 +393,8 @@ void FileScanner::runScan(const std::string &rootPath, const std::vector<std::st
 
                 auto itW = exif.findKey(Exiv2::ExifKey("Exif.Photo.PixelXDimension"));
                 auto itH = exif.findKey(Exiv2::ExifKey("Exif.Photo.PixelYDimension"));
-                if (itW != exif.end()) entry.width  = static_cast<int>(itW->value().toInt64());
-                if (itH != exif.end()) entry.height = static_cast<int>(itH->value().toInt64());
+                if (itW != exif.end()) entry.width  = static_cast<int>(exivInt(itW->value()));
+                if (itH != exif.end()) entry.height = static_cast<int>(exivInt(itH->value()));
 
             } catch (...) {}
 

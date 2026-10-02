@@ -14,6 +14,8 @@ class SettingsManager : public QObject {
     Q_PROPERTY(int  resourceMode READ resourceMode WRITE setResourceMode NOTIFY resourceModeChanged)
     Q_PROPERTY(bool use3DGlobe READ use3DGlobe WRITE setUse3DGlobe NOTIFY use3DGlobeChanged)
     Q_PROPERTY(QString homePath READ homePath CONSTANT)
+    Q_PROPERTY(bool autoUpdate READ autoUpdate WRITE setAutoUpdate NOTIFY autoUpdateChanged)
+    Q_PROPERTY(QString skippedVersion READ skippedVersion WRITE setSkippedVersion NOTIFY skippedVersionChanged)
 
 public:
     explicit SettingsManager(QObject *parent = nullptr);
@@ -47,6 +49,13 @@ public:
     bool use3DGlobe() const;
     void setUse3DGlobe(bool use);
 
+    // Updater: check GitHub releases automatically; a version the user chose
+    // to skip is not offered again (a newer one is).
+    bool autoUpdate() const;
+    void setAutoUpdate(bool on);
+    QString skippedVersion() const;
+    void setSkippedVersion(const QString &v);
+
     // Number of worker threads to use for the current resource mode, derived
     // from the CPU core count. Always >= 1 and capped below the core count so
     // the desktop stays responsive.
@@ -70,6 +79,8 @@ signals:
     void parallelThumbnailsChanged();
     void resourceModeChanged();
     void use3DGlobeChanged();
+    void autoUpdateChanged();
+    void skippedVersionChanged();
 
 private:
     void load();

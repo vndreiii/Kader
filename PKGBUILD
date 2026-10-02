@@ -1,77 +1,78 @@
 # Maintainer: Alex <alex@milfs.party>
+#
+# Builds Kader from this checkout (run `makepkg -si` in the repository root).
+# CI uses the same file to produce the pacman package attached to GitHub
+# releases, which the in-app updater installs with `pkexec pacman -U`.
 pkgname=kader
-pkgver=2026.08.125
+pkgver=1.0.0
 pkgrel=1
-pkgdesc="Modern photo gallery"
+# Kader moved from CalVer (2026.MM.N) to SemVer (MAJOR.MINOR.FIX); the epoch
+# makes pacman treat 1.0.0 as newer than the old date-based versions.
+epoch=1
+pkgdesc="Fast, modern photo gallery with a 3D places globe and AI search"
 arch=('x86_64')
-url="https://code.milfs.party/alex/Kader"
+url="https://github.com/vndreiii/kader"
 license=('MIT')
 depends=(
     'qt6-base'
     'qt6-declarative'
-    'qt6-location'
+    'qt6-multimedia'
     'qt6-positioning'
-    'qt6-shadertools'
+    'qt6-svg'
     'libvips'
     'exiv2'
-    'openssl'
-    'libheif'
     'libraw'
+    'libheif'
     'poppler'
+    'openssl'
+    'polkit'
 )
 makedepends=(
     'cmake'
     'ninja'
+    'git'
+    'rust'
+    'pkgconf'
+    'qt6-shadertools'
     'qt6-tools'
-    'pkgconfig'
-    'milfs-connect'
 )
-source=(
-    "$pkgname::git+ssh://git@code.milfs.party:2222/alex/Kader.git"
+optdepends=(
+    'qt6-location: classic 2D map view'
+    'ffmpegthumbnailer: fast video thumbnails'
+    'ffmpeg: video metadata and thumbnail fallback'
 )
+options=('!debug')
+# llama.cpp (AI search) is built from a pinned release and linked statically.
+_llama_tag=v0.5.0
+source=("llama.cpp::git+https://github.com/ggml-org/llama.cpp.git#tag=${_llama_tag}")
 sha256sums=('SKIP')
 
-pkgver() {
-    cd "$pkgname"
-    # CalVer: YYYY.MM.<commit-count>
-    printf "%s.%s.%s" \
-        "$(git log -1 --format=%cd --date=format:%Y)" \
-        "$(git log -1 --format=%cd --date=format:%m)" \
-        "$(git rev-list --count HEAD)"
+_root() {
+    # The repository this PKGBUILD lives in.
+    realpath "$startdir"
 }
 
-prepare() {
-    cd "$pkgname"
+pkgver() {
+    sed -n 's/^project(Kader VERSION \([0-9]*\.[0-9]*\.[0-9]*\).*/\1/p' "$(_root)/CMakeLists.txt"
 }
 
 build() {
-    cmake -B build-pkg -S "$pkgname" \
-        -G Ninja \
+    LLAMA_TAG=$_llama_tag "$(_root)/packaging/build-llama.sh" "$srcdir/llama-prefix" "$srcdir/llama.cpp"
+
+    cmake -B build -S "$(_root)" -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/usr \
-        -DBUILD_TESTING=OFF
-    cmake --build build-pkg -j4
+        -DCMAKE_PREFIX_PATH="$srcdir/llama-prefix" \
+        -DBUILD_TESTING=OFF \
+        -DKADER_UPDATE_CHANNEL=arch
+    cmake --build build
+}
+
+check() {
+    cd "$(_root)/rust/kader-core"
+    CARGO_TARGET_DIR="$srcdir/build/cargo" cargo test --offline --locked --release
 }
 
 package() {
-    cd "$srcdir"
-
-    # Binary lives in /usr/lib/kader/
-    install -Dm755 "build-pkg/kader" "$pkgdir/usr/lib/kader/kader"
-
-
-
-    # Wrapper script in PATH
-    install -Dm755 /dev/stdin "$pkgdir/usr/bin/kader" <<'EOF'
-#!/bin/sh
-# QmlMaterial is looked up relative to app path or via import path
-export QML2_IMPORT_PATH="/usr/lib/kader/qml_modules:$QML2_IMPORT_PATH"
-exec /usr/lib/kader/kader "$@"
-EOF
-
-    # Desktop entry
-    install -Dm644 "$pkgname/kader.desktop" "$pkgdir/usr/share/applications/kader.desktop"
-
-    # Icons — scalable SVG only (avoids upgrade conflicts with fixed-size PNGs)
-    install -Dm644 "$pkgname/assets/Kader Logoicon.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/kader.svg"
+    DESTDIR="$pkgdir" cmake --install build
 }
