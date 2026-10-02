@@ -3,6 +3,39 @@
 Kader follows [semantic versioning](https://semver.org): MAJOR.MINOR.FIX.
 Release notes for each version are taken from this file.
 
+## [2.3.0]
+
+### New
+- **Material You, your way.** Settings → Appearance → Colours: Kader's
+  purple, twelve preset colours, or System: your wallpaper via
+  [matugen](https://github.com/InioX/matugen) (template in
+  `packaging/matugen`), Quickshell's palette, or the Windows/KDE accent
+  colour. **Colour style** offers all nine Material 3 schemes: Tonal spot,
+  Neutral, Vibrant, Expressive, Fidelity, Content, Rainbow, Fruit salad and
+  Monochrome.
+- **Motion.** Pages fade through or slide in, buttons spring when pressed,
+  and **predictive back**: hold the mouse back button or swipe right with
+  two fingers to preview going back, then let go.
+- **Touchpad gestures.** Pinch zooms around your fingers while you move
+  them; two-finger scroll pans photos, the globe and the map, and swipes
+  between photos in the viewer.
+- **Instant photo switching.** The viewer loads the next and previous photos
+  ahead of time.
+- **Search results** have the full right-click menu and hold-to-select,
+  with Favourite, Hide and Trash for the selection.
+- Every dropdown and text field is now Material 3.
+
+### Fixed
+- Gallery, Videos, Favourites and Trash were cut off after maximising the
+  window.
+- Clicking a map pin that groups nearby places never opened its card.
+- Hold-and-drag selection didn't work with a touchpad.
+- The favourite heart on photos couldn't be clicked.
+- "Dynamic colour" did nothing unless Quickshell was installed.
+- Adding a scan exclusion filter didn't work; the delete buttons' hover
+  circle was off-centre.
+- Faces in the People row were clipped when hovered.
+
 ## [2.2.0]
 
 ### New
