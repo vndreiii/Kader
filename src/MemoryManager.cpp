@@ -73,6 +73,28 @@ void ensureTable(QSqlDatabase db) {
         "photo_count INTEGER DEFAULT 0,"
         "created_at INTEGER NOT NULL,"
         "expires_at INTEGER NOT NULL)"));
+    // photos a memory was made from (newline-separated paths), so it can be dropped
+    // if one of them is later hidden, trashed or ignored. Older rows have none.
+    QSqlQuery cols(db);
+    bool has = false;
+    if (cols.exec(QStringLiteral("PRAGMA table_info(memories)")))
+        while (cols.next())
+            if (cols.value(1).toString() == QLatin1String("sources")) has = true;
+    if (!has) q.exec(QStringLiteral("ALTER TABLE memories ADD COLUMN sources TEXT"));
+}
+
+// true while every photo the memory was made from is still visible in the library
+bool sourcesStillVisible(QSqlDatabase db, const QString &sources) {
+    if (sources.isEmpty()) return true;
+    const QStringList paths = sources.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+    for (const QString &p : paths) {
+        QSqlQuery q(db);
+        q.prepare(QStringLiteral("SELECT 1 FROM media WHERE file_path = ? AND is_trashed = 0 "
+                                 "AND COALESCE(is_hidden,0) = 0 AND COALESCE(is_ignored,0) = 0"));
+        q.addBindValue(p);
+        if (!q.exec() || !q.next()) return false;
+    }
+    return true;
 }
 
 QString findMusic(const QString &file) {
@@ -229,8 +251,8 @@ int generateBatch(const QString &dbPath, const QString &dir) {
             const QDate date = QDate::fromString(day, Qt::ISODate);
             QSqlQuery ins(db);
             ins.prepare(QStringLiteral(
-                "INSERT INTO memories (date,title,video_path,cover_path,mood,duration_ms,photo_count,created_at,expires_at) "
-                "VALUES (?,?,?,?,?,?,?,?,?)"));
+                "INSERT INTO memories (date,title,video_path,cover_path,mood,duration_ms,photo_count,created_at,expires_at,sources) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?)"));
             ins.addBindValue(day);
             ins.addBindValue(QLocale().toString(date, QStringLiteral("dddd, d MMMM yyyy")));
             ins.addBindValue(finalPath);
@@ -240,6 +262,7 @@ int generateBatch(const QString &dbPath, const QString &dir) {
             ins.addBindValue(photos.size());
             ins.addBindValue(now);
             ins.addBindValue(now + kLifetimeSecs);
+            ins.addBindValue(photos.join(QLatin1Char('\n')));
             if (!ins.exec()) { QFile::remove(finalPath); continue; }
             newIds << ins.lastInsertId().toLongLong();
             ++made;
@@ -319,11 +342,13 @@ QVariantList MemoryManager::list() const {
     QVariantList out;
     QSqlDatabase db = openDb(m_dbPath, QStringLiteral("kader_memories_main"));
     ensureTable(db);
-    QSqlQuery q(QStringLiteral("SELECT id,date,title,video_path,cover_path,mood,duration_ms,photo_count,expires_at "
+    QSqlQuery q(QStringLiteral("SELECT id,date,title,video_path,cover_path,mood,duration_ms,photo_count,expires_at,sources "
                                "FROM memories ORDER BY date DESC"), db);
+    QList<int> stale;
     while (q.next()) {
         const QString video = q.value(3).toString();
         if (!QFile::exists(video)) continue;
+        if (!sourcesStillVisible(db, q.value(9).toString())) { stale << q.value(0).toInt(); continue; }
         const QString cover = q.value(4).toString();
         QVariantMap m;
         m["id"]         = q.value(0).toInt();
@@ -337,6 +362,9 @@ QVariantList MemoryManager::list() const {
         m["expiresAt"]  = q.value(8).toLongLong();
         out << m;
     }
+    q.finish();
+    // a photo behind these was hidden/trashed/ignored since: don't keep a video of it
+    for (int id : stale) const_cast<MemoryManager *>(this)->remove(id);
     return out;
 }
 
