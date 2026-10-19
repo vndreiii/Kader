@@ -3,6 +3,38 @@
 Kader follows [semantic versioning](https://semver.org): MAJOR.MINOR.FIX.
 Release notes for each version are taken from this file.
 
+## [2.4.0]
+
+### New
+- **Memories.** Kader now makes up to five short videos a week from random
+  photos of a single day, with a fade in/out and a calm or upbeat CC0
+  soundtrack (credits in `assets/music/LICENSES.md`). They appear in
+  Search → Memories, where you can play, save or delete them; each batch
+  lives for a week and is then replaced. A memory is dropped if one of its
+  photos is later hidden or trashed.
+- **Pixel grid.** Zoom in far enough (up to 6400%) and every source pixel is
+  outlined, exactly aligned with the image.
+- **Select all.** Ctrl+A selects everything on gallery, album, search and
+  person pages; Shift+click on a photo starts selecting; the Dashboard's
+  duplicates list has a "Select all duplicates" button that keeps the oldest
+  copy of each.
+- **Search sub-pages** use the same sort / size / filter bar as the rest of
+  the app.
+- Naming a person the same as someone already named merges them.
+
+### Fixed
+- A crash (SIGSEGV) while a library scan ran: a background query used the
+  interface thread's database connection.
+- Scrolling is smooth and fast everywhere, and one wheel notch is one notch,
+  also on mice that report pixel deltas. Mouse-wheel zoom works in the viewer.
+- Small images no longer open blurry in the viewer.
+- The video volume slider slides out on hover again; the info panel glides in
+  with some space around the photo.
+- The language picker scrolls and stays on screen; the folded Places rail's
+  button is centred; hovering a face no longer clips it.
+- Settings shows "N photos indexed" instead of a Start Indexing button once
+  everything is indexed.
+
 ## [2.3.0]
 
 ### New
