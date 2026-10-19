@@ -67,3 +67,8 @@ packaging/arch/src/
 packaging/arch/pkg/
 packaging/arch/llama.cpp/
 packaging/arch/*.pkg.tar.zst
+
+# Not part of the repo
+Kader-*.AppImage.zsync
+search-in-video.md
+SUMMARY.md
