@@ -50,6 +50,7 @@ Item {
 
         model: AlbumModel
         clip: true
+        SmoothWheel {}
         cacheBuffer: height * 2
         leftMargin: 24; rightMargin: 24
         topMargin: 0; bottomMargin: 40

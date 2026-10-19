@@ -19,6 +19,7 @@ Item {
     }
 
     function handleBack() { return grid.handleBack() }
+    function selectAll() { grid.selectAll() }
 
     MediaGrid {
         id: grid

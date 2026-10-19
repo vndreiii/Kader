@@ -84,10 +84,18 @@ T.ComboBox {
     }
 
     popup: T.Popup {
-        y: control.height + 4
+        // Open on whichever side of the control has more room, and never taller
+        // than that room: a long list (language picker) scrolls instead of
+        // running off the window.
+        readonly property real _winH: control.Window.height
+        readonly property real _ctlY: control.mapToItem(null, 0, 0).y
+        readonly property real _below: _winH - (_ctlY + control.height) - 16
+        readonly property real _above: _ctlY - 16
+        readonly property real _want: contentItem.implicitHeight + topPadding + bottomPadding
+        readonly property bool _openUp: _want > _below && _above > _below
+        y: _openUp ? -height - 4 : control.height + 4
         width: control.width
-        height: Math.min(contentItem.implicitHeight + topPadding + bottomPadding,
-                         control.Window.height - 32)
+        height: Math.max(80, Math.min(_want, _openUp ? _above : _below))
         padding: 6
         enter: Transition {
             NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 120 }

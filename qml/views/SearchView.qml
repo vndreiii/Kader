@@ -31,7 +31,15 @@ Item {
 
     // ── selection (one grid at a time) ─────────────────────────────────
     property var selGrid: null
+    // the open photo-group subpage, if that is what is showing: the global top bar
+    // (sort / size / filter) drives it
+    readonly property Item groupItem: (stack.currentItem && stack.currentItem.isGroup === true) ? stack.currentItem : null
     readonly property int subDepth: stack.depth   // sub-pages open (people, a person, a group)
+    // Ctrl+A: select everything in whichever photo grid is on screen
+    function selectAll() {
+        var it = stack.currentItem
+        if (it && typeof it.selectAll === "function") it.selectAll()
+    }
     function _gridSel(g) {
         if (g.selecting) {
             if (selGrid && selGrid !== g) selGrid.clearSelection()
@@ -175,6 +183,7 @@ Item {
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             ScrollBar.vertical: ScrollBar {}
+            SmoothWheel {}
 
             ColumnLayout {
                 id: col
@@ -422,7 +431,7 @@ Item {
                             Layout.fillWidth: true
                             // room around the faces for their hover grow (the
                             // list clips); the negative margin keeps them aligned
-                            Layout.preferredHeight: 156
+                            Layout.preferredHeight: 164
                             Layout.leftMargin: -8
                             Layout.rightMargin: -8
                             leftMargin: 8
@@ -437,6 +446,7 @@ Item {
                                 readonly property bool _ph: !root._loaded
                                 width: 104
                                 spacing: 8
+                                topPadding: 8      // room for the hover grow (a horizontal list's topMargin doesn't offset items)
                                 FaceAvatar {
                                     width: 104; height: 104
                                     faceId: parent._ph ? -1 : (modelData.cover !== undefined ? modelData.cover : -1)
@@ -493,6 +503,8 @@ Item {
                             onTriggered: Analyzer.enableFaces()
                         }
                     }
+
+                    MemoryVideosSection { Layout.fillWidth: true }
 
                     // Memories
                     ColumnLayout {
@@ -646,19 +658,50 @@ Item {
     Component {
         id: groupPage
         Item {
+            id: gp
             property string title: ""
             property string subtitle: ""
             property var items: []
+            // same controls the other pages have: filter, sort, view size
+            readonly property bool isGroup: true
+            function selectAll() { groupGrid.selectAll() }
+            property int  sortKey: 0
+            property bool sortAsc: false
+            property string filterText: ""
+            readonly property real cellSize: [110, 110, 140, 170, 230][Math.max(0, Math.min(4, Settings.mosaicDensity))]
+            readonly property var shown: {
+                var q = filterText.trim().toLowerCase()
+                var out = []
+                for (var i = 0; i < items.length; ++i) {
+                    var m = items[i]
+                    if (q && String(m.file_path || m.name || "").toLowerCase().indexOf(q) < 0) continue
+                    out.push(m)
+                }
+                var dir = sortAsc ? 1 : -1
+                function nm(m) { var p = String(m.file_path || m.name || ""); return p.substring(p.lastIndexOf("/") + 1).toLowerCase() }
+                out.sort(function(x, y) {
+                    var vx, vy
+                    if (sortKey === 2)      { vx = nm(x); vy = nm(y) }
+                    else if (sortKey === 3) { vx = Number(x.file_size || 0); vy = Number(y.file_size || 0) }
+                    else if (sortKey === 5) { vx = String(x.mime_type || ""); vy = String(y.mime_type || "") }
+                    else                    { vx = Number(x.creation_date || 0); vy = Number(y.creation_date || 0) }
+                    return vx < vy ? -dir : (vx > vy ? dir : 0)
+                })
+                return out
+            }
+
             PageHeader {
                 id: gh
-                title: parent.title
-                subtitle: parent.subtitle.length > 0 ? parent.subtitle : root._t("n_items").arg(parent.items.length)
+                title: gp.title
+                subtitle: gp.subtitle.length > 0 ? gp.subtitle : root._t("n_items").arg(gp.shown.length)
                 onBack: stack.pop()
+
             }
             ThumbGrid {
+                id: groupGrid
                 anchors { top: gh.bottom; left: parent.left; right: parent.right; bottom: parent.bottom; leftMargin: 24; rightMargin: 24 }
-                items: parent.items
-                minCell: 170
+                items: gp.shown
+                minCell: gp.cellSize
                 selectable: true
                 onSelectingChanged: root._gridSel(this)
                 onOpenItem: (i) => root.openViewer(items[i], items)

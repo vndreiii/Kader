@@ -395,7 +395,11 @@ Item {
         onCanceled: _end()
         onClicked: (mouse) => {
             if (_wasDrag) return
-            if (mouse.button === Qt.RightButton) {
+            if (mouse.button === Qt.LeftButton && (mouse.modifiers & Qt.ShiftModifier)) {
+                // Shift+click: start selecting (or toggle, once selecting)
+                if (root.selectable) root.selectToggle()
+                else root.enterSelectionMode()
+            } else if (mouse.button === Qt.RightButton) {
                 if (root.selectable) root.selectToggle()
                 else root._showMenu()
             } else if (root.selectable) {

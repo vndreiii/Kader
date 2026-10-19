@@ -10,6 +10,7 @@ Item {
     id: root
     property int personId: -1
     signal back()
+    function selectAll() { photoGrid.selectAll() }
     signal openViewer(var data, var items)
     signal openPerson(int id)
     function _t(k) { return I18n.t(Settings.language, k) }
@@ -219,6 +220,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
+                SmoothWheel {}
                 cellWidth: 104; cellHeight: 124
                 model: addPopup.suggestions
                 delegate: Column {
@@ -283,6 +285,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
+                SmoothWheel {}
                 cellWidth: 120; cellHeight: 140
                 model: mergePopup.others
                 delegate: Column {

@@ -130,6 +130,7 @@ set(SOURCES
     ${SOURCE_DIR}/StorageManager.cpp
     ${SOURCE_DIR}/SemanticSearchEngine.cpp
     ${SOURCE_DIR}/VideoEditor.cpp
+    ${SOURCE_DIR}/MemoryManager.cpp
     ${SOURCE_DIR}/Sort.cpp
     ${SOURCE_DIR}/GlobeItem.cpp
     ${SOURCE_DIR}/UpdateManager.cpp
@@ -153,6 +154,7 @@ set(HEADERS
     ${INCLUDE_DIR}/StorageManager.h
     ${INCLUDE_DIR}/SemanticSearchEngine.h
     ${INCLUDE_DIR}/VideoEditor.h
+    ${INCLUDE_DIR}/MemoryManager.h
     ${INCLUDE_DIR}/Sort.h
     ${INCLUDE_DIR}/GlobeItem.h
     ${INCLUDE_DIR}/UpdateManager.h
@@ -248,6 +250,7 @@ qt_add_qml_module(KaderApp
         qml/components/Skeleton.qml
         qml/components/SkeletonGrid.qml
         qml/components/FaceAvatar.qml
+        qml/components/SmoothWheel.qml
         qml/components/ThumbGrid.qml
         qml/components/CoverCard.qml
         qml/components/SectionTitle.qml
@@ -269,6 +272,7 @@ qt_add_qml_module(KaderApp
         qml/components/WindowControls.qml
         qml/views/SearchView.qml
         qml/views/PersonPage.qml
+        qml/components/MemoryVideosSection.qml
         qml/views/PeoplePage.qml
         qml/views/AlbumListView.qml
         qml/views/AlbumDetailView.qml
@@ -317,6 +321,7 @@ qt_add_shaders(KaderApp "kader_shaders"
         qml/shaders/globe_shape.frag
         qml/shaders/globe_sphere.vert
         qml/shaders/globe_sphere.frag
+        qml/shaders/pixelgrid.frag
 )
 
 # ── Application ─────────────────────────────────────────────────────────────
@@ -336,6 +341,14 @@ endif()
 # share/kader for packages.
 configure_file(assets/geo/world.kgeo ${CMAKE_CURRENT_BINARY_DIR}/world.kgeo COPYONLY)
 
+# Memories soundtrack (CC0, see assets/music/LICENSES.md): data files beside
+# the binary for development builds, share/kader/music when installed.
+file(GLOB KADER_MUSIC assets/music/*.ogg)
+foreach(_m IN LISTS KADER_MUSIC)
+    get_filename_component(_n ${_m} NAME)
+    configure_file(${_m} ${CMAKE_CURRENT_BINARY_DIR}/music/${_n} COPYONLY)
+endforeach()
+
 target_link_libraries(kader PRIVATE KaderLib KaderApp KaderStyle)
 if(MilfsConnect_FOUND)
     target_link_libraries(kader PRIVATE MilfsConnect::MilfsConnect)
@@ -347,10 +360,12 @@ if(WIN32)
     # deploy.sh adds Qt and the DLLs.
     install(TARGETS kader RUNTIME DESTINATION .)
     install(FILES assets/geo/world.kgeo DESTINATION .)
+    install(FILES ${KADER_MUSIC} assets/music/LICENSES.md DESTINATION music)
 else()
     include(GNUInstallDirs)
     install(TARGETS kader RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
     install(FILES assets/geo/world.kgeo DESTINATION ${CMAKE_INSTALL_DATADIR}/kader)
+    install(FILES ${KADER_MUSIC} assets/music/LICENSES.md DESTINATION ${CMAKE_INSTALL_DATADIR}/kader/music)
     install(FILES kader.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
     install(FILES "assets/Kader Logoicon.svg"
             DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps RENAME kader.svg)

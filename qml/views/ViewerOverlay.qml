@@ -19,6 +19,10 @@ Rectangle {
     property int  currentIndex: -1
     property var  allItems: []
     property bool infoPanelOpen: false
+    // How far the content is pushed left by the info panel. Animated with the
+    // same curve as the panel's slide so the canvas glides instead of jumping.
+    property real infoInset: infoPanelOpen ? 380 + 12 + 20 : 0
+    Behavior on infoInset { NumberAnimation { duration: 260; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
     property bool viewerOnlyMode: false
     property bool _isFullscreen: false
     property bool _videoFullscreen: false
@@ -172,7 +176,7 @@ Rectangle {
 
     function zoomTo(newZoom, focalX, focalY) {
         var oldZoom = _targetZoom;
-        newZoom = Math.max(1.0, Math.min(8.0, newZoom));
+        newZoom = Math.max(1.0, Math.min(64.0, newZoom));
         if (newZoom === oldZoom) return;
         
         var imgW = mainImg.width * newZoom;
@@ -264,7 +268,11 @@ Rectangle {
         anchors.fill: parent
         onClicked: { if (root._zoom <= 1.0) root.active = false }
         onWheel: (wheel) => {
-            var touchpad = wheel.pixelDelta.x !== 0 || wheel.pixelDelta.y !== 0
+            var hasPx = wheel.pixelDelta.x !== 0 || wheel.pixelDelta.y !== 0
+            // A mouse wheel reports whole 120-unit notches with no scroll phase;
+            // never mistake it for a touchpad (that made the wheel pan/swipe, not zoom).
+            var notch = wheel.phase === Qt.NoScrollPhase && wheel.angleDelta.y !== 0 && wheel.angleDelta.y % 120 === 0
+            var touchpad = hasPx && !notch
             // pinch (Windows sends it as Ctrl+wheel) or Ctrl+wheel: smooth zoom
             if (wheel.modifiers & Qt.ControlModifier) {
                 var steps = touchpad ? wheel.pixelDelta.y / 240 : wheel.angleDelta.y / 600
@@ -311,7 +319,16 @@ Rectangle {
         z: 900
         acceptedButtons: Qt.NoButton
         hoverEnabled: true
-        onPositionChanged: root._poke()
+        onPositionChanged: (m) => {
+            root._poke()
+            // Volume slider reveal is computed from the pointer position: this
+            // tracker sits above everything and starves lower hover handlers.
+            if (volWrapper.visible && root._isVideo) {
+                var vp = mapToItem(volWrapper, m.x, m.y)
+                volWrapper.hot = vp.x >= -6 && vp.x <= volWrapper.width + 6 && vp.y >= -10 && vp.y <= volWrapper.height + 10
+            } else volWrapper.hot = false
+        }
+        onExited: volWrapper.hot = false
         cursorShape: root._controlsVisible ? Qt.ArrowCursor : Qt.BlankCursor
     }
     Component.onCompleted: _poke()
@@ -325,7 +342,8 @@ Rectangle {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         anchors.left: parent.left
-        anchors.right: root.infoPanelOpen ? infoPanel.left : parent.right
+        anchors.right: parent.right
+        anchors.rightMargin: root.infoInset
         clip: true
 
         // Soft scrims keep the white controls readable over any photo
@@ -449,18 +467,26 @@ Rectangle {
             height: Math.min(imgArea.height, implicitHeight > 0 ? implicitHeight : imgArea.height)
             source: (!root._isVideo && !root._isGif && root.mediaData) ? Paths.fileUrl(root.mediaData.file_path) : ""
             visible: !root._isVideo && !root._isGif
+            opacity: pixelGrid.visible ? 0.01 : 1.0
             fillMode: Image.PreserveAspectFit
             autoTransform: true
             asynchronous: true
             // cached, so the neighbours decoded ahead of time (see preload
             // below) appear instantly
             cache: true
+            // Nearest-neighbour once a source pixel is >= 3 screen px, so the
+            // pixel grid sits on crisp blocks instead of a blur.
+            smooth: !(implicitWidth > 0 && paintedWidth > 0 && paintedWidth * root._zoom / implicitWidth >= 3.0)
             // Cap the decode resolution. Photos larger than this box are scaled
             // down at decode time (much faster, far less memory); smaller images
             // are untouched. 4096 keeps fit-view and normal zoom crisp. Fixed —
             // never rebound on zoom, so there's no reload flicker mid-gesture.
-            sourceSize.width:  4096
-            sourceSize.height: 4096
+            // Only cap photos that really are larger: sourceSize UPSCALES small
+            // images (blurry, and implicitWidth stops being the real pixel count,
+            // which the pixel grid depends on). 0 = decode at native size.
+            readonly property bool _huge: root.mediaData && (Number(root.mediaData.width) > 4096 || Number(root.mediaData.height) > 4096)
+            sourceSize.width:  _huge ? 4096 : 0
+            sourceSize.height: _huge ? 4096 : 0
 
             transform: [
                 Scale { origin.x: mainImg.width/2; origin.y: mainImg.height/2; xScale: root._zoom; yScale: root._zoom },
@@ -486,8 +512,9 @@ Rectangle {
                 autoTransform: true
                 asynchronous: true
                 cache: true
-                sourceSize.width: 4096
-                sourceSize.height: 4096
+                readonly property bool _huge: _m && (Number(_m.width) > 4096 || Number(_m.height) > 4096)
+                sourceSize.width: _huge ? 4096 : 0
+                sourceSize.height: _huge ? 4096 : 0
             }
         }
 
@@ -508,6 +535,27 @@ Rectangle {
                 Scale { origin.x: gifViewer.width/2; origin.y: gifViewer.height/2; xScale: root._zoom; yScale: root._zoom },
                 Translate { x: root._panX; y: root._panY }
             ]
+        }
+
+        // ── Pixel grid — appears once a source pixel covers >= 6 screen px ──
+        ShaderEffect {
+            id: pixelGrid
+            anchors.fill: parent
+            z: 1
+            readonly property Image _src: root._isGif ? gifViewer : mainImg
+            readonly property real _pxSize: (_src.implicitWidth > 0 && _src.paintedWidth > 0)
+                                            ? _src.paintedWidth * root._zoom / _src.implicitWidth : 0
+            readonly property real _a: _pxSize <= 6.0 ? 0.0 : (_pxSize >= 10.0 ? 1.0 : (_pxSize - 6.0) / 4.0)
+            visible: !root._isVideo && _a > 0.001
+            property variant sourceTexture: _src
+            property vector2d viewSize: Qt.vector2d(width, height)
+            // real (possibly fractional) layout centre of the image item, plus pan
+            property vector2d imageCenter: Qt.vector2d(_src.x + _src.width / 2 + root._panX,
+                                                       _src.y + _src.height / 2 + root._panY)
+            property vector2d imageScreen: Qt.vector2d(_src.paintedWidth * root._zoom, _src.paintedHeight * root._zoom)
+            property vector2d imagePixels: Qt.vector2d(Math.max(1, _src.implicitWidth), Math.max(1, _src.implicitHeight))
+            property real gridAlpha: _a
+            fragmentShader: "qrc:/shaders/pixelgrid.frag.qsb"
         }
 
         // ── Video player (shown instead of image when _isVideo) ──────────
@@ -702,7 +750,8 @@ Rectangle {
                             // A HoverHandler sees the pointer even over the mute
                             // button's MouseArea (which used to swallow the hover,
                             // so the slider never slid out).
-                            readonly property bool open: volHover.hovered || volDragMa.pressed
+                            property bool hot: false
+                            readonly property bool open: hot || volHover.hovered || volDragMa.pressed
                             width: open ? (30 + 6 + 96) : 30
                             clip: true
                             Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutQuint } }
@@ -1114,8 +1163,8 @@ Rectangle {
     // ── Next ──────────────────────────────────────────────────────────────
     Rectangle {
         z: 60
-        anchors.right: root.infoPanelOpen ? infoPanel.left : parent.right
-        anchors.rightMargin: 16
+        anchors.right: parent.right
+        anchors.rightMargin: 16 + root.infoInset
         anchors.verticalCenter: parent.verticalCenter
         width: 52; height: 52; radius: 26
         color: nextMa.pressed ? Qt.rgba(0, 0, 0, 0.72) : nextMa.containsMouse ? Qt.rgba(0, 0, 0, 0.60) : Qt.rgba(0, 0, 0, 0.44)
@@ -1232,8 +1281,8 @@ Rectangle {
     // ── Action buttons ────────────────────────────────────────────────────
     Row {
         id: actionRow
-        anchors.right: root.infoPanelOpen ? infoPanel.left : parent.right
-        anchors.rightMargin: 16
+        anchors.right: parent.right
+        anchors.rightMargin: 16 + root.infoInset
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 24
         spacing: 8
@@ -1329,7 +1378,7 @@ Rectangle {
             scale: delMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
             // red, readable on the dark glass in either theme (was tertiaryContainer,
             // which is blue in many palettes)
-            M3Icon { anchors.centerIn: parent; name: "delete_forever"; size: 22; color: "#ff8a80" }
+            M3Icon { anchors.centerIn: parent; name: "delete_fill"; size: 22; color: "white" }
             MouseArea { id: delMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                 onClicked: deleteConfirm.showing = !deleteConfirm.showing }
         }
@@ -1386,6 +1435,7 @@ Rectangle {
         z: 70
         anchors.verticalCenter: parent.verticalCenter
         anchors.right: parent.right
+        anchors.rightMargin: 12
         width: 380
         mediaData: root.mediaData
 
@@ -1393,7 +1443,7 @@ Rectangle {
         Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
 
         transform: Translate {
-            x: root.infoPanelOpen ? 0 : 380
+            x: root.infoPanelOpen ? 0 : 400
             Behavior on x { NumberAnimation { duration: 260; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
         }
     }

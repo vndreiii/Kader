@@ -695,6 +695,23 @@ void LibraryAnalyzer::renamePerson(int id, const QString &name) {
         c.prepare(QStringLiteral("UPDATE faces SET confirmed = 1 WHERE person_id = ?"));
         c.addBindValue(id);
         c.exec();
+
+        // Two people with the exact same name are one person: fold the others
+        // into whichever has the most detected faces.
+        QSqlQuery dup(db);
+        dup.prepare(QStringLiteral(
+            "SELECT p.id, (SELECT COUNT(*) FROM faces f WHERE f.person_id = p.id) AS c "
+            "FROM persons p WHERE lower(trim(p.name)) = lower(?) ORDER BY c DESC, p.id ASC"));
+        dup.addBindValue(n);
+        QList<int> same;
+        if (dup.exec())
+            while (dup.next())
+                same << dup.value(0).toInt();
+        if (same.size() > 1) {
+            const int into = same.first();
+            for (int i = 1; i < same.size(); ++i)
+                mergePeople(same[i], into);
+        }
     }
     bump();
 }

@@ -81,6 +81,8 @@ class SemanticSearchEngine : public QObject {
     Q_PROPERTY(double  dlProgress  READ dlProgress     NOTIFY dlProgressChanged)
     Q_PROPERTY(int indexedCount    READ indexedCount   NOTIFY indexedCountChanged)
     Q_PROPERTY(int indexTotal      READ indexTotal     NOTIFY indexTotalChanged)
+    // true when every visible photo already has an embedding (nothing left to index)
+    Q_PROPERTY(bool indexUpToDate  READ indexUpToDate  NOTIFY indexUpToDateChanged)
     Q_PROPERTY(bool indexing       READ indexing       NOTIFY indexingChanged)
     Q_PROPERTY(bool docsEnabled    READ docsEnabled    NOTIFY docsEnabledChanged)
     Q_PROPERTY(bool docIndexing    READ docIndexing    NOTIFY docIndexingChanged)
@@ -102,6 +104,8 @@ public:
     double  dlProgress() const { return m_dlProgress; }
     int indexedCount()   const { return m_indexedCount; }
     int indexTotal()     const { return m_indexTotal; }
+    bool indexUpToDate() const { return m_indexUpToDate; }
+    Q_INVOKABLE void refreshIndexState();
     bool indexing()         const { return m_indexing; }
     bool docsEnabled()      const { return m_docsEnabled; }
     bool docIndexing()      const { return m_docIndexing; }
@@ -141,6 +145,7 @@ signals:
     void dlProgressChanged();
     void indexedCountChanged();
     void indexTotalChanged();
+    void indexUpToDateChanged();
     void indexingChanged();
     void docsEnabledChanged();
     void docIndexingChanged();
@@ -183,6 +188,7 @@ private:
     double  m_dlProgress   = 0.0;
     int     m_indexedCount = 0;
     int     m_indexTotal   = 0;
+    bool    m_indexUpToDate = false;
 
     // Download queue: pairs of (url, local-path)
     QList<QPair<QString,QString>> m_dlQueue;

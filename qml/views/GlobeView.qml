@@ -472,9 +472,9 @@ Item {
                         color: ThemeManager.surfaceContainerHighest
                         Label { id: cntLbl; anchors.centerIn: parent; text: root.locations.length; font.pixelSize: 12; color: ThemeManager.onSurfaceVariant }
                     }
-                    Item { Layout.fillWidth: true; visible: !root.compact }
+                    Item { Layout.fillWidth: true }   // pushes the button right (full) / centres it (rail)
                     RoundButton {
-                        Layout.alignment: Qt.AlignHCenter
+                        Layout.alignment: Qt.AlignVCenter
                         Layout.preferredWidth: 44; Layout.preferredHeight: 44
                         flat: true
                         contentItem: MaterialSymbol {
@@ -488,6 +488,7 @@ Item {
                         ToolTip.text: root.compact ? root._t("panel_expand") : root._t("panel_collapse")
                         onClicked: Settings.placesPanelCompact = !Settings.placesPanelCompact
                     }
+                    Item { Layout.fillWidth: true; visible: root.compact }
                 }
 
                 // search + sort (full mode)

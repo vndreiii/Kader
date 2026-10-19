@@ -96,7 +96,23 @@ ApplicationWindow {
     property var _aiDocResults: []
 
     // Search tab (people, memories, places, things, colours + unified search)
+    // Ctrl+A: select all on whatever page supports selecting (a text box keeps its own)
+    Shortcut {
+        sequence: StandardKey.SelectAll
+        enabled: !viewerOverlay.active
+        onActivated: {
+            var f = window.activeFocusItem
+            if (f && f.selectedText !== undefined && typeof f.selectAll === "function") { f.selectAll(); return }
+            var it = mainStack.currentItem
+            if (it && typeof it.selectAll === "function") it.selectAll()
+        }
+    }
     property Item _searchViewInst: null
+    // photo-group subpage inside Search (its sort/size/filter live in the top bar)
+    readonly property Item _searchSub: (window.currentView === "search" && window._searchViewInst
+                                        && mainStack.currentItem === window._searchViewInst)
+                                       ? window._searchViewInst.groupItem : null
+    on_SearchSubChanged: if (!window._searchSub) searchField.text = ""
     function _activateSearchView() {
         if (!window._searchViewInst) window._searchViewInst = window._fitStack(searchView.createObject(null))
         if (mainStack.currentItem !== window._searchViewInst) mainStack.replace(window._searchViewInst)
@@ -685,9 +701,9 @@ ApplicationWindow {
                         id: densityBtn
                         readonly property var _views: ["timeline","videos","favorites","trash","hidden","albums"]
                         // layouts apply to the photo views; albums only have sizes
-                        readonly property bool _layouts: window.currentView !== "albums"
+                        readonly property bool _layouts: window.currentView !== "albums" && !window._searchSub
                         readonly property var _layoutIcons: ["view_quilt", "grid_view", "view_list"]
-                        visible: _views.indexOf(window.currentView) >= 0
+                        visible: _views.indexOf(window.currentView) >= 0 || window._searchSub !== null
                         height: 48; width: 48
                         Layout.rightMargin: -8   // match the sort↔search gap (equal spacing)
                         radius: densityMenu.opened ? ThemeManager.radiusLg : 24
@@ -734,7 +750,7 @@ ApplicationWindow {
                     Rectangle {
                         id: sortBtn
                         readonly property var _sortableViews: ["timeline","videos","favorites","trash","hidden","albums"]
-                        visible: _sortableViews.indexOf(window.currentView) >= 0
+                        visible: _sortableViews.indexOf(window.currentView) >= 0 || window._searchSub !== null
                         height: 48
                         // Squares off when active/open (a pressed-in "toggled on" look).
                         radius: sortMenu.opened ? ThemeManager.radiusLg : 24
@@ -781,6 +797,7 @@ ApplicationWindow {
                         SortMenu {
                             id: sortMenu
                             readonly property bool _alb: window.currentView === "albums"
+                            readonly property bool _sub: window._searchSub !== null
 
                             // Most views share one field set; albums get their own.
                             readonly property var _mediaFields: [
@@ -801,9 +818,16 @@ ApplicationWindow {
                                 { key: 2, label: I18n.t(Settings.language, "k_size"), icon: "straighten" }
                             ]
 
-                            fields:     _alb ? _albumFields : _mediaFields
-                            currentKey: _alb ? AlbumModel.sortRole  : TimelineModel.sortRole
-                            ascending:  (_alb ? AlbumModel.sortOrder : TimelineModel.sortOrder) === 1
+                            readonly property var _subFields: [
+                                { key: 0, label: I18n.t(Settings.language, "k_date_taken"), icon: "photo_camera" },
+                                { key: 2, label: I18n.t(Settings.language, "k_name"), icon: "sort_by_alpha" },
+                                { key: 3, label: I18n.t(Settings.language, "k_size"), icon: "straighten" },
+                                { key: 5, label: I18n.t(Settings.language, "k_type"), icon: "category" }
+                            ]
+
+                            fields:     _sub ? _subFields : (_alb ? _albumFields : _mediaFields)
+                            currentKey: _sub ? window._searchSub.sortKey : (_alb ? AlbumModel.sortRole  : TimelineModel.sortRole)
+                            ascending:  _sub ? window._searchSub.sortAsc : (_alb ? AlbumModel.sortOrder : TimelineModel.sortOrder) === 1
 
                             // Text fields read "A → Z / Z → A"; everything else Ascending/Descending.
                             readonly property bool _textKey: _alb ? (currentKey === 0)
@@ -816,11 +840,13 @@ ApplicationWindow {
                             // as a function silently fails — which is why timeline sorting
                             // never took effect while albums did).
                             onPick: (key) => {
+                                if (_sub) { window._searchSub.sortKey = key; return }
                                 if (_alb) AlbumModel.sortRole = key; else TimelineModel.sortRole = key
                                 DB.setSortPref(window.currentView, key,
                                                (_alb ? AlbumModel.sortOrder : TimelineModel.sortOrder))
                             }
                             onOrderPicked: (asc) => {
+                                if (_sub) { window._searchSub.sortAsc = asc; return }
                                 var o = asc ? 1 : 0
                                 if (_alb) AlbumModel.sortOrder = o; else TimelineModel.sortOrder = o
                                 DB.setSortPref(window.currentView,
@@ -869,8 +895,9 @@ ApplicationWindow {
 
                     Rectangle {
                         id: searchPill
-                        // the Search tab has its own, larger box
-                        visible: window.currentView !== "search"
+                        // the Search tab has its own, larger box (but its photo-group
+                        // subpages use this one as their filter)
+                        visible: window.currentView !== "search" || window._searchSub !== null
                         property bool _aiMode: false
                         property bool _aiSearching: false
                         property bool _picking: false
@@ -881,6 +908,7 @@ ApplicationWindow {
                                 return
                             }
                             suggestBox.close()
+                            if (window._searchSub) return
                             var q = searchField.text.trim()
                             if (q.length === 0) return
                             if (_aiMode) { window.runAiSearch(q); return }
@@ -1037,6 +1065,7 @@ ApplicationWindow {
                                     verticalAlignment: TextInput.AlignVCenter
                                     clip: true
                                     onTextChanged: {
+                                        if (window._searchSub) { window._searchSub.filterText = text; return }
                                         if (!searchPill._aiMode) {
                                             TimelineModel.setSearchFilter(text)
                                             AlbumModel.setSearchFilter(text)

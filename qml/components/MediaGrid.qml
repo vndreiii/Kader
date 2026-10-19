@@ -35,6 +35,15 @@ Item {
         if (Object.keys(_selSet).length === 0) selectionMode = false
     }
     function clearSelection() { _selSet = {}; selectionMode = false }
+    // Ctrl+A: everything currently shown (respects filters / folder / AI results)
+    function selectAll() {
+        var list = TimelineModel.getFlatMediaList()
+        var s = {}
+        for (var i = 0; i < list.length; ++i)
+            if (list[i] && list[i].id !== undefined) s[String(list[i].id)] = true
+        _selSet = s
+        selectionMode = Object.keys(s).length > 0
+    }
     // while drag-selecting near the top/bottom edge, scroll that way
     function _autoScroll(y) {
         var edge = 60
@@ -138,9 +147,14 @@ Item {
             target: null
             onWheel: function(event) {
                 if (scrubber._dragging) return
-                var dy = event.pixelDelta.y !== 0
+                // A mouse wheel reports whole 120-unit notches with no scroll phase;
+                // some mice also fill pixelDelta with a tiny value, which made every
+                // notch scroll only a few pixels. Treat notches as notches.
+                var notch = event.phase === Qt.NoScrollPhase && event.angleDelta.y !== 0
+                            && event.angleDelta.y % 120 === 0
+                var dy = (!notch && event.pixelDelta.y !== 0)
                     ? event.pixelDelta.y
-                    : event.angleDelta.y / 120.0 * 100
+                    : event.angleDelta.y / 120.0 * 260   // ~1.3 rows per wheel notch
                 var maxY = Math.max(0, listView.contentHeight - listView.height)
                 if (!scrollSmooth.running) root._scrollTarget = listView.contentY
                 root._scrollTarget = Math.max(0, Math.min(maxY, root._scrollTarget - dy))

@@ -427,6 +427,7 @@ Item {
         anchors { left: navPane.right; leftMargin: 8; right: parent.right; top: parent.top; bottom: parent.bottom }
         contentHeight: settingsColumn.height + 64
         clip: true
+        SmoothWheel {}
         
         Column {
             id: settingsColumn
@@ -1089,6 +1090,12 @@ Item {
                 // Index library
                 SettingsRow {
                     visible: AI.ready
+                    Component.onCompleted: AI.refreshIndexState()
+                    Connections {
+                        target: AI
+                        function onIndexingChanged() { AI.refreshIndexState() }
+                        function onIndexedCountChanged() { if (!AI.indexing) AI.refreshIndexState() }
+                    }
                     label: I18n.t(Settings.language, "ai_index_gallery")
                     sub: {
                         if (AI.indexing)
@@ -1115,7 +1122,21 @@ Item {
                             }
                         }
 
+                        // nothing left to index: say so instead of offering the button
+                        Row {
+                            visible: AI.indexUpToDate && !AI.indexing
+                            spacing: 6
+                            MaterialSymbol { name: "check"; size: 18; color: ThemeManager.primary; anchors.verticalCenter: parent.verticalCenter }
+                            Label {
+                                text: I18n.t(Settings.language, "ai_photos_done").arg(AI.indexedCount)
+                                font.pixelSize: ThemeManager.fontLabelL; font.weight: Font.Medium
+                                color: ThemeManager.primary
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                        }
+
                         Rectangle {
+                            visible: !(AI.indexUpToDate && !AI.indexing)
                             width: idxLabel.implicitWidth + 24; height: 36; radius: 18
                             color: AI.indexing
                                 ? ThemeManager.surfaceContainerHighest

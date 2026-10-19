@@ -377,6 +377,10 @@ var _s = {
         "photos": "Fotos", "video": "Videos", "other": "andere", "free": "frei", "total": "gesamt", "resource_usage": "Ressourcennutzung", "resource_usage_sub": "Wie viel CPU und Speicher darf Kader zum Scannen und Erstellen von Miniaturansichten verwenden? ", "resource_low": "Niedrig", "resource_balanced": "Ausgewogen", "resource_full": "Voll"
     },
     "en": {
+        "memory_videos": "Memory videos", "memory_generating": "Making your memory videos…",
+        "memory_play": "Play", "memory_save": "Save as…", "memory_delete": "Delete",
+        "memory_delete_q": "Delete this memory?", "memory_delete_body": "The video file is removed from disk. Your photos are not affected.",
+        "mood_upbeat": "Upbeat", "mood_calm": "Calm", "mood_nostalgic": "Nostalgic", "mood_energetic": "Energetic", "mood_dreamy": "Dreamy",
         "timeline": "Gallery", "albums": "Albums", "videos": "Videos",
         "color_source": "Colours",
         "color_source_sub": "Material You colours from a seed colour",

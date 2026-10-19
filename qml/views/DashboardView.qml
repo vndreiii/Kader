@@ -64,6 +64,24 @@ Item {
         if (s[item.id]) delete s[item.id]; else s[item.id] = item
         selected = s
     }
+    // every copy except the first (oldest) in each duplicate group: the originals stay
+    function selectExtraCopies() {
+        var s = {}
+        for (var g = 0; g < dups.length; ++g) {
+            var copies = dups[g].copies
+            for (var i = 1; i < copies.length; ++i) s[copies[i].id] = copies[i]
+        }
+        selected = s
+    }
+    // Ctrl+A: duplicates tab selects the extra copies (never the originals); the
+    // other tabs select every row shown
+    function selectAll() {
+        if (tab === 1) { selectExtraCopies(); return }
+        var list = tab === 0 ? largest : trash
+        var s = {}
+        for (var i = 0; i < list.length; ++i) s[list[i].id] = list[i]
+        selected = s
+    }
     function afterChange() {
         TimelineModel.refresh()
         AlbumModel.refresh()
@@ -88,6 +106,7 @@ Item {
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: ScrollBar {}
+        SmoothWheel {}
 
         ColumnLayout {
             id: col
@@ -393,11 +412,17 @@ Item {
                     // actions for the current tab
                     RowLayout {
                         Layout.fillWidth: true
-                        visible: root.selCount > 0 || root.tab === 2
+                        visible: root.selCount > 0 || root.tab === 2 || (root.tab === 1 && root.dups.length > 0)
                         Label {
                             Layout.fillWidth: true
                             text: root.selCount > 0 ? root._t("storage_selected").arg(root.selCount) : ""
                             color: ThemeManager.onSurfaceVariant
+                        }
+                        M3Button {
+                            visible: root.tab === 1 && root.dups.length > 0
+                            kind: "tonal"
+                            text: "Select all duplicates"
+                            onClicked: root.selectExtraCopies()
                         }
                         M3Button {
                             visible: root.selCount > 0 && root.tab !== 2

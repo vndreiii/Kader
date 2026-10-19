@@ -588,6 +588,19 @@ void SemanticSearchEngine::indexAllMedia()
                               Qt::QueuedConnection);
 }
 
+void SemanticSearchEngine::refreshIndexState()
+{
+    QSqlQuery chk(m_db->threadDb());
+    bool upToDate = false;
+    if (chk.exec("SELECT COUNT(*) FROM media m "
+                 "WHERE m.is_trashed=0 AND m.is_hidden=0 "
+                 "AND m.id NOT IN (SELECT media_id FROM ai_embeddings)")
+        && chk.next()) {
+        upToDate = chk.value(0).toInt() == 0 && !m_indexing;
+    }
+    if (upToDate != m_indexUpToDate) { m_indexUpToDate = upToDate; emit indexUpToDateChanged(); }
+}
+
 void SemanticSearchEngine::setDocsEnabled(bool enabled)
 {
     if (m_docsEnabled == enabled) return;

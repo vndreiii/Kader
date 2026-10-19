@@ -23,6 +23,7 @@
 #include "TimelineModel.h"
 #include "AlbumModel.h"
 #include "VideoEditor.h"
+#include "MemoryManager.h"
 #include "SettingsManager.h"
 #include "StorageManager.h"
 #include "SemanticSearchEngine.h"
@@ -251,6 +252,7 @@ int main(int argc, char *argv[]) {
     TimelineModel timelineModel(&dbManager);
     AlbumModel albumModel(&dbManager, &thumbGenerator);
     VideoEditor videoEditor;
+    MemoryManager memoryManager;
 
     // In vieweronly mode we only display a single file — skip all heavy startup work.
     const bool viewerOnly = !startupFile.isEmpty();
@@ -300,6 +302,16 @@ int main(int argc, char *argv[]) {
     };
 
     if (!viewerOnly) {
+        // Memories: a delayed (let the startup scan settle), off-thread check
+        // for a live weekly batch; re-checked every 6 h for long-running sessions.
+        QTimer::singleShot(qEnvironmentVariableIntValue("KADER_MEMORIES_DELAY_MS") > 0
+                               ? qEnvironmentVariableIntValue("KADER_MEMORIES_DELAY_MS") : 20000,
+                           &app, [&]() { memoryManager.ensureBatch(); });
+        auto *memoryTimer = new QTimer(&app);
+        memoryTimer->setInterval(6 * 3600 * 1000);
+        QObject::connect(memoryTimer, &QTimer::timeout, &app, [&]() { memoryManager.ensureBatch(); });
+        memoryTimer->start();
+
         // Auto-load semantic model in background if already downloaded.
         if (semanticSearch.modelsPresent()) {
             QTimer::singleShot(2500, &app, [&]() {
@@ -487,6 +499,7 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("TimelineModel", &timelineModel);
     engine.rootContext()->setContextProperty("AlbumModel", &albumModel);
     engine.rootContext()->setContextProperty("VideoEditor", &videoEditor);
+    engine.rootContext()->setContextProperty("Memories", &memoryManager);
     engine.rootContext()->setContextProperty("ThumbGen", &thumbGenerator);
     engine.rootContext()->setContextProperty("STARTUP_FILE", startupFile);
     engine.rootContext()->setContextProperty("AI", &semanticSearch);

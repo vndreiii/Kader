@@ -36,6 +36,16 @@ GridView {
         selected = s
     }
     function clearSelection() { selected = ({}); selecting = false }
+    function selectAll() {
+        if (!selectable) return
+        var s = {}
+        for (var i = 0; i < items.length; ++i)
+            if (items[i] && items[i].id !== undefined) s[items[i].id] = true
+        selected = s
+        selecting = Object.keys(s).length > 0
+    }
+
+    SmoothWheel { enabled: root.interactive }
 
     readonly property int columns: Math.max(2, Math.floor(width / minCell))
     readonly property int _shown: maxRows > 0 ? Math.min(items.length, columns * maxRows) : items.length
@@ -176,7 +186,12 @@ GridView {
                 onCanceled: _end()
                 onClicked: (mouse) => {
                     if (_wasDrag || !cell.media) return
-                    if (root.selecting && root.selectable) {
+                    if (root.selectable && !root.selecting && mouse.button === Qt.LeftButton
+                        && (mouse.modifiers & Qt.ShiftModifier)) {
+                        // Shift+click starts selecting
+                        root.selecting = true
+                        if (!root.selected[cell.media.id]) root.toggleSelected(cell.media.id)
+                    } else if (root.selecting && root.selectable) {
                         root.toggleSelected(cell.media.id)
                     } else if (mouse.button === Qt.RightButton) {
                         menuLoader.active = true

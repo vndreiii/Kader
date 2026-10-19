@@ -843,8 +843,10 @@ QVariantList DatabaseManager::getAllMedia(bool hideIgnored, SortRole role, SortO
 }
 
 QStringList DatabaseManager::getAllMediaPaths() {
-    checkConnection();
-    QSqlQuery q(m_db);
+    // Called from worker threads (thumbnail cache rebuild): use the thread-local
+    // connection, never the GUI thread's m_db.
+    QSqlDatabase db = threadDb();
+    QSqlQuery q(db);
     q.exec("SELECT file_path FROM media WHERE is_trashed = 0");
     QStringList paths;
     while (q.next())

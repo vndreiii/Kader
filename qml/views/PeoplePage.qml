@@ -34,6 +34,7 @@ Item {
         anchors { top: header.bottom; left: parent.left; right: parent.right; bottom: parent.bottom; leftMargin: 28; rightMargin: 28 }
         clip: true
         cellWidth: 150; cellHeight: 186
+        SmoothWheel {}
         model: root.list
         delegate: Column {
             required property var modelData
