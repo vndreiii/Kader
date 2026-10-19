@@ -45,6 +45,11 @@
   <img src="screenshots/globe-world.jpg" alt="The globe" width="410" />
 </p>
 
+<p align="center">
+  <img src="screenshots/viewer-pixels.jpg" alt="The pixel grid at 3200% zoom" width="410" />
+  <img src="screenshots/themes.jpg" alt="Kader in different colour themes" width="410" />
+</p>
+
 ## Download
 
 Get the latest version from the [Releases page](https://github.com/vndreiii/Kader/releases/latest).
