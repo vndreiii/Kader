@@ -3,46 +3,71 @@
 </p>
 
 <h1 align="center">Kader</h1>
-<p align="center">A fast, modern photo gallery for Linux and Windows — built with Qt 6, QML Material 3, C++ and Rust.</p>
+
+<p align="center">A fast photo gallery for Linux and Windows.</p>
+
+<p align="center">
+  <a href="https://github.com/vndreiii/Kader/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/vndreiii/Kader?style=for-the-badge&logo=github&color=9a82db&labelColor=1d1b20" /></a>
+  <a href="https://github.com/vndreiii/Kader/actions/workflows/ci.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/vndreiii/Kader/ci.yml?style=for-the-badge&label=build&labelColor=1d1b20" /></a>
+  <img alt="Platforms: Linux and Windows" src="https://img.shields.io/badge/platform-Linux%20%7C%20Windows-9a82db?style=for-the-badge&labelColor=1d1b20" />
+  <a href="https://vndreiii.com/programs/kader/"><img alt="Website" src="https://img.shields.io/badge/website-vndreiii.com-9a82db?style=for-the-badge&labelColor=1d1b20" /></a>
+</p>
+
+<p align="center">
+  <a href="https://vndreiii.com/programs/kader/"><b>Website</b></a> ·
+  <a href="https://github.com/vndreiii/Kader/releases/latest"><b>Download</b></a> ·
+  <a href="CHANGELOG.md"><b>Changelog</b></a>
+</p>
+
+<p align="center">
+  <img src="screenshots/gallery.jpg" alt="The Kader gallery" width="840" />
+</p>
 
 ---
 
 ## Features
 
-- **Timeline** — mosaic grid with automatic monthly separators and variable density
-- **Albums** — folder-based with pinning, custom covers, and virtual album creation
-- **Videos** — dedicated view with an integrated player (FFmpeg backend), looping, volume, seeking
-- **Places / Map** — geotagged photos plotted on an OpenStreetMap with reverse-geocoded pin cards
-- **Favorites, Hidden, Trash** — smart views; hidden photos are password-protected
-- **Viewer** — zoom/pan, EXIF info panel, keyboard navigation, fullscreen, copy to clipboard
-- **RAW camera support** — thumbnail extraction via LibRaw for NEF, CR2, CR3, ARW, DNG, RAF and more
-- **Encrypted thumbnails** — AES-256-CBC per-machine key, cached on disk
-- **Fast scanning** — parallel directory walk using Linux `getdents64`, Exiv2 EXIF parsing, batch SQLite writes in WAL transactions
-- **Storage overview** — sidebar card showing photos, video, and other disk usage
+- **Gallery.** Browse your photos and videos in a mosaic, a grid or a list. The date headers show the month.
+- **Albums.** Kader makes one album for each folder. You can pin an album and set its cover.
+- **Search.** Search for people, places, colours, dates and file names. You can also describe a photo with words.
+- **People.** Kader finds faces and groups them. Name a person to see all of their photos.
+- **Places.** See your geotagged photos on a 3D globe or on a map.
+- **Memories.** Each week, Kader makes up to five short videos from the photos of one day. Each video has music. You can play, save or delete it.
+- **Viewer.** Zoom in to see single pixels. Move between photos with the keyboard or a touchpad.
+- **Video.** Play, trim and loop videos.
+- **RAW photos.** Kader shows RAW files from most cameras.
+- **Private by design.** Hide photos behind a password. Thumbnails stay encrypted on your disk.
+- **Storage.** See what uses your disk space. Find duplicate files and delete them.
+- **Colours.** The app can use your wallpaper or your desktop accent colour.
 
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| UI | QML + Qt 6 Quick + [QmlMaterial](https://github.com/hypengw/QmlMaterial) |
-| Backend | C++17, Qt 6 Core / Sql / Concurrent / Multimedia |
-| Thumbnails | libvips (images), ffmpegthumbnailer (video), LibRaw (RAW) |
-| Metadata | Exiv2 |
-| Database | SQLite 3 (WAL mode) |
-| Encryption | OpenSSL AES-256-CBC |
+<p align="center">
+  <img src="screenshots/search.jpg" alt="Search" width="410" />
+  <img src="screenshots/globe-world.jpg" alt="The globe" width="410" />
+</p>
 
 ## Download
 
-Get the latest version from [Releases](https://github.com/vndreiii/kader/releases/latest). Kader updates itself; updates are signed and verified before they're installed.
+Get the latest version from the [Releases page](https://github.com/vndreiii/Kader/releases/latest).
+Kader updates itself. Each update is signed. Kader checks the signature before it installs the update.
 
-| Platform | Download |
-|---|---|
-| Linux, any distribution | `Kader-<version>-x86_64.AppImage`, then `chmod +x` it and run |
-| Arch Linux | `kader-<version>-1-x86_64.pkg.tar.zst`, install with `sudo pacman -U` |
-| Windows 10/11, installer | `Kader-<version>-windows-x64-setup.exe`, per-user, no admin rights needed |
-| Windows 10/11, portable | `Kader-<version>-windows-x64-portable.zip`, unzip anywhere and run `kader.exe`; keeps its library and settings in a `data` folder beside it |
+| Platform | File | How to install |
+|---|---|---|
+| Linux (all distributions) | `Kader-<version>-x86_64.AppImage` | Run `chmod +x` on the file. Then run it. |
+| Arch Linux | `kader-<version>-1-x86_64.pkg.tar.zst` | Run `sudo pacman -U` with the file. |
+| Windows 10 and 11 | `Kader-<version>-windows-x64-setup.exe` | Run the installer. You do not need administrator rights. |
+| Windows 10 and 11 (portable) | `Kader-<version>-windows-x64-portable.zip` | Unzip the file anywhere. Run `kader.exe`. Kader keeps its data in a `data` folder next to the program. |
 
-## Building
+## Start Kader
+
+```bash
+kader                        # open the gallery
+kader /path/to/photo.jpg     # open one file
+```
+
+## Build from source
+
+You need these tools: CMake, a C++17 compiler, Rust (`cargo`), Qt 6.5 or later, libvips, Exiv2, LibRaw, Poppler and OpenSSL.
+You also need FFmpeg to make Memories and to trim videos.
 
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Release
@@ -50,41 +75,35 @@ cmake --build build -j$(nproc)
 ./build/kader
 ```
 
-**Dependencies:** Qt 6 (Core Gui Qml Quick Sql Positioning Location Concurrent Multimedia), libvips, Exiv2, LibRaw, OpenSSL, ffmpegthumbnailer
+On Arch Linux, build the package:
 
-On Arch Linux:
 ```bash
 cd packaging/arch && makepkg -si
 ```
 
-On Windows, in an [MSYS2](https://www.msys2.org) UCRT64 shell:
+On Windows, use an [MSYS2](https://www.msys2.org) UCRT64 shell:
+
 ```bash
 pacman -S --needed mingw-w64-ucrt-x86_64-{toolchain,cmake,ninja,pkgconf,rust,qt6-base,qt6-declarative,qt6-shadertools,qt6-multimedia,qt6-positioning,qt6-svg,qt6-imageformats,qt6-tools,libvips,exiv2,libraw,poppler,libheif,openssl,ffmpeg,nsis}
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-packaging/windows/deploy.sh build dist   # portable .zip and setup .exe
+packaging/windows/deploy.sh build dist   # makes the portable .zip and the setup .exe
 ```
 
-## Usage
+## Colours and matugen
 
-```bash
-kader                        # open gallery
-kader /path/to/photo.jpg     # open a single file directly
-kader file:///path/to/photo  # XDG / .desktop %U handler
-```
+Go to **Settings → Appearance → Colours**. Choose where the colours come from:
 
-## Colours & Matugen
+- **Kader:** the built-in purple.
+- **Preset:** one of twelve colours.
+- **System:** your wallpaper through [matugen](https://github.com/InioX/matugen), or your desktop accent colour (Windows and KDE).
 
-Settings → Appearance → **Colours** picks where Kader's Material You palette comes from:
+**Colour style** sets the Material 3 scheme. To get the same colours as matugen, use the same style as the matugen `--type` option.
 
-- **Kader**: the built-in purple.
-- **Preset**: one of twelve seed colours.
-- **System**: your wallpaper through [matugen](https://github.com/InioX/matugen), Quickshell's generated palette (`~/.local/state/quickshell/user/generated/material_colors.scss`), or your desktop's accent colour (Windows, KDE).
+To use matugen, do these steps:
 
-**Colour style** chooses the Material 3 scheme built from that colour: Tonal spot (Android's default), Neutral, Vibrant, Expressive, Fidelity, Content, Rainbow, Fruit salad or Monochrome. Choose the same style as your matugen `--type` for matching colours.
-
-### Using with matugen
-Copy [`packaging/matugen/kader.json`](packaging/matugen/kader.json) to `~/.config/matugen/templates/kader.json` and add it to `~/.config/matugen/config.toml`:
+1. Copy [`packaging/matugen/kader.json`](packaging/matugen/kader.json) to `~/.config/matugen/templates/kader.json`.
+2. Add this to `~/.config/matugen/config.toml`:
 
 ```toml
 [templates.kader]
@@ -92,5 +111,11 @@ input_path = "~/.config/matugen/templates/kader.json"
 output_path = "~/.config/kader/matugen.json"
 ```
 
-Each time matugen runs, Kader picks up the new colours (and light or dark mode, when the theme is set to System) right away.
+Each time matugen runs, Kader changes its colours immediately.
 
+## Links
+
+- Website: <https://vndreiii.com/programs/kader/>
+- Releases: <https://github.com/vndreiii/Kader/releases>
+- Changelog: [CHANGELOG.md](CHANGELOG.md)
+- Music for Memories: see [assets/music/LICENSES.md](assets/music/LICENSES.md)
