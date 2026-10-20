@@ -27,6 +27,9 @@ T.Menu {
 
     // Single source of truth for the rounded corner (see background).
     property int cornerRadius: 20
+    // >0: long menus stop at this height and scroll
+    property real maxHeight: 0
+    height: maxHeight > 0 ? Math.min(implicitHeight, maxHeight) : implicitHeight
 
     // Render in-scene so the elevation shadow isn't clipped by a tight popup window.
     popupType: T.Popup.Item
@@ -65,7 +68,8 @@ T.Menu {
     contentItem: ListView {
         implicitHeight: contentHeight
         model: control.contentModel
-        interactive: Window.window ? contentHeight + control.topPadding + control.bottomPadding > Window.window.height : false
+        interactive: control.maxHeight > 0 ? contentHeight + control.topPadding + control.bottomPadding > control.maxHeight
+                     : (Window.window ? contentHeight + control.topPadding + control.bottomPadding > Window.window.height : false)
         clip: true
         currentIndex: control.currentIndex
         keyNavigationEnabled: false

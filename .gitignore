@@ -72,3 +72,6 @@ packaging/arch/*.pkg.tar.zst
 Kader-*.AppImage.zsync
 search-in-video.md
 SUMMARY.md
+build-pkg/
+LLM/
+*.psd

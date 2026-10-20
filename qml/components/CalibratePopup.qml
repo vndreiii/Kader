@@ -118,31 +118,50 @@ Popup {
                     Behavior on x { enabled: !drag.active && !top.flying; NumberAnimation { duration: 260; easing.type: Easing.OutBack } }
                     Behavior on y { enabled: !drag.active && !top.flying; NumberAnimation { duration: 260; easing.type: Easing.OutBack } }
 
+                    // horizontal speed (px/ms) while dragging, so a quick flick counts
+                    property real _vx: 0
+                    property real _lastX: 0
+                    property real _lastT: 0
+                    onXChanged: {
+                        if (!drag.active) return
+                        const now = Date.now()
+                        if (now > _lastT) _vx = 0.6 * _vx + 0.4 * (x - _lastX) / Math.max(1, now - _lastT)
+                        _lastX = x; _lastT = now
+                    }
+
                     function fling(same) {
                         if (!root.card || flying) return
                         flying = true
-                        flyOut.to = same ? deck.width * 1.6 : -deck.width * 1.6
+                        // keep going from where the card was let go, along the drag
+                        const dir = same ? 1 : -1
+                        flyOut.to = dir * deck.width * 1.4
+                        flyOut.duration = Math.max(140, Math.min(260, 260 * (1 - Math.abs(x) / (deck.width * 1.4)) + 120))
                         flyOut.same = same
                         flyOut.start()
+                        fadeOut.start()
                     }
                     NumberAnimation {
                         id: flyOut
                         property bool same: false
-                        target: top; property: "x"; duration: 220; easing.type: Easing.InCubic
+                        target: top; property: "x"; duration: 220; easing.type: Easing.OutQuad
                         onFinished: {
                             root.answer(same)
                             top.flying = false
                             top.x = 0; top.y = 0
+                            top.opacity = 1
                         }
                     }
+                    NumberAnimation { id: fadeOut; target: top; property: "opacity"; to: 0; duration: flyOut.duration; easing.type: Easing.InQuad }
                     DragHandler {
                         id: drag
                         enabled: !top.flying
                         cursorShape: Qt.ClosedHandCursor
                         onActiveChanged: {
-                            if (active) return
-                            if (top.x > deck.width * 0.3) top.fling(true)
-                            else if (top.x < -deck.width * 0.3) top.fling(false)
+                            if (active) { top._vx = 0; top._lastX = top.x; top._lastT = Date.now(); return }
+                            const far = deck.width * 0.15
+                            // far enough, or flicked quickly in the direction it is already on
+                            if (top.x > far || (top.x > 0 && top._vx > 0.6)) top.fling(true)
+                            else if (top.x < -far || (top.x < 0 && top._vx < -0.6)) top.fling(false)
                             else { top.x = 0; top.y = 0 }
                         }
                     }

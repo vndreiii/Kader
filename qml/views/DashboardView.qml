@@ -222,7 +222,7 @@ Item {
                         { icon: "photo_library", t: root._t("photos_title"), n: StorageManager.photoCount, b: (root.ov.photos || 0) + (root.ov.raw || 0), c: ThemeManager.primaryContainer, f: ThemeManager.onPrimaryContainer },
                         { icon: "videocam",      t: root._t("videos"),       n: StorageManager.videoCount, b: root.ov.videos || 0, c: ThemeManager.tertiaryContainer, f: ThemeManager.onTertiaryContainer },
                         { icon: "raw_on",        t: "RAW",                   n: -1, b: root.ov.raw || 0, c: ThemeManager.secondaryContainer, f: ThemeManager.onSecondaryContainer },
-                        { icon: "delete",        t: root._t("trash"),        n: root.trash.length, b: root.ov.trash || 0, c: ThemeManager.errorContainer, f: ThemeManager.onErrorContainer }
+                        { icon: "delete",        t: root._t("trash"),        n: root.ov.trashCount || 0, b: root.ov.trash || 0, c: ThemeManager.errorContainer, f: ThemeManager.onErrorContainer }
                     ]
                     Rectangle {
                         required property var modelData
@@ -385,7 +385,7 @@ Item {
                         Row {
                             spacing: 2
                             Repeater {
-                                model: [root._t("storage_largest"), root._t("storage_duplicates").arg(root.dups.length), root._t("trash") + " · " + root.trash.length]
+                                model: [root._t("storage_largest"), root._t("storage_duplicates").arg(root.dups.length), root._t("trash") + " · " + (root.ov.trashCount || 0)]
                                 Rectangle {
                                     required property var modelData
                                     required property int index
@@ -443,7 +443,7 @@ Item {
                             }
                         }
                         M3Button {
-                            visible: root.tab === 2 && root.trash.length > 0
+                            visible: root.tab === 2 && (root.ov.trashCount || 0) > 0
                             kind: "filled"
                             text: root._t("empty_trash_now").arg(root.formatSize(root.ov.trash || 0))
                             onClicked: emptyConfirm.open()
@@ -590,7 +590,7 @@ Item {
             Label { text: root._t("empty_trash_title_q"); font.pixelSize: 22; color: ThemeManager.onSurface }
             Label {
                 Layout.fillWidth: true
-                text: root._t("empty_trash_body").arg(root.trash.length).arg(root.formatSize(root.ov.trash || 0))
+                text: root._t("empty_trash_body").arg(root.ov.trashCount || 0).arg(root.formatSize(root.ov.trash || 0))
                 wrapMode: Text.WordWrap
                 color: ThemeManager.onSurfaceVariant
             }

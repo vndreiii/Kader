@@ -324,6 +324,18 @@ ApplicationWindow {
         window._searchViewInst.setQuery(q || "")
     }
 
+    // Memory videos play in the normal viewer, as a single non-library item.
+    function openMemory(m) {
+        viewerOverlay.memoryId = m.id
+        var item = { file_path: Paths.localPath(m.video), mime_type: "video/mp4", id: -1,
+                     is_favorite: false, is_trashed: false, width: 1280, height: 720,
+                     duration: m.durationMs / 1000 }
+        viewerOverlay.allItems = [item]
+        viewerOverlay.currentIndex = 0
+        viewerOverlay.mediaData = item
+        viewerOverlay.active = true
+    }
+
     // Open the viewer on every photo of a place (globe / map pin cards).
     function _openPlaceItems(data, items) {
         var list = (items && items.length > 0) ? items : [data]

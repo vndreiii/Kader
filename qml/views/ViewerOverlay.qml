@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Window
 import QtMultimedia
+import Qt.labs.platform as Platform
 import "../components"
 import "../I18n.js" as I18n
 import "../Paths.js" as Paths
@@ -24,6 +25,10 @@ Rectangle {
     property real infoInset: infoPanelOpen ? 380 + 12 + 20 : 0
     Behavior on infoInset { NumberAnimation { duration: 260; easing.type: Easing.Bezier; easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0] } }
     property bool viewerOnlyMode: false
+    // >= 0: playing a generated memory video (not a library item), so library
+    // actions (favourite, trash, info) are hidden and delete/save act on the memory.
+    property int  memoryId: -1
+    readonly property bool _isMemory: memoryId >= 0
     property bool _isFullscreen: false
     property bool _videoFullscreen: false
     property bool _controlsVisible: true  // chrome auto-hides after a few idle seconds
@@ -111,6 +116,7 @@ Rectangle {
             if (_videoFullscreen) { Window.window.showNormal(); _videoFullscreen = false }
             if (_isFullscreen)    { Window.window.showNormal(); _isFullscreen = false }
             controlsHideTimer.stop()
+            memoryId = -1
             if (viewerOnlyMode) Qt.quit()
         }
     }
@@ -1298,7 +1304,7 @@ Rectangle {
         // meaningless for loose files opened straight from a file manager, so
         // they're hidden in the standalone viewer.
         Rectangle {
-            visible: !root.viewerOnlyMode
+            visible: !root.viewerOnlyMode && !root._isMemory
             width: 48; height: 48; radius: 24
             color: favMa.pressed ? Qt.rgba(0, 0, 0, 0.72) : favMa.containsMouse ? Qt.rgba(0, 0, 0, 0.60) : Qt.rgba(0, 0, 0, 0.44)
             border.color: Qt.alpha("white", 0.24); border.width: 1
@@ -1309,7 +1315,7 @@ Rectangle {
                 onClicked: { if (!root.mediaData) return; DB.toggleFavorite(root.mediaData.id); root.mediaData = DB.getMediaById(root.mediaData.id); TimelineModel.refresh() } }
         }
         Rectangle {
-            visible: !root.viewerOnlyMode
+            visible: !root.viewerOnlyMode && !root._isMemory
             width: 48; height: 48; radius: 24
             color: trashMa.pressed ? Qt.rgba(0, 0, 0, 0.72) : trashMa.containsMouse ? Qt.rgba(0, 0, 0, 0.60) : Qt.rgba(0, 0, 0, 0.44)
             border.color: Qt.alpha("white", 0.24); border.width: 1
@@ -1330,6 +1336,7 @@ Rectangle {
                 onClicked: { if (root.mediaData && root.mediaData.file_path) Settings.revealInFolder(root.mediaData.file_path) } }
         }
         Rectangle {
+            visible: !root._isMemory
             width: 48; height: 48; radius: 24
             color: infoMa.pressed ? Qt.rgba(0, 0, 0, 0.72) : root.infoPanelOpen ? Qt.alpha(ThemeManager.primary, 0.85)
                  : infoMa.containsMouse ? Qt.rgba(0, 0, 0, 0.60) : Qt.rgba(0, 0, 0, 0.44)
@@ -1350,6 +1357,17 @@ Rectangle {
             M3Icon { anchors.centerIn: parent; name: "content_copy"; size: 22; color: "white" }
             MouseArea { id: copyMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                 onClicked: { if (root.mediaData) Settings.copyImageToClipboard(root.mediaData.file_path) } }
+        }
+        Rectangle {
+            visible: root._isMemory
+            width: 48; height: 48; radius: 24
+            color: saveMa.pressed ? Qt.rgba(0, 0, 0, 0.72) : saveMa.containsMouse ? Qt.rgba(0, 0, 0, 0.60) : Qt.rgba(0, 0, 0, 0.44)
+            border.color: Qt.alpha("white", 0.24); border.width: 1
+            Behavior on color { ColorAnimation { duration: ThemeManager.durShort } }
+            scale: saveMa.pressed ? 0.90 : 1.0; Behavior on scale { NumberAnimation { duration: ThemeManager.durShort } }
+            MaterialSymbol { anchors.centerIn: parent; name: "download"; size: 22; color: "white" }
+            MouseArea { id: saveMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                onClicked: root._saveMemory() }
         }
         Rectangle {
             width: 48; height: 48; radius: 24
@@ -1382,6 +1400,20 @@ Rectangle {
             MouseArea { id: delMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                 onClicked: deleteConfirm.showing = !deleteConfirm.showing }
         }
+    }
+
+    // Memory "Save as…": the XDG portal where there is one, else Qt's native dialog.
+    function _saveMemory() {
+        if (!_isMemory || Memories.saveViaPortal(memoryId)) return
+        memorySaveDialog.folder = Platform.StandardPaths.writableLocation(Platform.StandardPaths.MoviesLocation)
+        memorySaveDialog.currentFile = memorySaveDialog.folder + "/" + Memories.suggestedFileName(memoryId)
+        memorySaveDialog.open()
+    }
+    Platform.FileDialog {
+        id: memorySaveDialog
+        fileMode: Platform.FileDialog.SaveFile
+        nameFilters: ["MP4 video (*.mp4)"]
+        onAccepted: if (root._isMemory) Memories.exportTo(root.memoryId, file.toString())
     }
 
     // ── Delete confirmation ───────────────────────────────────────────────
@@ -1420,7 +1452,8 @@ Rectangle {
                 MouseArea {
                     id: deleteConfMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                     onClicked: {
-                        if (root.mediaData) { DB.deleteMediaPermanently(root.mediaData.id); root.active = false; TimelineModel.refresh() }
+                        if (root._isMemory) { Memories.remove(root.memoryId); root.active = false }
+                        else if (root.mediaData) { DB.deleteMediaPermanently(root.mediaData.id); root.active = false; TimelineModel.refresh() }
                         deleteConfirm.showing = false
                     }
                 }

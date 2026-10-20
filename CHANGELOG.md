@@ -3,6 +3,21 @@
 Kader follows [semantic versioning](https://semver.org): MAJOR.MINOR.FIX.
 Release notes for each version are taken from this file.
 
+## [2.5.0]
+
+### New
+- **Create your own memory.** Search → Memories has a "Create memory" button:
+  pick at least two photos, a title, a date and a song (one of the bundled
+  tracks or your own audio file, with a start point). Custom memories never
+  expire and are not replaced when the weekly batch is regenerated.
+- **Regenerate** button for the weekly memory batch.
+- Seven new CC0 soundtrack tracks (credits in `assets/music/LICENSES.md`).
+- New translations for the memory screens.
+
+### Changed
+- Memory video section, viewer overlay, menus and the calibrate popup were
+  polished.
+
 ## [2.4.0]
 
 ### New

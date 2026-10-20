@@ -132,6 +132,14 @@ TRACKS = {
     "golden-hour":   ("nostalgic", 84, [(9,MIN),(5,MAJ),(0,MAJ),(7,MAJ)],  16, 57),
     "open-road":     ("energetic",132, [(7,MAJ),(2,MAJ),(4,MIN),(0,MAJ)],  24, 55),
     "daydream":      ("dreamy",    60, [(0,LYD),(2,MAJ),(9,MIN7),(4,MIN7)], 12, 60),
+    # added later (kept after the originals so those render identically)
+    "city-lights":   ("upbeat",   108, [(9,MIN),(5,MAJ),(0,MAJ),(7,MAJ)],  16, 57),
+    "morning-dew":   ("calm",      72, [(5,MAJ7),(0,ADD9),(2,MIN7),(7,MAJ)], 12, 62),
+    "porch-swing":   ("nostalgic", 92, [(0,MAJ),(9,MIN),(2,MIN),(7,MAJ)],  16, 55),
+    "tailwind":      ("energetic",140, [(0,MIN),(8,MAJ),(3,MAJ),(10,MAJ)], 24, 52),
+    "moonlit":       ("dreamy",    54, [(9,MIN7),(5,MAJ7),(0,ADD9),(7,MAJ)], 12, 57),
+    "lazy-sunday":   ("nostalgic", 76, [(5,MAJ),(7,MAJ),(4,MIN),(9,MIN)],  16, 60),
+    "harbour-lights":("calm",      60, [(2,MIN7),(7,ADD9),(0,MAJ7),(9,MIN7)], 12, 58),
 }
 
 def main():

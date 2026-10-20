@@ -124,7 +124,18 @@ var _s = {
         "edit_album": "Editá árbum", "field_name": "Nombre", "field_desc_optional": "Descrisión (osioná)",
         "cover_photo": "Foto de portá", "change_photo": "Cambiá foto",
         "cancel": "Cancelá", "create_album": "Creá árbum", "save": "Guardá",
-        "photos": "fotos", "video": "vídeos", "other": "otro", "free": "libre", "total": "total", "resource_usage": "Uso de recursos", "resource_usage_sub": "Cuánta CPU y memoria puede usar Kader para escanear y crear miniaturas. ", "resource_low": "Bajo", "resource_balanced": "Equilibrado", "resource_full": "Lleno"
+        "photos": "fotos", "video": "vídeos", "other": "otro", "free": "libre", "total": "total", "resource_usage": "Uso de recursos", "resource_usage_sub": "Cuánta CPU y memoria puede usar Kader para escanear y crear miniaturas. ", "resource_low": "Bajo", "resource_balanced": "Equilibrado", "resource_full": "Lleno",
+        "memory_videos": "Vídeos de recuerdoh", "memory_generating": "Creando tuh vídeoh de recuerdoh…", "memory_play": "Reproducí",
+        "memory_regenerate": "Regenerá", "memory_create": "Creá recuerdo", "memory_create_go": "Creá",
+        "memory_pick_photos": "Escoxé fotoh", "memory_photos": "Fotoh (%1) — al menoh 2", "memory_song": "Canción",
+        "memory_title": "Títulho", "memory_select_photos": "Selesioná fotoh", "memory_add_song": "Añadí tu propia canción…",
+        "memory_date": "Fecha (YYYY-MM-DD)", "memory_save": "Guardá como…", "memory_delete": "Borrá",
+        "memory_delete_q": "¿Borrá este recuerdo?", "memory_delete_body": "El archivo de vídeo se borra del disco. Tuh fotoh no se vein afectaoh.", "mood_custom": "Tu canción",
+        "mood_upbeat": "Alegre", "mood_calm": "Tranquilo", "mood_nostalgic": "Nostálgico",
+        "mood_energetic": "Enérgico", "mood_dreamy": "Soñador",
+        "memory_song_rejected": "“%1” no ye un archivo d'audio que Kader puea usá.",
+        "memory_section": "Parte d'a canción", "memory_section_len": "%1 de durada", "memory_section_loops": "La canción (%1) se repite pa emplir %2",
+        "memory_section_preview": "Vista previa", "memory_section_hint": "Facé clic o arrastrá la canción pa escoyer dónde comenzar"
     },
     "ca": {
         "sort_by": "Ordena per",
@@ -249,7 +260,18 @@ var _s = {
         "edit_album": "Edita l'àlbum", "field_name": "Nom", "field_desc_optional": "Descripció (opcional)",
         "cover_photo": "Foto de portada", "change_photo": "Canvia la foto",
         "cancel": "Cancel·la", "create_album": "Crea l'àlbum", "save": "Desa",
-        "photos": "fotos", "video": "vídeos", "other": "altres", "free": "lliure", "total": "total", "resource_usage": "Ús de recursos", "resource_usage_sub": "Quanta CPU i memòria pot utilitzar Kader per escanejar i crear miniatures. ", "resource_low": "Baixa", "resource_balanced": "Equilibrat", "resource_full": "Complet"
+        "photos": "fotos", "video": "vídeos", "other": "altres", "free": "lliure", "total": "total", "resource_usage": "Ús de recursos", "resource_usage_sub": "Quanta CPU i memòria pot utilitzar Kader per escanejar i crear miniatures. ", "resource_low": "Baixa", "resource_balanced": "Equilibrat", "resource_full": "Complet",
+        "memory_videos": "Vídeos de records", "memory_generating": "Creant els vídeos dels teus records…", "memory_play": "Reprodueix",
+        "memory_regenerate": "Regenera", "memory_create": "Crea un record", "memory_create_go": "Crea",
+        "memory_pick_photos": "Tria fotos", "memory_photos": "Fotos (%1) — almenys 2", "memory_song": "Cançó",
+        "memory_title": "Títol", "memory_select_photos": "Selecciona fotos", "memory_add_song": "Afegeix la teva pròpia cançó…",
+        "memory_date": "Data (AAAA-MM-DD)", "memory_save": "Desa com a…", "memory_delete": "Suprimeix",
+        "memory_delete_q": "Vols suprimir aquest record?", "memory_delete_body": "El fitxer de vídeo se suprimeix del disc. Les teves fotos no es veuen afectades.", "mood_custom": "La teva cançó",
+        "mood_upbeat": "Animat", "mood_calm": "Tranquil", "mood_nostalgic": "Nostàlgic",
+        "mood_energetic": "Enèrgic", "mood_dreamy": "Somiador",
+        "memory_song_rejected": "“%1” no és un fitxer d'àudio que Kader pugui utilitzar.",
+        "memory_section": "Part de la cançó", "memory_section_len": "%1 de durada", "memory_section_loops": "La cançó (%1) es repeteix per omplir %2",
+        "memory_section_preview": "Vista prèvia", "memory_section_hint": "Fes clic o arrossega la cançó per triar on comença"
     },
     "de": {
         "sort_by": "Sortieren nach",
@@ -374,13 +396,28 @@ var _s = {
         "edit_album": "Album bearbeiten", "field_name": "Name", "field_desc_optional": "Beschreibung (optional)",
         "cover_photo": "Titelbild", "change_photo": "Foto ändern",
         "cancel": "Abbrechen", "create_album": "Album erstellen", "save": "Speichern",
-        "photos": "Fotos", "video": "Videos", "other": "andere", "free": "frei", "total": "gesamt", "resource_usage": "Ressourcennutzung", "resource_usage_sub": "Wie viel CPU und Speicher darf Kader zum Scannen und Erstellen von Miniaturansichten verwenden? ", "resource_low": "Niedrig", "resource_balanced": "Ausgewogen", "resource_full": "Voll"
+        "photos": "Fotos", "video": "Videos", "other": "andere", "free": "frei", "total": "gesamt", "resource_usage": "Ressourcennutzung", "resource_usage_sub": "Wie viel CPU und Speicher darf Kader zum Scannen und Erstellen von Miniaturansichten verwenden? ", "resource_low": "Niedrig", "resource_balanced": "Ausgewogen", "resource_full": "Voll",
+        "memory_videos": "Erinnerungsvideos", "memory_generating": "Deine Erinnerungsvideos werden erstellt…", "memory_play": "Abspielen",
+        "memory_regenerate": "Neu erstellen", "memory_create": "Erinnerung erstellen", "memory_create_go": "Erstellen",
+        "memory_pick_photos": "Fotos auswählen", "memory_photos": "Fotos (%1) — mindestens 2", "memory_song": "Song",
+        "memory_title": "Titel", "memory_select_photos": "Fotos auswählen", "memory_add_song": "Eigenen Song hinzufügen…",
+        "memory_date": "Datum (JJJJ-MM-TT)", "memory_save": "Speichern unter…", "memory_delete": "Löschen",
+        "memory_delete_q": "Diese Erinnerung löschen?", "memory_delete_body": "Die Videodatei wird von der Festplatte entfernt. Deine Fotos bleiben unverändert.", "mood_custom": "Dein Song",
+        "mood_upbeat": "Schwungvoll", "mood_calm": "Ruhig", "mood_nostalgic": "Nostalgisch",
+        "mood_energetic": "Energisch", "mood_dreamy": "Verträumt",
+        "memory_song_rejected": "„%1“ ist keine Audiodatei, die Kader verwenden kann.",
+        "memory_section": "Teil des Liedes", "memory_section_len": "%1 lang", "memory_section_loops": "Das Lied (%1) wiederholt sich, um %2 zu füllen",
+        "memory_section_preview": "Vorschau", "memory_section_hint": "Klicke auf das Lied oder ziehe es, um den Startpunkt zu wählen"
     },
     "en": {
         "memory_videos": "Memory videos", "memory_generating": "Making your memory videos…",
-        "memory_play": "Play", "memory_save": "Save as…", "memory_delete": "Delete",
+        "memory_play": "Play", "memory_regenerate": "Regenerate", "memory_create": "Create memory", "memory_create_go": "Create",
+        "memory_pick_photos": "Choose photos", "memory_photos": "Photos (%1) — at least 2", "memory_song": "Song",
+        "memory_title": "Title", "memory_select_photos": "Select photos", "memory_add_song": "Add your own song…", "memory_section": "Part of the song",
+        "memory_section_len": "%1 long", "memory_section_loops": "Song (%1) repeats to fill %2",
+        "memory_section_preview": "Preview", "memory_section_hint": "Click or drag the song to choose where it starts", "memory_song_rejected": "“%1” is not an audio file Kader can use.", "memory_date": "Date (YYYY-MM-DD)", "memory_save": "Save as…", "memory_delete": "Delete",
         "memory_delete_q": "Delete this memory?", "memory_delete_body": "The video file is removed from disk. Your photos are not affected.",
-        "mood_upbeat": "Upbeat", "mood_calm": "Calm", "mood_nostalgic": "Nostalgic", "mood_energetic": "Energetic", "mood_dreamy": "Dreamy",
+        "mood_custom": "Your song", "mood_upbeat": "Upbeat", "mood_calm": "Calm", "mood_nostalgic": "Nostalgic", "mood_energetic": "Energetic", "mood_dreamy": "Dreamy",
         "timeline": "Gallery", "albums": "Albums", "videos": "Videos",
         "color_source": "Colours",
         "color_source_sub": "Material You colours from a seed colour",
@@ -721,7 +758,18 @@ var _s = {
         "edit_album": "Editar álbum", "field_name": "Nombre", "field_desc_optional": "Descripción (opcional)",
         "cover_photo": "Foto de portada", "change_photo": "Cambiar foto",
         "cancel": "Cancelar", "create_album": "Crear álbum", "save": "Guardar",
-        "photos": "fotos", "video": "vídeos", "other": "otro", "free": "libre", "total": "total", "resource_usage": "Uso de recursos", "resource_usage_sub": "Cuánta CPU y memoria puede usar Kader para escanear y crear miniaturas. ", "resource_low": "Bajo", "resource_balanced": "Equilibrado", "resource_full": "Lleno"
+        "photos": "fotos", "video": "vídeos", "other": "otro", "free": "libre", "total": "total", "resource_usage": "Uso de recursos", "resource_usage_sub": "Cuánta CPU y memoria puede usar Kader para escanear y crear miniaturas. ", "resource_low": "Bajo", "resource_balanced": "Equilibrado", "resource_full": "Lleno",
+        "memory_videos": "Vídeos de recuerdos", "memory_generating": "Creando tus vídeos de recuerdos…", "memory_play": "Reproducir",
+        "memory_regenerate": "Regenerar", "memory_create": "Crear recuerdo", "memory_create_go": "Crear",
+        "memory_pick_photos": "Elegir fotos", "memory_photos": "Fotos (%1) — al menos 2", "memory_song": "Canción",
+        "memory_title": "Título", "memory_select_photos": "Seleccionar fotos", "memory_add_song": "Añadir tu propia canción…",
+        "memory_date": "Fecha (AAAA-MM-DD)", "memory_save": "Guardar como…", "memory_delete": "Eliminar",
+        "memory_delete_q": "¿Eliminar este recuerdo?", "memory_delete_body": "El archivo de vídeo se elimina del disco. Tus fotos no se ven afectadas.", "mood_custom": "Tu canción",
+        "mood_upbeat": "Animado", "mood_calm": "Tranquilo", "mood_nostalgic": "Nostálgico",
+        "mood_energetic": "Enérgico", "mood_dreamy": "Soñador",
+        "memory_song_rejected": "“%1” no es un archivo de audio que Kader pueda usar.",
+        "memory_section": "Parte de la canción", "memory_section_len": "%1 de duración", "memory_section_loops": "La canción (%1) se repite para llenar %2",
+        "memory_section_preview": "Vista previa", "memory_section_hint": "Haz clic o arrastra la canción para elegir dónde empieza"
     },
     "fil": {
         "sort_by": "Ayusin ayon sa",
@@ -846,7 +894,18 @@ var _s = {
         "edit_album": "I-edit ang album", "field_name": "Pangalan", "field_desc_optional": "Deskripsyon (opsyonal)",
         "cover_photo": "Cover photo", "change_photo": "Palitan ang larawan",
         "cancel": "I-cancel", "create_album": "Gumawa ng album", "save": "I-save",
-        "photos": "mga larawan", "video": "mga video", "other": "iba pa", "free": "libre", "total": "kabuuan", "resource_usage": "Paggamit ng Resource", "resource_usage_sub": "Magkano ang CPU at memory na maaaring gamitin ni Kader para sa pag-scan at pagbuo ng mga thumbnail. ", "resource_low": "Mababa", "resource_balanced": "Balanseng", "resource_full": "Puno"
+        "photos": "mga larawan", "video": "mga video", "other": "iba pa", "free": "libre", "total": "kabuuan", "resource_usage": "Paggamit ng Resource", "resource_usage_sub": "Magkano ang CPU at memory na maaaring gamitin ni Kader para sa pag-scan at pagbuo ng mga thumbnail. ", "resource_low": "Mababa", "resource_balanced": "Balanseng", "resource_full": "Puno",
+        "memory_videos": "Mga video ng alaala", "memory_generating": "Ginagawa ang iyong mga video ng alaala…", "memory_play": "I-play",
+        "memory_regenerate": "I-regenerate", "memory_create": "Gumawa ng alaala", "memory_create_go": "Gumawa",
+        "memory_pick_photos": "Pumili ng mga larawan", "memory_photos": "Mga larawan (%1) — hindi bababa sa 2", "memory_song": "Kanta",
+        "memory_title": "Pamagat", "memory_select_photos": "Pumili ng mga larawan", "memory_add_song": "Magdagdag ng sarili mong kanta…",
+        "memory_date": "Petsa (YYYY-MM-DD)", "memory_save": "I-save bilang…", "memory_delete": "Burahin",
+        "memory_delete_q": "Burahin ang alaalang ito?", "memory_delete_body": "Made-delete ang video file sa disk. Hindi maapektuhan ang iyong mga larawan.", "mood_custom": "Ang iyong kanta",
+        "mood_upbeat": "Masigla", "mood_calm": "Payapa", "mood_nostalgic": "Nostalhik",
+        "mood_energetic": "Energetiko", "mood_dreamy": "Mapangarap",
+        "memory_song_rejected": "Hindi audio file na magagamit ng Kader ang “%1”.",
+        "memory_section": "Bahagi ng kanta", "memory_section_len": "%1 ang haba", "memory_section_loops": "Inuulit ang kanta (%1) para punan ang %2",
+        "memory_section_preview": "Preview", "memory_section_hint": "I-click o i-drag ang kanta para piliin kung saan ito magsisimula"
     },
     "fr": {
         "sort_by": "Trier par",
@@ -971,7 +1030,18 @@ var _s = {
         "edit_album": "Modifier l'album", "field_name": "Nom", "field_desc_optional": "Description (facultatif)",
         "cover_photo": "Photo de couverture", "change_photo": "Changer la photo",
         "cancel": "Annuler", "create_album": "Créer un album", "save": "Enregistrer",
-        "photos": "des photos", "video": "vidéos", "other": "autre", "free": "libre", "total": "total", "resource_usage": "Utilisation des ressources", "resource_usage_sub": "Combien de CPU et de mémoire Kader peut utiliser pour numériser et créer des vignettes. ", "resource_low": "Faible", "resource_balanced": "Équilibré", "resource_full": "Complet"
+        "photos": "des photos", "video": "vidéos", "other": "autre", "free": "libre", "total": "total", "resource_usage": "Utilisation des ressources", "resource_usage_sub": "Combien de CPU et de mémoire Kader peut utiliser pour numériser et créer des vignettes. ", "resource_low": "Faible", "resource_balanced": "Équilibré", "resource_full": "Complet",
+        "memory_videos": "Vidéos souvenirs", "memory_generating": "Création de vos vidéos souvenirs…", "memory_play": "Lire",
+        "memory_regenerate": "Régénérer", "memory_create": "Créer un souvenir", "memory_create_go": "Créer",
+        "memory_pick_photos": "Choisir des photos", "memory_photos": "Photos (%1) — au moins 2", "memory_song": "Morceau",
+        "memory_title": "Titre", "memory_select_photos": "Sélectionner des photos", "memory_add_song": "Ajouter votre propre chanson…",
+        "memory_date": "Date (AAAA-MM-JJ)", "memory_save": "Enregistrer sous…", "memory_delete": "Supprimer",
+        "memory_delete_q": "Supprimer ce souvenir ?", "memory_delete_body": "Le fichier vidéo est supprimé du disque. Vos photos ne sont pas affectées.", "mood_custom": "Votre chanson",
+        "mood_upbeat": "Entraînant", "mood_calm": "Calme", "mood_nostalgic": "Nostalgique",
+        "mood_energetic": "Énergique", "mood_dreamy": "Rêveur",
+        "memory_song_rejected": "« %1 » n’est pas un fichier audio utilisable par Kader.",
+        "memory_section": "Extrait de la chanson", "memory_section_len": "Durée : %1", "memory_section_loops": "La chanson (%1) se répète pour remplir %2",
+        "memory_section_preview": "Aperçu", "memory_section_hint": "Cliquez ou faites glisser la chanson pour choisir où elle commence"
     },
     "gl": {
         "sort_by": "Ordenar por",
@@ -1096,7 +1166,18 @@ var _s = {
         "edit_album": "Editar álbum", "field_name": "Nome", "field_desc_optional": "Descrición (opcional)",
         "cover_photo": "Foto de portada", "change_photo": "Cambiar foto",
         "cancel": "Cancelar", "create_album": "Crear álbum", "save": "Gardar",
-        "photos": "fotos", "video": "vídeos", "other": "outro", "free": "libre", "total": "total", "resource_usage": "Uso de recursos", "resource_usage_sub": "Canta CPU e memoria pode usar Kader para dixitalizar e construír miniaturas. ", "resource_low": "Baixo", "resource_balanced": "Equilibrado", "resource_full": "Cheo"
+        "photos": "fotos", "video": "vídeos", "other": "outro", "free": "libre", "total": "total", "resource_usage": "Uso de recursos", "resource_usage_sub": "Canta CPU e memoria pode usar Kader para dixitalizar e construír miniaturas. ", "resource_low": "Baixo", "resource_balanced": "Equilibrado", "resource_full": "Cheo",
+        "memory_videos": "Vídeos de lembranzas", "memory_generating": "Creando os teus vídeos de lembranzas…", "memory_play": "Reproducir",
+        "memory_regenerate": "Regenerar", "memory_create": "Crear lembranza", "memory_create_go": "Crear",
+        "memory_pick_photos": "Escoller fotos", "memory_photos": "Fotos (%1) — polo menos 2", "memory_song": "Canción",
+        "memory_title": "Título", "memory_select_photos": "Seleccionar fotos", "memory_add_song": "Engadir a túa propia canción…",
+        "memory_date": "Data (AAAA-MM-DD)", "memory_save": "Gardar como…", "memory_delete": "Eliminar",
+        "memory_delete_q": "¿Eliminar esta lembranza?", "memory_delete_body": "O ficheiro de vídeo elimínase do disco. As túas fotos non se ven afectadas.", "mood_custom": "A túa canción",
+        "mood_upbeat": "Animado", "mood_calm": "Tranquilo", "mood_nostalgic": "Nostálxico",
+        "mood_energetic": "Enérxico", "mood_dreamy": "Soñador",
+        "memory_song_rejected": "“%1” non é un ficheiro de audio que Kader poida usar.",
+        "memory_section": "Parte da canción", "memory_section_len": "%1 de duración", "memory_section_loops": "A canción (%1) repítese para encher %2",
+        "memory_section_preview": "Vista previa", "memory_section_hint": "Fai clic ou arrastra a canción para escoller onde comeza"
     },
     "hr": {
         "sort_by": "Sortiraj po",
@@ -1221,7 +1302,18 @@ var _s = {
         "edit_album": "Uredi album", "field_name": "Ime", "field_desc_optional": "Opis (neobavezno)",
         "cover_photo": "Naslovna fotografija", "change_photo": "Promijeni fotografiju",
         "cancel": "Odustani", "create_album": "Stvori album", "save": "Spremi",
-        "photos": "fotografije", "video": "videa", "other": "drugo", "free": "slobodno", "total": "ukupno", "resource_usage": "Korištenje resursa", "resource_usage_sub": "Koliko CPU-a i memorije Kader može koristiti za skeniranje i izradu sličica. ", "resource_low": "Niska", "resource_balanced": "Uravnotežen", "resource_full": "puna"
+        "photos": "fotografije", "video": "videa", "other": "drugo", "free": "slobodno", "total": "ukupno", "resource_usage": "Korištenje resursa", "resource_usage_sub": "Koliko CPU-a i memorije Kader može koristiti za skeniranje i izradu sličica. ", "resource_low": "Niska", "resource_balanced": "Uravnotežen", "resource_full": "puna",
+        "memory_videos": "Videozapisi uspomena", "memory_generating": "Izrađujemo videozapise tvojih uspomena…", "memory_play": "Reproduciraj",
+        "memory_regenerate": "Ponovno generiraj", "memory_create": "Stvori uspomenu", "memory_create_go": "Stvori",
+        "memory_pick_photos": "Odaberi fotografije", "memory_photos": "Fotografije (%1) — najmanje 2", "memory_song": "Pjesma",
+        "memory_title": "Naslov", "memory_select_photos": "Odaberi fotografije", "memory_add_song": "Dodaj vlastitu pjesmu…",
+        "memory_date": "Datum (GGGG-MM-DD)", "memory_save": "Spremi kao…", "memory_delete": "Izbriši",
+        "memory_delete_q": "Izbrisati ovu uspomenu?", "memory_delete_body": "Videodatoteka se uklanja s diska. Tvoje fotografije nisu zahvaćene.", "mood_custom": "Tvoja pjesma",
+        "mood_upbeat": "Veselo", "mood_calm": "Smireno", "mood_nostalgic": "Nostalgično",
+        "mood_energetic": "Energično", "mood_dreamy": "Sanjarski",
+        "memory_song_rejected": "„%1“ nije audiodatoteka koju Kader može koristiti.",
+        "memory_section": "Dio pjesme", "memory_section_len": "Duljina %1", "memory_section_loops": "Pjesma (%1) se ponavlja da ispuni %2",
+        "memory_section_preview": "Pregled", "memory_section_hint": "Klikni ili povuci pjesmu da odabereš gdje počinje"
     },
     "it": {
         "sort_by": "Ordina per",
@@ -1346,7 +1438,18 @@ var _s = {
         "edit_album": "Modifica album", "field_name": "Nome", "field_desc_optional": "Descrizione (opzionale)",
         "cover_photo": "Foto di copertina", "change_photo": "Cambia foto",
         "cancel": "Annulla", "create_album": "Crea album", "save": "Salva",
-        "photos": "foto", "video": "video", "other": "altro", "free": "libero", "total": "totale", "resource_usage": "Utilizzo delle risorse", "resource_usage_sub": "Quanta CPU e memoria può utilizzare Kader per la scansione e la creazione di miniature. ", "resource_low": "Basso", "resource_balanced": "Equilibrato", "resource_full": "Pieno"
+        "photos": "foto", "video": "video", "other": "altro", "free": "libero", "total": "totale", "resource_usage": "Utilizzo delle risorse", "resource_usage_sub": "Quanta CPU e memoria può utilizzare Kader per la scansione e la creazione di miniature. ", "resource_low": "Basso", "resource_balanced": "Equilibrato", "resource_full": "Pieno",
+        "memory_videos": "Video dei ricordi", "memory_generating": "Creazione dei tuoi video dei ricordi…", "memory_play": "Riproduci",
+        "memory_regenerate": "Rigenera", "memory_create": "Crea ricordo", "memory_create_go": "Crea",
+        "memory_pick_photos": "Scegli foto", "memory_photos": "Foto (%1) — almeno 2", "memory_song": "Brano",
+        "memory_title": "Titolo", "memory_select_photos": "Seleziona foto", "memory_add_song": "Aggiungi un tuo brano…",
+        "memory_date": "Data (AAAA-MM-GG)", "memory_save": "Salva con nome…", "memory_delete": "Elimina",
+        "memory_delete_q": "Eliminare questo ricordo?", "memory_delete_body": "Il file video viene rimosso dal disco. Le tue foto non sono interessate.", "mood_custom": "La tua canzone",
+        "mood_upbeat": "Allegro", "mood_calm": "Calmo", "mood_nostalgic": "Nostalgico",
+        "mood_energetic": "Energico", "mood_dreamy": "Sognante",
+        "memory_song_rejected": "“%1” non è un file audio utilizzabile da Kader.",
+        "memory_section": "Parte della canzone", "memory_section_len": "Durata %1", "memory_section_loops": "La canzone (%1) si ripete per riempire %2",
+        "memory_section_preview": "Anteprima", "memory_section_hint": "Fai clic o trascina la canzone per scegliere da dove inizia"
     },
     "ja": {
         "sort_by": "並べ替え",
@@ -1472,7 +1575,18 @@ var _s = {
         "cover_photo": "カバー写真", "change_photo": "写真を変更",
         "cancel": "キャンセル", "create_album": "アルバムを作成", "save": "保存",
         "photos": "写真", "video": "動画", "other": "その他", "free": "空き", "total": "合計",
-        "resource_usage": "リソースの使用量", "resource_usage_sub": "Kader がサムネイルのスキャンと作成に使用する CPU とメモリの量。", "resource_low": "低い", "resource_balanced": "バランスのとれた", "resource_full": "満杯"
+        "resource_usage": "リソースの使用量", "resource_usage_sub": "Kader がサムネイルのスキャンと作成に使用する CPU とメモリの量。", "resource_low": "低い", "resource_balanced": "バランスのとれた", "resource_full": "満杯",
+        "memory_videos": "メモリー動画", "memory_generating": "メモリー動画を作成中…", "memory_play": "再生",
+        "memory_regenerate": "再生成", "memory_create": "メモリーを作成", "memory_create_go": "作成",
+        "memory_pick_photos": "写真を選択", "memory_photos": "写真 (%1) — 2枚以上", "memory_song": "曲",
+        "memory_title": "タイトル", "memory_select_photos": "写真を選択", "memory_add_song": "自分の曲を追加…",
+        "memory_date": "日付 (YYYY-MM-DD)", "memory_save": "名前を付けて保存…", "memory_delete": "削除",
+        "memory_delete_q": "このメモリーを削除しますか？", "memory_delete_body": "動画ファイルはディスクから削除されます。写真には影響しません。", "mood_custom": "自分の曲",
+        "mood_upbeat": "アップビート", "mood_calm": "落ち着いた", "mood_nostalgic": "ノスタルジック",
+        "mood_energetic": "エネルギッシュ", "mood_dreamy": "夢見心地",
+        "memory_song_rejected": "「%1」は Kader で使用できる音声ファイルではありません。",
+        "memory_section": "曲の一部", "memory_section_len": "長さ %1", "memory_section_loops": "曲（%1）を繰り返して %2 を埋めます",
+        "memory_section_preview": "プレビュー", "memory_section_hint": "クリックするか曲をドラッグして、開始位置を選択"
     },
     "nl": {
         "sort_by": "Sorteren op",
@@ -1597,7 +1711,18 @@ var _s = {
         "edit_album": "Album bewerken", "field_name": "Naam", "field_desc_optional": "Beschrijving (optioneel)",
         "cover_photo": "Omslagfoto", "change_photo": "Foto wijzigen",
         "cancel": "Annuleren", "create_album": "Album maken", "save": "Opslaan",
-        "photos": "foto's", "video": "video's", "other": "ander", "free": "vrij", "total": "totaal", "resource_usage": "Gebruik van hulpbronnen", "resource_usage_sub": "Hoeveel CPU en geheugen Kader mag gebruiken voor het scannen en maken van miniaturen. ", "resource_low": "Laag", "resource_balanced": "Evenwichtig", "resource_full": "Vol"
+        "photos": "foto's", "video": "video's", "other": "ander", "free": "vrij", "total": "totaal", "resource_usage": "Gebruik van hulpbronnen", "resource_usage_sub": "Hoeveel CPU en geheugen Kader mag gebruiken voor het scannen en maken van miniaturen. ", "resource_low": "Laag", "resource_balanced": "Evenwichtig", "resource_full": "Vol",
+        "memory_videos": "Herinneringsvideo's", "memory_generating": "Je herinneringsvideo's worden gemaakt…", "memory_play": "Afspelen",
+        "memory_regenerate": "Opnieuw genereren", "memory_create": "Herinnering maken", "memory_create_go": "Maken",
+        "memory_pick_photos": "Foto's kiezen", "memory_photos": "Foto's (%1) — minstens 2", "memory_song": "Nummer",
+        "memory_title": "Titel", "memory_select_photos": "Foto's selecteren", "memory_add_song": "Voeg je eigen nummer toe…",
+        "memory_date": "Datum (JJJJ-MM-DD)", "memory_save": "Opslaan als…", "memory_delete": "Verwijderen",
+        "memory_delete_q": "Deze herinnering verwijderen?", "memory_delete_body": "Het videobestand wordt van de schijf verwijderd. Je foto's blijven ongewijzigd.", "mood_custom": "Je eigen nummer",
+        "mood_upbeat": "Vrolijk", "mood_calm": "Rustig", "mood_nostalgic": "Nostalgisch",
+        "mood_energetic": "Energiek", "mood_dreamy": "Dromerig",
+        "memory_song_rejected": "“%1” is geen audiobestand dat Kader kan gebruiken.",
+        "memory_section": "Deel van het nummer", "memory_section_len": "%1 lang", "memory_section_loops": "Het nummer (%1) herhaalt zich om %2 te vullen",
+        "memory_section_preview": "Voorbeeld", "memory_section_hint": "Klik of sleep het nummer om te kiezen waar het begint"
     },
     "pt": {
         "sort_by": "Ordenar por",
@@ -1722,7 +1847,18 @@ var _s = {
         "edit_album": "Editar álbum", "field_name": "Nome", "field_desc_optional": "Descrição (opcional)",
         "cover_photo": "Foto de capa", "change_photo": "Alterar foto",
         "cancel": "Cancelar", "create_album": "Criar álbum", "save": "Guardar",
-        "photos": "fotos", "video": "vídeos", "other": "outro", "free": "livre", "total": "total", "resource_usage": "Uso de recursos", "resource_usage_sub": "Quanta CPU e memória Kader pode usar para digitalizar e construir miniaturas. ", "resource_low": "Baixo", "resource_balanced": "Equilibrado", "resource_full": "Completo"
+        "photos": "fotos", "video": "vídeos", "other": "outro", "free": "livre", "total": "total", "resource_usage": "Uso de recursos", "resource_usage_sub": "Quanta CPU e memória Kader pode usar para digitalizar e construir miniaturas. ", "resource_low": "Baixo", "resource_balanced": "Equilibrado", "resource_full": "Completo",
+        "memory_videos": "Vídeos de memórias", "memory_generating": "Criando os seus vídeos de memórias…", "memory_play": "Reproduzir",
+        "memory_regenerate": "Gerar novamente", "memory_create": "Criar memória", "memory_create_go": "Criar",
+        "memory_pick_photos": "Escolher fotos", "memory_photos": "Fotos (%1) — pelo menos 2", "memory_song": "Música",
+        "memory_title": "Título", "memory_select_photos": "Selecionar fotos", "memory_add_song": "Adicionar sua própria música…",
+        "memory_date": "Data (AAAA-MM-DD)", "memory_save": "Guardar como…", "memory_delete": "Excluir",
+        "memory_delete_q": "Excluir esta memória?", "memory_delete_body": "O arquivo de vídeo é removido do disco. Suas fotos não são afetadas.", "mood_custom": "Sua música",
+        "mood_upbeat": "Animada", "mood_calm": "Calma", "mood_nostalgic": "Nostálgica",
+        "mood_energetic": "Enérgica", "mood_dreamy": "Sonhadora",
+        "memory_song_rejected": "“%1” não é um arquivo de áudio que o Kader possa usar.",
+        "memory_section": "Parte da música", "memory_section_len": "%1 de duração", "memory_section_loops": "A música (%1) repete-se para preencher %2",
+        "memory_section_preview": "Pré-visualizar", "memory_section_hint": "Clique ou arraste a música para escolher onde começa"
     },
     "ro": {
         "sort_by": "Sortează după",
@@ -1847,7 +1983,18 @@ var _s = {
         "edit_album": "Editează albumul", "field_name": "Nume", "field_desc_optional": "Descriere (opțional)",
         "cover_photo": "Fotografie copertă", "change_photo": "Schimbă fotografia",
         "cancel": "Anulează", "create_album": "Creează album", "save": "Salvează",
-        "photos": "fotografii", "video": "videoclipuri", "other": "alte", "free": "liber", "total": "total", "resource_usage": "Utilizarea resurselor", "resource_usage_sub": "Cât de mult CPU și memorie poate folosi Kader pentru scanarea și construirea de miniaturi. ", "resource_low": "Scăzut", "resource_balanced": "Echilibrat", "resource_full": "Deplin"
+        "photos": "fotografii", "video": "videoclipuri", "other": "alte", "free": "liber", "total": "total", "resource_usage": "Utilizarea resurselor", "resource_usage_sub": "Cât de mult CPU și memorie poate folosi Kader pentru scanarea și construirea de miniaturi. ", "resource_low": "Scăzut", "resource_balanced": "Echilibrat", "resource_full": "Deplin",
+        "memory_videos": "Videoclipuri amintiri", "memory_generating": "Se creează videoclipurile tale cu amintiri…", "memory_play": "Redă",
+        "memory_regenerate": "Regenerează", "memory_create": "Creează amintire", "memory_create_go": "Creează",
+        "memory_pick_photos": "Alege fotografii", "memory_photos": "Fotografii (%1) — cel puțin 2", "memory_song": "Melodie",
+        "memory_title": "Titlu", "memory_select_photos": "Selectează fotografii", "memory_add_song": "Adaugă propria melodie…",
+        "memory_date": "Data (AAAA-LL-ZZ)", "memory_save": "Salvează ca…", "memory_delete": "Șterge",
+        "memory_delete_q": "Ștergi această amintire?", "memory_delete_body": "Fișierul video este șters de pe disc. Fotografiile tale nu sunt afectate.", "mood_custom": "Melodia ta",
+        "mood_upbeat": "Vioi", "mood_calm": "Calm", "mood_nostalgic": "Nostalgic",
+        "mood_energetic": "Energic", "mood_dreamy": "Visător",
+        "memory_song_rejected": "„%1” nu este un fișier audio pe care Kader îl poate folosi.",
+        "memory_section": "Partea din melodie", "memory_section_len": "%1 durată", "memory_section_loops": "Melodia (%1) se repetă pentru a umple %2",
+        "memory_section_preview": "Previzualizare", "memory_section_hint": "Fă clic sau trage melodia pentru a alege de unde începe"
     },
     "ru": {
         "sort_by": "Сортировка",
@@ -1972,7 +2119,18 @@ var _s = {
         "edit_album": "Редактировать альбом", "field_name": "Название", "field_desc_optional": "Описание (необязательно)",
         "cover_photo": "Обложка", "change_photo": "Изменить фото",
         "cancel": "Отмена", "create_album": "Создать альбом", "save": "Сохранить",
-        "photos": "фотографии", "video": "видео", "other": "другой", "free": "свободно", "total": "общий", "resource_usage": "Использование ресурсов", "resource_usage_sub": "Сколько процессора и памяти Kader может использовать для сканирования и создания миниатюр. ", "resource_low": "Низкий", "resource_balanced": "Сбалансированный", "resource_full": "Полный"
+        "photos": "фотографии", "video": "видео", "other": "другой", "free": "свободно", "total": "общий", "resource_usage": "Использование ресурсов", "resource_usage_sub": "Сколько процессора и памяти Kader может использовать для сканирования и создания миниатюр. ", "resource_low": "Низкий", "resource_balanced": "Сбалансированный", "resource_full": "Полный",
+        "memory_videos": "Видео воспоминаний", "memory_generating": "Создание видео ваших воспоминаний…", "memory_play": "Воспроизвести",
+        "memory_regenerate": "Создать заново", "memory_create": "Создать воспоминание", "memory_create_go": "Создать",
+        "memory_pick_photos": "Выбрать фото", "memory_photos": "Фото (%1) — не менее 2", "memory_song": "Песня",
+        "memory_title": "Название", "memory_select_photos": "Выбрать фото", "memory_add_song": "Добавить свою песню…",
+        "memory_date": "Дата (ГГГГ-ММ-ДД)", "memory_save": "Сохранить как…", "memory_delete": "Удалить",
+        "memory_delete_q": "Удалить это воспоминание?", "memory_delete_body": "Видеофайл будет удалён с диска. Ваши фото не затронуты.", "mood_custom": "Ваша песня",
+        "mood_upbeat": "Бодрое", "mood_calm": "Спокойное", "mood_nostalgic": "Ностальгическое",
+        "mood_energetic": "Энергичное", "mood_dreamy": "Мечтательное",
+        "memory_song_rejected": "«%1» — это не аудиофайл, который Kader может использовать.",
+        "memory_section": "Часть песни", "memory_section_len": "Длительность %1", "memory_section_loops": "Песня (%1) повторяется, чтобы заполнить %2",
+        "memory_section_preview": "Предпросмотр", "memory_section_hint": "Нажмите или перетащите песню, чтобы выбрать, с какого места она начнётся"
     },
     "sr": {
         "sort_by": "Сортирај по",
@@ -2097,7 +2255,18 @@ var _s = {
         "edit_album": "Уреди албум", "field_name": "Назив", "field_desc_optional": "Опис (опционо)",
         "cover_photo": "Насловна фотографија", "change_photo": "Промени фотографију",
         "cancel": "Откажи", "create_album": "Направи албум", "save": "Сачувај",
-        "photos": "фотографије", "video": "видео снимци", "other": "друго", "free": "слободно", "total": "укупно", "resource_usage": "Коришћење ресурса", "resource_usage_sub": "Колико процесора и меморије Кадер може да искористи за скенирање и прављење сличица. ", "resource_low": "Ниско", "resource_balanced": "Баланцед", "resource_full": "Пун"
+        "photos": "фотографије", "video": "видео снимци", "other": "друго", "free": "слободно", "total": "укупно", "resource_usage": "Коришћење ресурса", "resource_usage_sub": "Колико процесора и меморије Кадер може да искористи за скенирање и прављење сличица. ", "resource_low": "Ниско", "resource_balanced": "Баланцед", "resource_full": "Пун",
+        "memory_videos": "Видео снимци успомена", "memory_generating": "Правимо видео снимке ваших успомена…", "memory_play": "Пусти",
+        "memory_regenerate": "Генериши поново", "memory_create": "Направи успомену", "memory_create_go": "Направи",
+        "memory_pick_photos": "Изабери фотографије", "memory_photos": "Фотографије (%1) — најмање 2", "memory_song": "Песма",
+        "memory_title": "Наслов", "memory_select_photos": "Изабери фотографије", "memory_add_song": "Додај своју песму…",
+        "memory_date": "Датум (ГГГГ-ММ-ДД)", "memory_save": "Сачувај као…", "memory_delete": "Обриши",
+        "memory_delete_q": "Обрисати ову успомену?", "memory_delete_body": "Видео фајл се брише с диска. Ваше фотографије нису погођене.", "mood_custom": "Ваша песма",
+        "mood_upbeat": "Весело", "mood_calm": "Мирно", "mood_nostalgic": "Носталгично",
+        "mood_energetic": "Енергично", "mood_dreamy": "Сањиво",
+        "memory_song_rejected": "„%1“ није аудио датотека коју Kader може да користи.",
+        "memory_section": "Део песме", "memory_section_len": "Дужина %1", "memory_section_loops": "Песма (%1) се понавља да попуни %2",
+        "memory_section_preview": "Преглед", "memory_section_hint": "Кликните или превуците песму да изаберете где почиње"
     },
     "tr": {
         "sort_by": "Sırala",
@@ -2222,7 +2391,18 @@ var _s = {
         "edit_album": "Albümü düzenle", "field_name": "Ad", "field_desc_optional": "Açıklama (isteğe bağlı)",
         "cover_photo": "Kapak fotoğrafı", "change_photo": "Fotoğrafı değiştir",
         "cancel": "İptal", "create_album": "Albüm oluştur", "save": "Kaydet",
-        "photos": "fotoğraflar", "video": "videolar", "other": "diğer", "free": "boş", "total": "toplam", "resource_usage": "Kaynak Kullanımı", "resource_usage_sub": "Kader'in küçük resimleri taramak ve oluşturmak için ne kadar CPU ve bellek kullanabileceği. ", "resource_low": "Düşük", "resource_balanced": "Dengeli", "resource_full": "Tam dolu"
+        "photos": "fotoğraflar", "video": "videolar", "other": "diğer", "free": "boş", "total": "toplam", "resource_usage": "Kaynak Kullanımı", "resource_usage_sub": "Kader'in küçük resimleri taramak ve oluşturmak için ne kadar CPU ve bellek kullanabileceği. ", "resource_low": "Düşük", "resource_balanced": "Dengeli", "resource_full": "Tam dolu",
+        "memory_videos": "Anı videoları", "memory_generating": "Anı videoların oluşturuluyor…", "memory_play": "Oynat",
+        "memory_regenerate": "Yeniden oluştur", "memory_create": "Anı oluştur", "memory_create_go": "Oluştur",
+        "memory_pick_photos": "Fotoğraf seç", "memory_photos": "Fotoğraflar (%1) — en az 2", "memory_song": "Şarkı",
+        "memory_title": "Başlık", "memory_select_photos": "Fotoğrafları seç", "memory_add_song": "Kendi şarkını ekle…",
+        "memory_date": "Tarih (YYYY-AA-GG)", "memory_save": "Farklı kaydet…", "memory_delete": "Sil",
+        "memory_delete_q": "Bu anı silinsin mi?", "memory_delete_body": "Video dosyası diskten silinir. Fotoğraflarınız etkilenmez.", "mood_custom": "Senin şarkın",
+        "mood_upbeat": "Neşeli", "mood_calm": "Sakin", "mood_nostalgic": "Nostaljik",
+        "mood_energetic": "Enerjik", "mood_dreamy": "Düşsel",
+        "memory_song_rejected": "“%1” Kader'in kullanabileceği bir ses dosyası değil.",
+        "memory_section": "Şarkının bir bölümü", "memory_section_len": "Süre: %1", "memory_section_loops": "Şarkı (%1), %2 süresini doldurmak için tekrarlanır",
+        "memory_section_preview": "Önizleme", "memory_section_hint": "Başlangıç noktasını seçmek için şarkıya tıklayın veya sürükleyin"
     },
     "vi": {
         "sort_by": "Sắp xếp theo",
@@ -2347,7 +2527,18 @@ var _s = {
         "edit_album": "Chỉnh sửa album", "field_name": "Tên", "field_desc_optional": "Mô tả (tùy chọn)",
         "cover_photo": "Ảnh bìa", "change_photo": "Thay đổi ảnh",
         "cancel": "Hủy", "create_album": "Tạo album", "save": "Lưu",
-        "photos": "những bức ảnh", "video": "video", "other": "khác", "free": "trống", "total": "tổng cộng", "resource_usage": "Sử dụng tài nguyên", "resource_usage_sub": "Kader có thể sử dụng bao nhiêu CPU và bộ nhớ để quét và tạo hình thu nhỏ. ", "resource_low": "Thấp", "resource_balanced": "Cân bằng", "resource_full": "Đầy"
+        "photos": "những bức ảnh", "video": "video", "other": "khác", "free": "trống", "total": "tổng cộng", "resource_usage": "Sử dụng tài nguyên", "resource_usage_sub": "Kader có thể sử dụng bao nhiêu CPU và bộ nhớ để quét và tạo hình thu nhỏ. ", "resource_low": "Thấp", "resource_balanced": "Cân bằng", "resource_full": "Đầy",
+        "memory_videos": "Video kỷ niệm", "memory_generating": "Đang tạo video kỷ niệm của bạn…", "memory_play": "Phát",
+        "memory_regenerate": "Tạo lại", "memory_create": "Tạo kỷ niệm", "memory_create_go": "Tạo",
+        "memory_pick_photos": "Chọn ảnh", "memory_photos": "Ảnh (%1) — ít nhất 2", "memory_song": "Bài hát",
+        "memory_title": "Tiêu đề", "memory_select_photos": "Chọn ảnh", "memory_add_song": "Thêm bài hát của riêng bạn…",
+        "memory_date": "Ngày (YYYY-MM-DD)", "memory_save": "Lưu thành…", "memory_delete": "Xóa",
+        "memory_delete_q": "Xóa kỷ niệm này?", "memory_delete_body": "Tệp video sẽ bị xóa khỏi đĩa. Ảnh của bạn không bị ảnh hưởng.", "mood_custom": "Bài hát của bạn",
+        "mood_upbeat": "Sôi động", "mood_calm": "Êm dịu", "mood_nostalgic": "Hoài niệm",
+        "mood_energetic": "Năng động", "mood_dreamy": "Mơ màng",
+        "memory_song_rejected": "“%1” không phải là tệp âm thanh mà Kader có thể sử dụng.",
+        "memory_section": "Đoạn của bài hát", "memory_section_len": "Dài %1", "memory_section_loops": "Bài hát (%1) được lặp lại để lấp đầy %2",
+        "memory_section_preview": "Xem trước", "memory_section_hint": "Nhấp hoặc kéo bài hát để chọn vị trí bắt đầu"
     },
     "zh": {
         "sort_by": "排序方式",
@@ -2472,7 +2663,18 @@ var _s = {
         "edit_album": "编辑相册", "field_name": "名称", "field_desc_optional": "描述 (可选)",
         "cover_photo": "封面照片", "change_photo": "更换照片",
         "cancel": "取消", "create_album": "创建相册", "save": "保存",
-        "photos": "照片", "video": "视频", "other": "其他", "free": "可用", "total": "全部的", "resource_usage": "资源使用情况", "resource_usage_sub": "Kader 可能使用多少 CPU 和内存来扫描和构建缩略图。", "resource_low": "低的", "resource_balanced": "均衡", "resource_full": "满的"
+        "photos": "照片", "video": "视频", "other": "其他", "free": "可用", "total": "全部的", "resource_usage": "资源使用情况", "resource_usage_sub": "Kader 可能使用多少 CPU 和内存来扫描和构建缩略图。", "resource_low": "低的", "resource_balanced": "均衡", "resource_full": "满的",
+        "memory_videos": "回忆视频", "memory_generating": "正在制作你的回忆视频…", "memory_play": "播放",
+        "memory_regenerate": "重新生成", "memory_create": "创建回忆", "memory_create_go": "创建",
+        "memory_pick_photos": "选择照片", "memory_photos": "照片 (%1) — 至少 2 张", "memory_song": "歌曲",
+        "memory_title": "标题", "memory_select_photos": "选择照片", "memory_add_song": "添加你自己的歌曲…",
+        "memory_date": "日期 (YYYY-MM-DD)", "memory_save": "另存为…", "memory_delete": "删除",
+        "memory_delete_q": "删除这段回忆？", "memory_delete_body": "视频文件将从磁盘中删除。你的照片不受影响。", "mood_custom": "你的歌曲",
+        "mood_upbeat": "欢快", "mood_calm": "平静", "mood_nostalgic": "怀旧",
+        "mood_energetic": "活力", "mood_dreamy": "梦幻",
+        "memory_song_rejected": "“%1” 不是 Kader 可以使用的音频文件。",
+        "memory_section": "歌曲片段", "memory_section_len": "时长 %1", "memory_section_loops": "歌曲（%1）循环播放以填满 %2",
+        "memory_section_preview": "预览", "memory_section_hint": "点击或拖动歌曲以选择开始位置"
     }
 }
 

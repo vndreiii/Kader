@@ -82,25 +82,27 @@ QVariantMap mediaRow(const QSqlQuery &q, const QSqlRecord &rec) {
 QVariantMap StorageManager::overview() {
     m_storage.refresh();
     QSqlQuery q(m_db->threadDb());
-    qint64 photos = 0, videos = 0, raw = 0, trash = 0;
+    qint64 photos = 0, videos = 0, raw = 0, trash = 0, trashCount = 0;
     q.exec(QStringLiteral(
         "SELECT "
         " COALESCE(SUM(CASE WHEN %1 AND mime_type LIKE 'video/%' THEN file_size END),0),"
         " COALESCE(SUM(CASE WHEN %1 AND mime_type NOT LIKE 'video/%' AND %2 NOT IN (%3) THEN file_size END),0),"
         " COALESCE(SUM(CASE WHEN %1 AND %2 IN (%3) THEN file_size END),0),"
-        " COALESCE(SUM(CASE WHEN NOT (%1) THEN file_size END),0) FROM media")
+        " COALESCE(SUM(CASE WHEN NOT (%1) THEN file_size END),0),"
+        " COALESCE(SUM(CASE WHEN NOT (%1) THEN 1 END),0) FROM media")
                .arg(QLatin1String(kLive), QLatin1String(kExt), rawList()));
     if (q.next()) {
         videos = q.value(0).toLongLong();
         photos = q.value(1).toLongLong();
         raw = q.value(2).toLongLong();
         trash = q.value(3).toLongLong();
+        trashCount = q.value(4).toLongLong();
     }
     const qint64 total = m_storage.bytesTotal();
     const qint64 free = m_storage.bytesAvailable();
     const qint64 other = std::max<qint64>(0, total - free - photos - videos - raw - trash);
     return {{QStringLiteral("total"), total}, {QStringLiteral("free"), free}, {QStringLiteral("photos"), photos},
-            {QStringLiteral("videos"), videos}, {QStringLiteral("raw"), raw}, {QStringLiteral("trash"), trash},
+            {QStringLiteral("videos"), videos}, {QStringLiteral("raw"), raw}, {QStringLiteral("trash"), trash}, {QStringLiteral("trashCount"), trashCount},
             {QStringLiteral("other"), other}, {QStringLiteral("disk"), m_storage.displayName()}};
 }
 
@@ -205,7 +207,7 @@ void StorageManager::loadDashboard() {
         d.insert(QStringLiteral("types"), byType());
         d.insert(QStringLiteral("largest"), largest(60));
         d.insert(QStringLiteral("dups"), duplicates(40));
-        d.insert(QStringLiteral("trash"), trashItems(200));
+        d.insert(QStringLiteral("trash"), trashItems(1000));
         QMetaObject::invokeMethod(this, [this, gen, d] {
             if (gen == m_dashboardGen)
                 emit dashboardLoaded(d);

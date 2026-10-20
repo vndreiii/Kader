@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.21)
 
 # Versioning is semantic: MAJOR.MINOR.FIX. This is the single source of
 # truth — PKGBUILD, AppImage names and the in-app updater all read it.
-project(Kader VERSION 2.4.0 LANGUAGES CXX)
+project(Kader VERSION 2.5.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -272,6 +272,8 @@ qt_add_qml_module(KaderApp
         qml/components/WindowControls.qml
         qml/views/SearchView.qml
         qml/views/PersonPage.qml
+        qml/components/MemoryCreateDialog.qml
+        qml/components/MemoryPhotoPicker.qml
         qml/components/MemoryVideosSection.qml
         qml/views/PeoplePage.qml
         qml/views/AlbumListView.qml

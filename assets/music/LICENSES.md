@@ -14,6 +14,13 @@ No attribution is required.
 | `still-water.ogg`   | calm | 66 bpm | CC0 1.0 |
 | `open-road.ogg`     | energetic | 132 bpm | CC0 1.0 |
 | `daydream.ogg`      | dreamy | 60 bpm | CC0 1.0 |
+| `city-lights.ogg`   | upbeat | 108 bpm | CC0 1.0 |
+| `morning-dew.ogg`   | calm | 72 bpm | CC0 1.0 |
+| `porch-swing.ogg`   | nostalgic | 92 bpm | CC0 1.0 |
+| `tailwind.ogg`      | energetic | 140 bpm | CC0 1.0 |
+| `moonlit.ogg`       | dreamy | 54 bpm | CC0 1.0 |
+| `lazy-sunday.ogg`   | nostalgic | 76 bpm | CC0 1.0 |
+| `harbour-lights.ogg`| calm | 60 bpm | CC0 1.0 |
 
 Regenerate with `python3 tools/gen_memory_music.py` (needs numpy + ffmpeg with libvorbis).
 

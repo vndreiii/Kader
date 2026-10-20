@@ -12,6 +12,7 @@ RowLayout {
     property int count: -1              // -1: no count shown
     property string showAllText: I18n.t(Settings.language, "show_all")
     property bool actionVisible: count > 0
+    property bool actionEnabled: true
     signal showAll()
 
     Layout.fillWidth: true
@@ -39,6 +40,7 @@ RowLayout {
     Item { Layout.fillWidth: true }
     M3Button {
         visible: root.actionVisible
+        enabled: root.actionEnabled
         flat: true
         text: root.showAllText
         onClicked: root.showAll()
